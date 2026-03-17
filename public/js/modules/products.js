@@ -3,7 +3,6 @@ import { supabase } from './supabase-client.js';
 import { showToast } from './ui.js';
 import { productForm, modal, imageContainer, imageInput, viewerOverlay, viewerImg } from './dom.js';
 import { processImageForUpload, recordMovement } from './data.js';
-console.log('DEBUG: products.js module loaded');
 import { closeViewer, openViewer } from './ag-grid-shim.js';
 import { loadDashboard } from './dashboard.js';
 import { loadInventory } from './inventory.js';
@@ -94,7 +93,6 @@ export function closeModal() {
 }
 
 export function openEditModal(product) {
-    console.log('DEBUG: openEditModal for product', product.id);
     state.currentProductId = product.id;
     openModal(null, true);
 
@@ -172,8 +170,6 @@ function setupAttachmentEvents() {
     const galleryInput = document.getElementById('gallery-upload');
     const transitInput = document.getElementById('transit-media-upload');
 
-    console.log('DEBUG: setupAttachmentEvents running. galleryInput:', !!galleryInput, 'transitInput:', !!transitInput);
-
     if (galleryInput) galleryInput.onchange = (e) => {
         handleAttachmentSelection(e, 'product');
     };
@@ -185,15 +181,11 @@ function setupAttachmentEvents() {
 window.handleMultipleFiles = async function (files, category, targetListId = null) {
     if (!files || files.length === 0) return;
 
-    console.log(`DEBUG: Unified handling for ${files.length} files in category ${category}`);
-
     const targetId = targetListId || (category === 'product' ? 'product-gallery-list' : 'transit-attachments-list');
     const list = document.getElementById(targetId);
 
     const productId = document.getElementById('prod-id')?.value;
     const shouldAutoSave = !!productId;
-    
-    console.log('DEBUG: handleMultipleFiles - productId:', productId, 'shouldAutoSave:', shouldAutoSave);
 
     const uploadPromises = [];
 
@@ -239,15 +231,11 @@ window.handleMultipleFiles = async function (files, category, targetListId = nul
 
                     // AUTO-SAVE: Upload immediately if editing existing product
                     if (shouldAutoSave) {
-                        console.log('DEBUG: Starting auto-save for attachment');
                         await autoSaveAttachment(data, productId);
-                        console.log('DEBUG: Auto-save completed for attachment');
-                    } else {
-                        console.log('DEBUG: Skipping auto-save - no productId or shouldAutoSave is false');
                     }
                     resolve();
                 } catch (err) {
-                    console.error('DEBUG: Error processing file:', err);
+                    console.error('Error processing file:', err);
                     reject(err);
                 }
             };
@@ -264,7 +252,7 @@ window.handleMultipleFiles = async function (files, category, targetListId = nul
             await Promise.all(uploadPromises);
             showToast(`${files.length} ficheiro(s) guardado(s) automaticamente.`, 'success');
         } catch (err) {
-            console.error('DEBUG: Error during auto-save:', err);
+            console.error('Error during auto-save:', err);
             showToast('Erro ao guardar alguns ficheiros.', 'error');
         }
     } else {
@@ -285,11 +273,10 @@ async function handleAttachmentSelection(e, category) {
 window.handleAttachmentSelection = handleAttachmentSelection;
 
 function renderAttachmentItem(att) {
-    console.log('DEBUG: Rendering attachment item:', att.id, 'category:', att.category);
     const target = att.category === 'product' ? 'product-gallery-list' : 'transit-attachments-list';
     const list = document.getElementById(target);
     if (!list) {
-        console.error('DEBUG: Target list element not found:', target);
+        console.error('Target list element not found:', target);
         return;
     }
 
@@ -343,13 +330,12 @@ async function autoSaveMainImage(productId) {
     if (!state.mainImageFile || !productId) return;
     
     try {
-        console.log('DEBUG: Auto-saving main image for product:', productId);
         const fileName = `main-${Date.now()}.webp`;
         const optimized = await processImageForUpload(state.mainImageFile);
         const { error: uploadErr } = await supabase.storage.from('product-images').upload(fileName, optimized);
         
         if (uploadErr) {
-            console.error('DEBUG: Main image upload failed:', uploadErr);
+            console.error('Main image upload failed:', uploadErr);
             showToast('Erro ao guardar imagem principal.', 'error');
             return;
         }
@@ -366,38 +352,30 @@ async function autoSaveMainImage(productId) {
         });
         
         if (updateErr) {
-            console.error('DEBUG: Main image DB update failed:', updateErr);
+            console.error('Main image DB update failed:', updateErr);
             showToast('Erro ao atualizar imagem na base de dados.', 'error');
         } else {
-            console.log('DEBUG: Main image auto-save successful');
             state.currentImageUrl = publicUrl;
             state.mainImageFile = null;
             showToast('Imagem principal guardada automaticamente.', 'success');
         }
     } catch (err) {
-        console.error('DEBUG: Auto-save main image error:', err);
+        console.error('Auto-save main image error:', err);
         showToast('Erro ao guardar imagem principal.', 'error');
     }
 }
 
 async function autoSaveAttachment(att, productId) {
     try {
-        console.log('DEBUG: Auto-saving attachment for product:', productId);
-        console.log('DEBUG: Attachment data:', { category: att.category, type: att.type, fileSize: att.file.size });
-        
         const fileName = `${att.category}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
         const { data: uploadData, error: uploadErr } = await supabase.storage.from('product-images').upload(fileName, att.file);
 
         if (uploadErr) {
-            console.error('DEBUG: Auto-save upload failed:', uploadErr);
+            console.error('Auto-save upload failed:', uploadErr);
             throw new Error(`Upload failed: ${uploadErr.message}`);
         }
 
-        console.log('DEBUG: Upload successful, getting public URL');
         const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
-        console.log('DEBUG: Public URL:', publicUrl);
-        
-        console.log('DEBUG: Calling secure_add_attachment RPC');
         const { data: rpcData, error: dbErr } = await supabase.rpc('secure_add_attachment', {
             p_user: state.currentUser.username,
             p_pass: state.currentUser.password,
@@ -410,22 +388,20 @@ async function autoSaveAttachment(att, productId) {
         });
 
         if (dbErr) {
-            console.error('DEBUG: Auto-save DB insert failed:', dbErr);
+            console.error('Auto-save DB insert failed:', dbErr);
             throw new Error(`DB insert failed: ${dbErr.message}`);
         }
         
-        console.log('DEBUG: Auto-save successful, RPC response:', rpcData);
         att.isNew = false;
         att.url = publicUrl;
         state.pendingAttachments = state.pendingAttachments.filter(a => a.id !== att.id);
     } catch (err) {
-        console.error('DEBUG: Auto-save error:', err);
+        console.error('Auto-save error:', err);
         throw err;
     }
 }
 
 async function loadProductAttachments(productId) {
-    console.log('DEBUG: loading attachments for product:', productId);
     if (!productId) return;
 
     const galleryList = document.getElementById('product-gallery-list');
@@ -441,14 +417,13 @@ async function loadProductAttachments(productId) {
             p_params: { eq: { product_id: productId } }
         });
         if (error) throw error;
-        console.log('DEBUG: attachments fetched from DB:', data?.length || 0);
         state.loadedAttachments = data || [];
         (data || []).forEach(att => renderAttachmentItem(att));
         if (!state.currentImageUrl && !state.mainImageFile) {
             trySetFallbackImage({ preferExistingOnly: true });
         }
     } catch (err) {
-        console.error('DEBUG: error loading attachments:', err);
+        console.error('Error loading attachments:', err);
     }
 }
 
@@ -457,7 +432,6 @@ async function loadProductAttachments(productId) {
  */
 
 export async function saveProduct() {
-    console.log('DEBUG: saveProduct STARTED');
     const id = document.getElementById('prod-id').value;
     const isEditing = !!id;
 
@@ -512,7 +486,6 @@ export async function saveProduct() {
 
         // 2. Upsert Product
         if (isEditing) productData.id = parseInt(id);
-        console.log('DEBUG: Upserting product data...', productData);
         const { data: savedId, error: upsertErr } = await supabase.rpc('secure_save_product', {
             p_user: state.currentUser.username,
             p_pass: state.currentUser.password,
@@ -524,27 +497,21 @@ export async function saveProduct() {
             throw upsertErr;
         }
         const finalId = productData.id || savedId;
-        console.log('DEBUG: Product saved with ID:', finalId);
 
         // 3. Upload Gallery/Transit Attachments
-        console.log('DEBUG: state.pendingAttachments count before upload:', state.pendingAttachments.length);
         if (state.pendingAttachments.length > 0) {
             let failCount = 0;
             for (const att of state.pendingAttachments) {
-                console.log('DEBUG: Uploading attachment to bucket product-images...', att.file.name);
                 const fileName = `${att.category}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
                 const { error: attErr } = await supabase.storage.from('product-images').upload(fileName, att.file);
 
                 if (attErr) {
-                    console.error('DEBUG: Attachment upload failed for file:', att.file.name, attErr);
+                    console.error('Attachment upload failed for file:', att.file.name, attErr);
                     failCount++;
                     continue;
                 }
 
-                console.log('DEBUG: Upload success, getting public URL for:', fileName);
                 const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
-                console.log('DEBUG: URL obtained:', publicUrl);
-                console.log('DEBUG: Inserting into attachments table via RPC...');
                 const { error: insErr } = await supabase.rpc('secure_add_attachment', {
                     p_user: state.currentUser.username,
                     p_pass: state.currentUser.password,
@@ -556,8 +523,7 @@ export async function saveProduct() {
                     }
                 });
 
-                if (insErr) console.error('DEBUG: Database insert failed:', insErr);
-                else console.log('DEBUG: Database insert success.');
+                if (insErr) console.error('Database insert failed:', insErr);
             }
             if (failCount > 0) showToast(`${failCount} imagens não foram guardadas (Erro Storage).`, 'warning');
         }
