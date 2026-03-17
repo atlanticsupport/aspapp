@@ -192,6 +192,8 @@ window.handleMultipleFiles = async function (files, category, targetListId = nul
 
     const productId = document.getElementById('prod-id')?.value;
     const shouldAutoSave = !!productId;
+    
+    console.log('DEBUG: handleMultipleFiles - productId:', productId, 'shouldAutoSave:', shouldAutoSave);
 
     const uploadPromises = [];
 
@@ -237,7 +239,11 @@ window.handleMultipleFiles = async function (files, category, targetListId = nul
 
                     // AUTO-SAVE: Upload immediately if editing existing product
                     if (shouldAutoSave) {
+                        console.log('DEBUG: Starting auto-save for attachment');
                         await autoSaveAttachment(data, productId);
+                        console.log('DEBUG: Auto-save completed for attachment');
+                    } else {
+                        console.log('DEBUG: Skipping auto-save - no productId or shouldAutoSave is false');
                     }
                     resolve();
                 } catch (err) {
