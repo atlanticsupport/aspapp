@@ -1,0 +1,16 @@
+:root {
+    /* Zoho Inventory Inspired Palette */
+    --sidebar-bg: #1e293b;
+    --sidebar-text: #94a3b8;
+    --sidebar-active-bg: #fca5a5;
+    --primary-color: #ef4444;
+    --primary-hover: #dc2626;
+    --bg-color: #f1f5f9;
+    --card-bg: #ffffff;
+    --border-color: #e2e8f0;
+    --text-primary: #334155;
+    --text-secondary: #64748b;
+    --header-height: 60px;
+    --sidebar-width: 240px;
+    --transition: 0.2s ease-in-out;
+}

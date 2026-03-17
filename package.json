@@ -1,0 +1,30 @@
+{
+  "name": "aspstock",
+  "version": "1.0.0",
+  "description": "ASP Stock Management System - Cloudflare Pages Application",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev public --d1 DB=aspstock-db",
+    "deploy": "wrangler pages deploy public",
+    "db:migrate": "wrangler d1 execute aspstock-db --file migrations/001_add_indexes.sql --remote",
+    "db:backup": "wrangler d1 backup create aspstock-db",
+    "db:list": "wrangler d1 list",
+    "db:query": "wrangler d1 execute aspstock-db --remote"
+  },
+  "keywords": [
+    "inventory",
+    "stock-management",
+    "cloudflare",
+    "d1",
+    "pages"
+  ],
+  "author": "ASP",
+  "license": "UNLICENSED",
+  "private": true,
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

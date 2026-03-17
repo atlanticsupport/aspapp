@@ -1,0 +1,148 @@
+/* Transit View Specifics */
+.transit-group-header {
+    cursor: pointer;
+    background-color: #f8fafc;
+    transition: background-color 0.2s;
+}
+
+.transit-group-header:hover {
+    background-color: #f1f5f9;
+}
+
+.transit-group-header td {
+    padding: 0 !important;
+    border-left: 4px solid var(--primary-color);
+}
+
+.transit-header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    width: 100%;
+}
+
+.transit-header-info {
+    display: flex;
+    align-items: center;
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.transit-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.transit-count-badge {
+    background: #fff;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* PHC Import Modal Styles */
+.phc-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.meta-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+.phc-search-wrapper {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    width: 100%;
+}
+
+.phc-search-wrapper input {
+    flex: 1;
+    min-width: 0;
+}
+
+#btn-phc-fetch {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* PHC Input Field Styling */
+.phc-edit-field,
+.meta-input {
+    width: 100%;
+    min-width: 120px;
+    padding: 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: inherit;
+    background-color: #fff;
+    color: var(--text-primary);
+}
+
+/* PHC Table Specific Styling */
+#phc-preview-table td {
+    padding: 0.5rem;
+    white-space: nowrap;
+}
+
+#phc-preview-table th {
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    background-color: #f8fafc;
+    z-index: 10;
+}
+
+.phc-edit-field:focus,
+.meta-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.phc-edit-field:read-only {
+    background-color: #f8fafc;
+    color: var(--text-secondary);
+    cursor: not-allowed;
+}
+
+.phc-edit-field:hover:not(:read-only),
+.meta-input:hover {
+    border-color: #cbd5e1;
+}
+
+@media (max-width: 768px) {
+    .phc-meta-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.75rem !important;
+        padding: 0.75rem !important;
+    }
+
+    .phc-search-wrapper {
+        gap: 0.5rem;
+    }
+    
+    .phc-edit-field,
+    .meta-input {
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+}

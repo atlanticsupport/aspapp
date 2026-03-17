@@ -1,0 +1,1177 @@
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+
+    /* Hide delete all buttons in folder headers on mobile */
+    .btn-delete-all-mobile {
+        display: none !important;
+    }
+
+    /* Layout Reset */
+    .app-container {
+        flex-direction: column;
+        height: 100dvh;
+        width: 100%;
+        overflow: hidden;
+        /* Prevent scrolling on body, handle in main-content */
+    }
+
+    /* 1. Sidebar becomes Bottom Navigation */
+    .sidebar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 65px;
+        flex-direction: row;
+        z-index: 1000;
+        padding: 0;
+        background-color: var(--sidebar-bg);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .brand,
+    .user-profile {
+        display: none;
+    }
+
+    .nav-menu {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        padding: 0;
+        justify-content: space-around;
+        align-items: center;
+        overflow-y: hidden;
+    }
+
+    .nav-item {
+        flex-direction: column;
+        padding: 8px 4px;
+        font-size: 0.65rem;
+        border-left: none;
+        border-top: 3px solid transparent;
+        border-radius: 0;
+        gap: 4px;
+        flex: 1;
+        justify-content: center;
+    }
+
+    .nav-item.active {
+        border-top-color: var(--primary-color);
+        background: rgba(255, 255, 255, 0.05);
+        /* Subtle highlight */
+        border-radius: 0;
+    }
+
+    .nav-item i {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+
+    .nav-item span {
+        display: block;
+        /* Ensure label is shown */
+    }
+
+    /* 2. Main Content Adjustments */
+    .main-content {
+        padding-bottom: 90px;
+        /* Increased for safer clearance */
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .page-content {
+        padding: 1rem 1rem 120px 1rem;
+        /* Extra bottom space for mobile browser bars */
+    }
+
+    /* 3. Dashboard Mobile Optimization */
+    .dashboard-container h2 {
+        font-size: 1.3rem !important;
+        margin-bottom: 1.5rem !important;
+    }
+
+    .card-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        /* Stats in 2 columns on mobile */
+        gap: 0.75rem !important;
+        margin-bottom: 1.5rem !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .stat-card {
+        padding: 1rem !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        /* Within its grid cell */
+        box-sizing: border-box !important;
+    }
+
+    .stat-header span {
+        font-size: 0.65rem !important;
+        letter-spacing: 0 !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .stat-card p {
+        font-size: 1.25rem !important;
+        margin-top: 0.25rem !important;
+        font-weight: 800 !important;
+    }
+
+    .stat-footer {
+        font-size: 0.6rem !important;
+        margin-top: 0.2rem !important;
+    }
+
+    .stat-header i {
+        font-size: 1rem !important;
+    }
+
+    .charts-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        /* Stack charts vertically on mobile for readability */
+        gap: 1.25rem !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .chart-container {
+        padding: 1.25rem !important;
+        height: 280px !important;
+        /* Slightly taller for 1-column mobile charts */
+        min-width: 0 !important;
+    }
+
+    .chart-container canvas {
+        max-width: 100% !important;
+    }
+
+    .chart-container h4 {
+        font-size: 0.8rem !important;
+        margin-bottom: 1rem !important;
+        letter-spacing: 0 !important;
+    }
+
+    /* 4. Top Bar */
+    .top-bar {
+        padding: 0.75rem 0.25rem !important;
+        gap: 0.35rem !important;
+        display: flex;
+        align-items: center;
+        width: 100% !important;
+        position: relative;
+        z-index: 1002;
+        box-sizing: border-box !important;
+    }
+
+    .top-bar .actions .btn:not(#btn-add-product) {
+        display: none !important;
+        /* Hide PDF/Export on mobile */
+    }
+
+    #btn-import-pdf,
+    #btn-export-csv {
+        display: none !important;
+    }
+
+    /* Floating Action Button (FAB) for New Product - Hide as requested */
+    #btn-add-product {
+        display: none !important;
+    }
+
+    #btn-add-product i {
+        font-size: 1.5rem;
+        margin: 0;
+    }
+
+    /* Restyle Search to take full width */
+    .search-container {
+        flex: 1;
+        position: relative;
+    }
+
+    .search-container input {
+        width: 100%;
+        font-size: 0.95rem;
+        padding-right: 48px !important;
+        /* Only space for scan button now */
+        height: 48px;
+        border-radius: 12px;
+        border: 1px solid #f1f5f9;
+        background: #f8fafc;
+    }
+
+    /* Override scan button for mobile */
+    .scan-btn {
+        position: absolute !important;
+        right: 48px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        width: 40px !important;
+        height: 40px !important;
+        font-size: 1.4rem !important;
+        display: flex !important;
+        color: #94a3b8 !important;
+        background: none !important;
+        border: none !important;
+    }
+
+    #btn-search-settings {
+        right: 8px !important;
+    }
+
+    #btn-add-product-mobile {
+        width: 48px !important;
+        height: 48px !important;
+        background: var(--primary-color) !important;
+        color: white !important;
+        border-radius: 12px !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        border: none !important;
+        box-shadow: 0 4px 8px rgba(239, 68, 68, 0.2);
+        margin-left: 8px !important;
+        flex-shrink: 0 !important;
+        font-size: 1.2rem !important;
+    }
+
+    /* ==========================================================
+       4. MOBILE INVENTORY TABLE (HORIZONTAL SCROLL)
+       ========================================================== */
+    .inventory-container {
+        padding: 0 !important;
+        background: transparent !important;
+        border-radius: 0 !important;
+        margin-top: 1rem !important;
+        overflow-x: auto !important;
+        /* The single scroller */
+        width: calc(100% + 2rem) !important;
+        /* Bleed to edges */
+        margin-left: -1rem !important;
+        margin-right: -1rem !important;
+        box-sizing: border-box !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table-wrapper {
+        overflow: visible !important;
+        min-width: unset !important;
+        width: max-content !important;
+        padding-left: 1rem !important;
+        /* Restore left gap for content */
+        padding-right: 1rem !important;
+    }
+
+    .data-table {
+        display: table !important;
+        width: max-content !important;
+        min-width: 1300px !important;
+        table-layout: auto !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+        background: white !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+    }
+
+    .data-table thead {
+        display: table-header-group !important;
+    }
+
+    .data-table tbody {
+        display: table-row-group !important;
+    }
+
+    .data-table tr {
+        display: table-row !important;
+        background: white !important;
+        border-bottom: 1px solid #edf2f7 !important;
+    }
+
+    .data-table th,
+    .data-table td {
+        display: table-cell !important;
+        padding: 1rem 0.75rem !important;
+        vertical-align: middle !important;
+        border-bottom: 1px solid #edf2f7 !important;
+        white-space: nowrap !important;
+        font-size: 0.85rem !important;
+        width: auto !important;
+        /* Ignore the inline % widths from JS */
+        position: static !important;
+    }
+
+    .data-table th {
+        font-weight: 700 !important;
+        background: #f8fafc !important;
+        color: var(--text-secondary) !important;
+        text-transform: uppercase !important;
+    }
+
+    /* Fixed width exceptions for small columns */
+    .col-photo {
+        width: 70px !important;
+        min-width: 70px !important;
+    }
+
+    .col-desc {
+        white-space: normal !important;
+        min-width: 300px !important;
+    }
+
+    .cell-image img,
+    .cell-image-placeholder {
+        width: 45px !important;
+        height: 45px !important;
+        border-radius: 8px !important;
+    }
+
+    /* Reset columns styles that were card-specific */
+    .col-desc div:first-child {
+        font-size: 0.9rem !important;
+        font-weight: 600 !important;
+        color: var(--text-primary) !important;
+        line-height: 1.4 !important;
+        -webkit-line-clamp: 2 !important;
+        line-clamp: 2 !important;
+        -webkit-box-orient: vertical !important;
+        overflow: hidden !important;
+    }
+
+    .col-price {
+        position: static !important;
+        background: transparent !important;
+        padding: 0 !important;
+        border: none !important;
+        color: #10b981 !important;
+        font-weight: 700 !important;
+    }
+
+    .col-pn {
+        font-family: monospace !important;
+        font-size: 0.8rem !important;
+        color: var(--text-secondary) !important;
+        letter-spacing: normal !important;
+        margin: 0 !important;
+    }
+
+    .data-table tr>.col-loc,
+    .data-table tr>.col-pal,
+    .data-table tr>.col-cat,
+    .data-table tr>.col-po,
+    .data-table tr>.col-type {
+        background: transparent !important;
+        border: none !important;
+        padding: 1rem 0.75rem !important;
+        border-radius: 0 !important;
+        font-size: 0.85rem !important;
+        margin: 0 !important;
+        display: table-cell !important;
+        gap: 0 !important;
+    }
+
+    .col-loc::before,
+    .col-pal::before,
+    .col-po::before {
+        display: none !important;
+    }
+
+    .col-stk,
+    .col-actions {
+        display: table-cell !important;
+        margin: 0 !important;
+        padding: 1rem 0.75rem !important;
+        border-top: none !important;
+        vertical-align: middle !important;
+    }
+
+    .col-actions {
+        width: 100px !important;
+        text-align: right !important;
+    }
+
+    .col-status {
+        display: table-cell !important;
+    }
+
+    /* Action buttons in table */
+    .btn-mini,
+    .col-actions .btn-secondary,
+    .col-actions .btn-danger {
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: 6px !important;
+        font-size: 0.85rem !important;
+    }
+
+    /* Fix Modal Save Button Clipping */
+    .modal-actions {
+        padding: 1rem 1.25rem 1.75rem !important;
+        display: flex !important;
+        gap: 12px !important;
+        height: auto !important;
+        background: white !important;
+    }
+
+    .modal-actions .btn {
+        flex: 1 !important;
+        height: 46px !important;
+        min-height: 46px !important;
+        padding: 0 1rem !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-weight: 700 !important;
+        font-size: 0.95rem !important;
+        white-space: nowrap !important;
+        line-height: 1.2 !important;
+    }
+
+
+
+
+    /* Minimalist Viewer Styling */
+    .viewer-image-box {
+        position: relative;
+        background: #000;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .viewer-actions-minimal {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        display: flex;
+        gap: 10px;
+        z-index: 100;
+    }
+
+    .btn-eye-action {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+
+    .btn-eye-action:hover {
+        background: rgba(255, 255, 255, 0.4);
+    }
+
+    #btn-delete-image {
+        color: #ff4d4d;
+    }
+
+    #btn-close-viewer-x {
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    /* 4.1 History Table Specific Mobilization */
+    .history-table tr {
+        display: flex !important;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+        position: relative;
+    }
+
+    .history-table td {
+        width: 100% !important;
+        grid-area: auto !important;
+        text-align: left !important;
+    }
+
+    /* Date and Type on top row */
+    .history-table td:nth-child(1) {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.25rem;
+    }
+
+    /* Name as header */
+    .history-table td:nth-child(2) {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    /* Code as subtitle */
+    .history-table td:nth-child(3) {
+        font-size: 0.8rem;
+        font-family: monospace;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+    }
+
+    /* Type Badge (float right top) */
+    .history-table td:nth-child(4) {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        width: auto !important;
+    }
+
+    /* Qty and Reason */
+    .history-table td:nth-child(5) {
+        font-size: 0.9rem;
+        font-weight: 600;
+        border-top: 1px solid var(--border-color);
+        padding-top: 0.5rem !important;
+    }
+
+    .history-table td:nth-child(6) {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    /* Fix click area */
+    .data-table tr {
+        position: relative;
+    }
+
+    /* 5. Modal Responsive */
+    .modal-content {
+        width: 100%;
+        height: 100dvh;
+        /* Use dynamic viewport height */
+        max-width: 100%;
+        max-height: 100dvh;
+        border-radius: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-body {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+        /* Important for flex scrolling */
+        -webkit-overflow-scrolling: touch;
+        display: block !important;
+        /* Ensure it stays visible */
+        padding: 1.25rem !important;
+    }
+
+    .header-image-container {
+        width: 48px !important;
+        height: 48px !important;
+        min-width: 48px !important;
+        min-height: 48px !important;
+        max-width: 48px !important;
+        max-height: 48px !important;
+        flex-shrink: 0 !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .header-image-container img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+    }
+
+    .modal-header {
+        border-bottom: 1px solid var(--border-color);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        /* Shadow when sticky */
+    }
+
+    #header-right-actions {
+        display: grid !important;
+        grid-template-columns: repeat(3, 40px) !important;
+        gap: 2px !important;
+        justify-content: end !important;
+        align-content: center !important;
+        margin-left: 8px;
+        flex-shrink: 0;
+    }
+
+    #header-right-actions button,
+    #header-right-actions .close-modal {
+        width: 38px !important;
+        height: 38px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 1.1rem !important;
+        background: none !important;
+        border: none !important;
+    }
+
+    #header-right-actions .close-modal {
+        grid-column: 3;
+        grid-row: 1;
+        font-size: 1.3rem !important;
+        color: var(--text-secondary) !important;
+    }
+
+    #btn-header-print {
+        grid-column: 1;
+        grid-row: 1;
+        color: var(--primary-color) !important;
+    }
+
+    #btn-header-save {
+        grid-column: 2;
+        grid-row: 1;
+        color: var(--primary-color) !important;
+    }
+
+    .modal-header .header-left {
+        flex: 1 !important;
+        min-width: 0 !important;
+        padding-right: 10px;
+    }
+
+    #mobile-image-actions {
+        display: block !important;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+        /* Let margins handle it */
+    }
+
+    /* Dashboard Cards Stack */
+    /* This rule is now redundant as .card-grid is already set to 1fr */
+    /* .card-grid {
+        grid-template-columns: 1fr !important;
+    } */
+
+    /* 6. Filter Bar Mobile Optimization */
+    #filter-bar {
+        position: relative;
+        z-index: 1001;
+        padding: 0.5rem 0.75rem !important;
+        gap: 0.4rem !important;
+        display: flex;
+        /* Remove !important to allow JS display: none */
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        background: white;
+        overflow: visible !important;
+        /* Allow dropdowns to show */
+    }
+
+    #page-title {
+        font-size: 1rem !important;
+        margin-right: auto !important;
+        /* This also helps push followers to right */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    #btn-print-pallet {
+        display: none;
+        /* Start hidden until pallet selected */
+    }
+
+    #group-status {
+        margin-left: 0 !important;
+        /* Reset desktop push */
+    }
+
+    /* Fix: Dynamic width to accommodate icons + buttons */
+    .filter-group {
+        position: relative !important;
+        min-width: 38px !important;
+        height: 38px !important;
+        width: auto !important;
+        /* Allow expansion */
+        padding: 0 8px !important;
+        justify-content: center !important;
+        border-radius: 10px !important;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .filter-dropdown {
+        left: 0 !important;
+        right: 0 !important;
+        width: calc(100vw - 1.5rem) !important;
+        position: fixed !important;
+        top: 110px !important;
+        /* Below top bar and filter bar */
+        margin: 0 0.75rem;
+        border-radius: 15px !important;
+    }
+
+    .filter-group i.fa-chevron-down,
+    .filter-label {
+        display: none !important;
+    }
+
+    .filter-group i.fa-solid:not(.fa-chevron-down) {
+        display: flex !important;
+        font-size: 1.1rem !important;
+        margin: 0 !important;
+        color: var(--text-primary) !important;
+    }
+
+    #btn-print-pallet {
+        height: 30px !important;
+        width: 30px !important;
+        padding: 0 !important;
+        font-size: 0.9rem;
+        border-radius: 8px;
+        margin-top: 0 !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff5f5 !important;
+        border: 1px solid #feb2b2 !important;
+    }
+
+    .filter-group i:first-child {
+        font-size: 1.1rem !important;
+        margin: 0 !important;
+    }
+
+    .filter-dropdown {
+        background: white;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        z-index: 2000;
+        animation: slideDownMobile 0.2s ease-out;
+    }
+
+    @keyframes slideDownMobile {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .dropdown-options {
+        max-height: 50vh;
+        padding: 0.5rem;
+    }
+
+    .dropdown-item {
+        padding: 1rem 1.5rem;
+        font-size: 1rem;
+        border-radius: 12px;
+        margin-bottom: 0.25rem;
+    }
+
+    .dropdown-search {
+        padding: 1rem;
+        background: #f8fafc;
+    }
+
+    .dropdown-search input {
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        background: white;
+        border: 1px solid var(--border-color);
+    }
+
+    #btn-clear-filters {
+        font-size: 0 !important;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+    }
+
+    #btn-clear-filters::before {
+        content: "\f12d";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        font-size: 1.1rem;
+    }
+
+    /* Admin Panel Mobile Specifics */
+    .inventory-container[style*="padding: 2rem"] {
+        padding: 1rem !important;
+        background: white !important;
+        border-radius: 16px !important;
+        margin-top: 0.5rem !important;
+    }
+
+    .inventory-container h2 {
+        font-size: 1.5rem !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.02em;
+    }
+
+    .inventory-container>div:first-child {
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        margin-bottom: 1.5rem !important;
+        gap: 0.5rem;
+    }
+
+    #btn-add-user {
+        height: 48px !important;
+        padding: 0 1.25rem !important;
+        border-radius: 12px !important;
+        font-weight: 700 !important;
+    }
+
+    #user-table-body tr {
+        display: block !important;
+        background: #f8fafc !important;
+        border-radius: 16px !important;
+        padding: 1.25rem !important;
+        margin-bottom: 1rem !important;
+        border: 1px solid #edf2f7 !important;
+        position: relative !important;
+    }
+
+    #user-table-body td {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 0.5rem 0 !important;
+        border: none !important;
+        width: 100% !important;
+    }
+
+    #user-table-body td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+    }
+
+    #user-table-body td:nth-child(1) {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        padding-top: 0 !important;
+        border-bottom: 1px solid #edf2f7 !important;
+        margin-bottom: 0.5rem;
+        display: block !important;
+    }
+
+    #user-table-body td:nth-child(1)::before {
+        display: none;
+    }
+
+    #user-table-body td:last-child {
+        margin-top: 0.5rem;
+        padding-top: 1rem !important;
+        border-top: 1px dashed #e2e8f0 !important;
+        justify-content: flex-end !important;
+    }
+
+    #user-table-body td:last-child::before {
+        display: none;
+    }
+
+    /* Filters Bar Fix */
+    .filter-bar {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 5px;
+    }
+
+    .filter-group i.fa-solid:not(.fa-chevron-down) {
+        display: flex !important;
+        font-size: 1.1rem !important;
+        color: var(--text-primary);
+    }
+
+    .filter-group i.fa-chevron-down {
+        display: none !important;
+    }
+
+    /* Pallet Manifest Modal Mobile Polish */
+    #pallet-manifest-modal .modal-content {
+        padding: 0;
+    }
+
+    #pallet-manifest-modal .modal-header {
+        padding: 1.25rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    #pallet-manifest-modal .modal-header>div:last-child {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: 1fr auto;
+        gap: 0.75rem;
+    }
+
+    #pallet-manifest-modal .modal-body {
+        padding: 0.5rem;
+    }
+
+    #manifest-table,
+    #manifest-table thead {
+        display: none;
+    }
+
+    #manifest-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    /* Card-like items for manifest on mobile */
+    #manifest-body tr {
+        display: block;
+        background: #f8fafc;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1rem;
+        position: relative;
+    }
+
+    #manifest-body td {
+        display: block;
+        border: none;
+        padding: 0;
+        margin-bottom: 0.5rem;
+        text-align: left !important;
+    }
+
+    #manifest-body td:nth-child(1) {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        font-family: monospace;
+    }
+
+    #manifest-body td:nth-child(2) {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.75rem;
+    }
+
+    #manifest-body td:nth-child(3) {
+        display: none;
+        /* Already in td:nth-child(2) via JS sub-div */
+    }
+
+    #manifest-body td:nth-child(4) {
+        border-top: 1px solid var(--border-color);
+        padding-top: 0.75rem;
+    }
+
+    #manifest-body td:nth-child(5) {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+
+    /* Admin Panel & User Cards Mobile */
+    .admin-panel {
+        padding: 1.5rem 1rem !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+        background: #f8fafc !important;
+        /* Lighter background for depth */
+    }
+
+    .admin-header,
+    .history-header {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        gap: 1.5rem !important;
+        padding: 1.5rem 1rem !important;
+        margin-bottom: 2.5rem !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .admin-header h2,
+    .history-header h2 {
+        font-size: 1.75rem !important;
+        margin-bottom: 0.5rem !important;
+        line-height: 1.2 !important;
+    }
+
+    .admin-header p {
+        font-size: 1rem !important;
+        max-width: 100% !important;
+        margin: 0 0 1rem 0 !important;
+    }
+
+    .admin-header .btn-primary {
+        width: 100% !important;
+        max-width: 280px !important;
+        /* Cap width for better look */
+        height: 52px !important;
+        border-radius: 12px !important;
+        font-size: 1.05rem !important;
+        font-weight: 700 !important;
+        box-shadow: 0 8px 16px rgba(239, 68, 68, 0.25) !important;
+    }
+
+    .admin-table {
+        display: block !important;
+        width: 100% !important;
+        min-width: unset !important;
+        max-width: 100% !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+
+    .admin-table thead {
+        display: none !important;
+    }
+
+    .admin-table tbody {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 1.25rem !important;
+        width: 100% !important;
+    }
+
+    .admin-table tr {
+        display: block !important;
+        background: white !important;
+        border: none !important;
+        border-radius: 20px !important;
+        padding: 1.5rem !important;
+        margin-bottom: 0 !important;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04) !important;
+        position: relative !important;
+    }
+
+    .admin-table td {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 0.75rem 0 !important;
+        border-bottom: 1px solid #f8fafc !important;
+        width: 100% !important;
+    }
+
+    .admin-table td[data-label="Utilizador"] {
+        border-bottom: 2px solid #f1f5f9 !important;
+        padding-bottom: 1rem !important;
+        margin-bottom: 0.5rem !important;
+        justify-content: center !important;
+        font-size: 1.25rem !important;
+        font-weight: 800 !important;
+        color: #0f172a !important;
+    }
+
+    .admin-table td[data-label="Utilizador"]::before {
+        display: none !important;
+    }
+
+    .admin-table td[data-label="Cargo"] {
+        padding-top: 1rem !important;
+    }
+
+    .admin-table td[data-label="Ações"] {
+        border-bottom: none !important;
+        padding-top: 1.25rem !important;
+        justify-content: center !important;
+    }
+
+    .admin-table .btn-secondary {
+        width: 100% !important;
+        height: 48px !important;
+        border-radius: 12px !important;
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #475569 !important;
+        font-weight: 600 !important;
+    }
+
+    .admin-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #94a3b8;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .admin-table .badge-po {
+        font-size: 0.75rem !important;
+        padding: 5px 12px !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+    }
+
+    /* History Table Mobile - Horizontal Scroll (Matches Inventory) */
+    .history-table {
+        display: table !important;
+        width: max-content !important;
+        min-width: 900px !important;
+        /* Enough for 6-7 history columns */
+        table-layout: auto !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+        background: white !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+    }
+
+    .history-table thead {
+        display: table-header-group !important;
+    }
+
+    .history-table tr {
+        display: table-row !important;
+    }
+
+    .history-table td {
+        display: table-cell !important;
+        padding: 1rem !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        font-size: 0.85rem !important;
+        white-space: nowrap !important;
+    }
+
+    .history-table td::before {
+        display: none !important;
+    }
+}
