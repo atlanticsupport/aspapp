@@ -676,10 +676,6 @@ export async function removeMainImage() {
             });
         }
         
-        // Close viewer
-        const viewerOverlay = document.getElementById('viewer-overlay');
-        if (viewerOverlay) viewerOverlay.classList.remove('open');
-        
         // Refresh product data from DB
         const { data: updatedProduct } = await supabase.rpc('secure_fetch_any', {
             p_user: state.currentUser.username,
@@ -715,6 +711,15 @@ export async function removeMainImage() {
                 if (rowNode) {
                     rowNode.setData(product);
                     window.gridApi.refreshCells({ rowNodes: [rowNode], force: true });
+                }
+            }
+            
+            // Reload viewer gallery if viewer is open
+            const viewerOverlay = document.getElementById('viewer-overlay');
+            if (viewerOverlay && viewerOverlay.classList.contains('open')) {
+                // Reload gallery with fresh data
+                if (window.viewProductImages) {
+                    window.viewProductImages(state.currentProductId);
                 }
             }
         }
