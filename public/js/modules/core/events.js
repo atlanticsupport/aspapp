@@ -43,6 +43,9 @@ window.openProductGallery = async (productId) => {
 
         if (images.length === 0) return showToast('Sem imagens disponíveis.', 'info');
 
+        // Populate state with attachments and current image
+        state.loadedAttachments = attachments || [];
+        state.currentImageUrl = product?.image_url || null;
         state.currentGallery = images;
         state.galleryIndex = 0;
         state.currentProductId = productId;
