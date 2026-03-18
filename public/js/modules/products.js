@@ -652,11 +652,14 @@ export async function removeMainImage() {
     }
     
     const currentAttachment = state.loadedAttachments?.find(att => att.url === currentViewerUrl);
-    const isFirstImage = state.galleryIndex === 0;
+    if (!currentAttachment) {
+        showToast('Imagem não encontrada.', 'error');
+        return;
+    }
     
     try {
-        if (isFirstImage && currentAttachment?.isMainImage) {
-            // Removing main image - clear image_url and promote next image if exists
+        // If it's the main image (first in gallery)
+        if (currentAttachment.isMainImage) {
             await supabase.rpc('secure_update_product_field', {
                 p_user: state.currentUser.username,
                 p_pass: state.currentUser.password,
@@ -664,22 +667,8 @@ export async function removeMainImage() {
                 p_field: 'image_url',
                 p_value: null
             });
-            
-            // If there's a second image, promote it to main
-            if (state.currentGallery.length > 1 && state.loadedAttachments.length > 1) {
-                const nextAttachment = state.loadedAttachments[1];
-                if (!nextAttachment.isMainImage) {
-                    await supabase.rpc('secure_update_product_field', {
-                        p_user: state.currentUser.username,
-                        p_pass: state.currentUser.password,
-                        p_product_id: parseInt(state.currentProductId),
-                        p_field: 'image_url',
-                        p_value: nextAttachment.url
-                    });
-                }
-            }
-        } else if (currentAttachment && !currentAttachment.isMainImage) {
-            // Removing gallery attachment
+        } else {
+            // It's a gallery attachment
             await supabase.rpc('secure_delete_attachment', {
                 p_user: state.currentUser.username,
                 p_pass: state.currentUser.password,
@@ -687,21 +676,9 @@ export async function removeMainImage() {
             });
         }
         
-        // Remove from gallery
-        state.currentGallery = state.currentGallery.filter((_, i) => i !== state.galleryIndex);
-        state.loadedAttachments = state.loadedAttachments.filter(att => att.url !== currentViewerUrl);
-        
-        if (state.currentGallery.length === 0) {
-            // No more images, close viewer
-            const viewerOverlay = document.getElementById('viewer-overlay');
-            if (viewerOverlay) viewerOverlay.classList.remove('open');
-        } else {
-            // Adjust index and update viewer
-            if (state.galleryIndex >= state.currentGallery.length) {
-                state.galleryIndex = state.currentGallery.length - 1;
-            }
-            if (window.updateViewerFromGallery) window.updateViewerFromGallery();
-        }
+        // Close viewer and reload to get fresh data from DB
+        const viewerOverlay = document.getElementById('viewer-overlay');
+        if (viewerOverlay) viewerOverlay.classList.remove('open');
         
         showToast('Imagem removida.', 'success');
     } catch (err) {
