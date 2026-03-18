@@ -250,6 +250,9 @@ window.handleMultipleFiles = async function (files, category, targetListId = nul
     if (shouldAutoSave) {
         try {
             await Promise.all(uploadPromises);
+            
+            // Verify all attachments were saved by reloading from DB
+            await loadProductAttachments(productId);
             showToast(`${files.length} ficheiro(s) guardado(s) automaticamente.`, 'success');
         } catch (err) {
             console.error('Error during auto-save:', err);
@@ -321,13 +324,34 @@ async function removeAttachment(att, element) {
             p_id: att.id
         });
         if (error) throw error;
+        
+        // Verify deletion by checking if attachment still exists in DB
+        const productId = document.getElementById('prod-id')?.value;
+        if (productId) {
+            const { data: verifyData } = await supabase.rpc('secure_fetch_any', {
+                p_user: state.currentUser.username,
+                p_pass: state.currentUser.password,
+                p_table: 'attachments',
+                p_params: { eq: { id: att.id } }
+            });
+            
+            if (verifyData && verifyData.length > 0) {
+                throw new Error('Anexo não foi removido da base de dados');
+            }
+        }
+        
         element.remove();
         state.loadedAttachments = (state.loadedAttachments || []).filter(a => a.id !== att.id);
         handleAttachmentRemoved(att);
-        showToast('Anexo removido.', 'success');
+        showToast('Anexo removido com sucesso.', 'success');
+        
+        // Reload attachments to ensure UI is in sync with DB
+        if (productId) {
+            await loadProductAttachments(productId);
+        }
     } catch (err) {
         console.error('Error removing attachment:', err);
-        showToast('Erro ao remover anexo.', 'error');
+        showToast('Erro ao remover anexo: ' + err.message, 'error');
     }
 }
 
@@ -404,6 +428,18 @@ async function autoSaveAttachment(att, productId) {
             att.url = publicUrl;
             state.loadedAttachments = state.loadedAttachments || [];
             state.loadedAttachments.push(rpcData);
+            
+            // Verify attachment was saved by fetching it from DB
+            const { data: verifyData, error: verifyErr } = await supabase.rpc('secure_fetch_any', {
+                p_user: state.currentUser.username,
+                p_pass: state.currentUser.password,
+                p_table: 'attachments',
+                p_params: { eq: { id: rpcData.id } }
+            });
+            
+            if (verifyErr || !verifyData || verifyData.length === 0) {
+                throw new Error('Anexo não foi encontrado na base de dados após inserção');
+            }
         }
         
         // Remove from pending attachments
