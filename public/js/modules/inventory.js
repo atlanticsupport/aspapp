@@ -342,7 +342,7 @@ export async function updateStock(id, change) {
 
         if (error) throw error;
 
-        await recordMovement(id, change, change > 0 ? 'Correção de Lote (+)' : 'Consumo / Saída', product.cost_price, null, product.sales_process);
+        await recordMovement(id, change, change > 0 ? 'Correção de Lote (+)' : 'Consumo / Saída', product.cost_price, null, product.sales_process, null, change > 0 ? 'IN' : 'OUT');
         product.quantity = newQty;
         loadInventory({ skipRefetch: true });
 
