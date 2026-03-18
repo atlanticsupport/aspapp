@@ -705,21 +705,53 @@ export async function removeMainImage() {
             // Reload attachments to refresh viewer-image-box (gallery thumbnails)
             await loadProductAttachments(state.currentProductId);
             
-            // Update grid if exists (includes cell-image)
+            // Fetch fresh attachments for viewer update
+            const { data: freshAttachments } = await supabase.rpc('secure_fetch_any', {
+                p_user: state.currentUser.username,
+                p_pass: state.currentUser.password,
+                p_table: 'attachments',
+                p_params: { eq: { product_id: state.currentProductId } }
+            });
+            
+            // Update viewer-img directly if viewer is open
+            const viewerOverlay = document.getElementById('viewer-overlay');
+            if (viewerOverlay && viewerOverlay.classList.contains('open')) {
+                const viewerImg = document.getElementById('viewer-img');
+                
+                // Build new gallery
+                let newGallery = [];
+                if (product.image_url) newGallery.push(product.image_url);
+                if (freshAttachments) {
+                    freshAttachments.forEach(a => {
+                        if (a.file_type === 'image') newGallery.push(a.url);
+                    });
+                }
+                
+                if (newGallery.length > 0) {
+                    // Update state and viewer
+                    state.currentGallery = newGallery;
+                    state.galleryIndex = 0;
+                    if (viewerImg) viewerImg.src = newGallery[0];
+                    
+                    // Update counter
+                    const counter = document.getElementById('viewer-counter');
+                    if (counter) counter.textContent = `1 / ${newGallery.length}`;
+                } else {
+                    // No images left, close viewer
+                    viewerOverlay.classList.remove('open');
+                }
+            }
+            
+            // Update grid if exists (includes cell-image) - force complete refresh
             if (window.gridApi) {
                 const rowNode = window.gridApi.getRowNode(state.currentProductId);
                 if (rowNode) {
                     rowNode.setData(product);
-                    window.gridApi.refreshCells({ rowNodes: [rowNode], force: true });
-                }
-            }
-            
-            // Reload viewer gallery if viewer is open
-            const viewerOverlay = document.getElementById('viewer-overlay');
-            if (viewerOverlay && viewerOverlay.classList.contains('open')) {
-                // Reload gallery with fresh data
-                if (window.viewProductImages) {
-                    window.viewProductImages(state.currentProductId);
+                    window.gridApi.refreshCells({ 
+                        rowNodes: [rowNode], 
+                        force: true,
+                        suppressFlash: false 
+                    });
                 }
             }
         }
