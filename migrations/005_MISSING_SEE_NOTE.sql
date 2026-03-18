@@ -1,0 +1,14 @@
+-- Migration 005: PLACEHOLDER
+-- Status: MISSING (Gap in sequence)
+--
+-- This migration number is intentionally skipped.
+-- There may have been:
+-- 1) A migration that was planned but cancelled
+-- 2) A migration that was reverted
+-- 3) A numbering error in git history
+--
+-- TODO: Audit git history to understand why 005 was skipped
+-- git log --all -- migrations/ | grep -A5 -B5 "005"
+--
+-- If this was intentional, document it here.
+-- If a migration should exist, create it and update this file.

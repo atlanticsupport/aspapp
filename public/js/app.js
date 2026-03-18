@@ -1,14 +1,13 @@
 
-import { state } from './modules/state.js?t=202603131433';
-import { fetchProducts } from './modules/data.js?t=202603131433';
-import { loadInventory } from './modules/inventory.js?t=202603131433';
-import { loadDashboard } from './modules/dashboard.js?t=202603131433';
-import { setupEventListeners } from './modules/events.js?t=202603131433';
-import { checkAuth, logout, setupAuthEvents } from './modules/auth.js?t=202603131433';
-import { setupAdminEvents } from './modules/admin.js?t=202603131433';
+import { state } from './modules/state.js';
+import { fetchProducts } from './modules/data.js';
+import { loadInventory } from './modules/inventory.js';
+import { loadDashboard } from './modules/dashboard.js';
+import { setupEventListeners } from './modules/events.js';
+import { checkAuth, logout, setupAuthEvents } from './modules/auth.js';
+import { setupAdminEvents } from './modules/admin.js';
 
 // Global exports for inline HTML events
-// Cache bust: 2026-03-13-11:39
 import { navigateTo } from './modules/views.js';
 import * as inventoryLogic from './modules/inventory.js';
 import * as productsLogic from './modules/products.js';
