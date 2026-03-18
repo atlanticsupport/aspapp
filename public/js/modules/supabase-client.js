@@ -35,7 +35,6 @@ export async function initSupabase() {
 
                 // Check for expired token
                 if (res.status === 401 && result.error && result.error.includes('expirada')) {
-                    console.log('[SUPABASE] Token expired, attempting refresh...');
                     // Try to refresh using stored credentials
                     const saved = localStorage.getItem('aspapp_session');
                     if (saved) {
@@ -117,6 +116,5 @@ export async function initSupabase() {
         }
     };
 
-    console.log('[SUPABASE 2.0] Ligação Virtual ao Cloudflare D1/R2 Estabelecida!');
     return supabase;
 }

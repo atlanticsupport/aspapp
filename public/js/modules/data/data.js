@@ -91,8 +91,6 @@ export async function fetchAllProcesses() {
         if (invRes.data) invRes.data.forEach(p => { if (p.sales_process) processes.add(p.sales_process); });
 
         state.allProcesses = Array.from(processes).filter(Boolean).sort();
-        const end = performance.now();
-        console.log(`[DATA] Loaded ${state.allProcesses.length} unique processes in ${(end - start).toFixed(2)}ms.`);
     } catch (err) {
         console.error('Error fetching processes:', err);
     }

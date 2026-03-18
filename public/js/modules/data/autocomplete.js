@@ -6,8 +6,6 @@ import { state } from '../core/state.js';
  */
 
 export function initProcessAutocomplete() {
-    console.log('[AUTOCOMPLETE] Initializing Process Autocomplete...');
-
     // Use delegation to catch dynamically created inputs (like in Transit/Logistics)
     document.addEventListener('input', (e) => {
         const input = e.target;
@@ -93,26 +91,19 @@ function renderSuggestions(container, matches, input) {
     // Add click events to items
     container.querySelectorAll('.suggestion-item').forEach(item => {
         item.onclick = (e) => {
-            console.log('[AUTOCOMPLETE] Suggestion clicked:', item.dataset.value);
             e.stopPropagation();
             const val = item.dataset.value;
             input.value = val;
             container.classList.remove('active');
-            console.log('[AUTOCOMPLETE] Value set to:', val, 'Input ID:', input.id);
 
             // Trigger input event to fire existing filters
             input.dispatchEvent(new Event('input', { bubbles: true }));
-            console.log('[AUTOCOMPLETE] Input event dispatched');
 
             // Special case for PHC Fetch (if user selects, maybe they want to trigger load?)
             if (input.id === 'phc-process-input') {
-                console.log('[AUTOCOMPLETE] PHC input selected, triggering fetch...');
                 const btnFetch = document.getElementById('btn-phc-fetch');
                 if (btnFetch) {
-                    console.log('[AUTOCOMPLETE] btnFetch found, clicking...');
                     btnFetch.click();
-                } else {
-                    console.log('[AUTOCOMPLETE] btnFetch not found!');
                 }
             }
         };

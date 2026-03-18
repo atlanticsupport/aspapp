@@ -66,13 +66,11 @@ document.addEventListener('DOMContentLoaded', () => {
         btnFetch.onclick = () => {
             const input = document.getElementById('phc-process-input');
             if (input && input.value.trim()) {
-                console.log('[PHC-CORE] Fetch button clicked, value:', input.value.trim());
                 window.handlePhcFetch(input.value.trim());
             } else {
                 showToast('Por favor, digite um número de processo.', 'warning');
             }
         };
-        console.log('[PHC-CORE] Fetch button event setup complete');
     }
 
     // Setup confirm import button
@@ -80,12 +78,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnConfirm && !btnConfirm.hasAttribute('data-phc-confirm-setup')) {
         btnConfirm.setAttribute('data-phc-confirm-setup', 'true');
         btnConfirm.onclick = () => {
-            console.log('[PHC-CORE] Confirm import button clicked');
             if (window.confirmPhcImport) {
                 window.confirmPhcImport();
             }
         };
-        console.log('[PHC-CORE] Confirm import button event setup complete');
     }
 });
 

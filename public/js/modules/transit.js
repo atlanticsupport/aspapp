@@ -10,15 +10,6 @@ import { views } from './dom.js';
 export async function loadTransitView() {
     if (!supabase) return;
 
-    // Debug permissions and state
-    console.log('[TRANSIT] Current user permissions:', {
-        transit_access: state.currentUser?.transit_access,
-        role: state.currentUser?.role
-    });
-
-    console.log('[TRANSIT] state.currentUser:', state.currentUser);
-    console.log('[TRANSIT] localStorage session:', localStorage.getItem('aspapp_session')?.substring(0, 100) + '...');
-
     views.transit.innerHTML = `
         <header class="top-bar">
             <div class="view-header" style="margin-bottom: 0;">

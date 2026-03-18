@@ -34,7 +34,6 @@ export async function handlePhcFetch(processId) {
         }
 
         const record = data[0];
-        console.log('PHC Record Found:', record);
 
         // Check if this process already exists in OUR products table
         const isStockOutView = state.currentPage === 'stock-out';
