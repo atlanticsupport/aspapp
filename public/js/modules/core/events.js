@@ -545,21 +545,12 @@ export function setupEventListeners() {
     };
 
     const btnDelImg = document.getElementById('btn-delete-image');
-    console.log('[SETUP] btn-delete-image element:', btnDelImg);
     if (btnDelImg) {
-        console.log('[SETUP] Attaching onclick to btn-delete-image');
-        btnDelImg.onclick = () => {
-            console.log('[DELETE] btn-delete-image clicked!');
+        btnDelImg.onclick = async () => {
             if (confirm('Tem a certeza que deseja apagar a imagem?')) {
-                console.log('[DELETE] User confirmed, calling removeMainImage');
-                removeMainImage();
-                closeViewer();
-            } else {
-                console.log('[DELETE] User cancelled');
+                await removeMainImage();
             }
         };
-    } else {
-        console.warn('[SETUP] btn-delete-image NOT FOUND!');
     }
 
     // Camera Logic
