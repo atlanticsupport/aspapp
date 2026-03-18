@@ -315,13 +315,18 @@ function renderAttachmentItem(att) {
 async function removeAttachment(att, element) {
     if (!confirm('Deseja eliminar este anexo permanentemente?')) return;
     try {
-        const { error } = await supabase.from('attachments').delete().eq('id', att.id);
+        const { error } = await supabase.rpc('secure_delete_attachment', {
+            p_user: state.currentUser.username,
+            p_pass: state.currentUser.password,
+            p_id: att.id
+        });
         if (error) throw error;
         element.remove();
         state.loadedAttachments = (state.loadedAttachments || []).filter(a => a.id !== att.id);
         handleAttachmentRemoved(att);
         showToast('Anexo removido.', 'success');
     } catch (err) {
+        console.error('Error removing attachment:', err);
         showToast('Erro ao remover anexo.', 'error');
     }
 }
@@ -392,9 +397,29 @@ async function autoSaveAttachment(att, productId) {
             throw new Error(`DB insert failed: ${dbErr.message}`);
         }
         
-        att.isNew = false;
-        att.url = publicUrl;
+        // Update attachment with DB data
+        if (rpcData) {
+            att.id = rpcData.id;
+            att.isNew = false;
+            att.url = publicUrl;
+            state.loadedAttachments = state.loadedAttachments || [];
+            state.loadedAttachments.push(rpcData);
+        }
+        
+        // Remove from pending attachments
         state.pendingAttachments = state.pendingAttachments.filter(a => a.id !== att.id);
+        
+        // Update the rendered item to reflect it's no longer new
+        const itemElement = document.getElementById(`att-${att.id}`);
+        if (itemElement) {
+            const removeBtn = itemElement.querySelector('.remove-btn');
+            if (removeBtn) {
+                removeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    removeAttachment(att, itemElement);
+                };
+            }
+        }
     } catch (err) {
         console.error('Auto-save error:', err);
         throw err;

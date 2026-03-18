@@ -595,9 +595,12 @@ export async function onRequestPost({ request, env }) {
                                         hasPermission(user, 'transit', 'C') || 
                                         hasPermission(user, 'logistics', 'C');
                 if (!canAddAttachment) throw new Error("Acesso negado para adicionar anexos.");
-                await db.prepare("INSERT INTO attachments (product_id, url, file_type, category) VALUES (?, ?, ?, ?)")
+                const insertResult = await db.prepare("INSERT INTO attachments (product_id, url, file_type, category) VALUES (?, ?, ?, ?)")
                     .bind(sa_data.product_id, sa_data.url, sa_data.file_type, sa_data.category).run();
                 await recordAudit('attachments', 'INSERT', null, sa_data);
+                // Return the ID of the created attachment
+                const newAttachment = await db.prepare("SELECT * FROM attachments WHERE id = ?").bind(insertResult.meta.last_row_id).first();
+                result = newAttachment;
                 break;
             }
 
@@ -613,6 +616,17 @@ export async function onRequestPost({ request, env }) {
                 await recordAudit('movements', 'INSERT', null, sm_data);
                 break;
             }
+
+            case 'secure_delete_attachment':
+                // Check if user has delete permission for attachments
+                const canDeleteAttachment = hasPermission(user, 'inventory', 'D') || 
+                                           hasPermission(user, 'transit', 'D');
+                if (!canDeleteAttachment) throw new Error("Acesso negado para eliminar anexos.");
+                const oldAttachment = await db.prepare("SELECT * FROM attachments WHERE id = ?").bind(params.p_id).first();
+                await db.prepare("DELETE FROM attachments WHERE id = ?").bind(params.p_id).run();
+                await recordAudit('attachments', 'DELETE', oldAttachment, null);
+                result = true;
+                break;
 
             case 'secure_delete_product':
                 // Check if user has delete permission
