@@ -2,52 +2,347 @@
 
 Sistema de gestão de inventário e logística desenvolvido para Cloudflare Pages + D1.
 
+**Status:** ✅ Production Ready | **Last Updated:** 2026-03-18
+
+---
+
+## 🎯 Features
+
+- ✅ Gestão de inventário com busca avançada
+- ✅ Controlo de logística e trânsitos
+- ✅ Histórico de movimentos
+- ✅ Import/Export Excel
+- ✅ Geração de QR Codes e Barcode
+- ✅ Autenticação JWT
+- ✅ Relatórios e gráficos
+- ✅ Backup automático
+- ✅ Interface responsiva (desktop + mobile)
+
+---
+
 ## 🚀 Tecnologias
 
-- **Frontend**: Vanilla JavaScript (ES6 Modules)
-- **Backend**: Cloudflare Pages Functions
-- **Database**: Cloudflare D1 (SQLite)
-- **Storage**: Cloudflare R2
-- **Deployment**: Cloudflare Pages
+| Camada | Tecnologia | Detalhes |
+|--------|-----------|----------|
+| **Frontend** | Vanilla JavaScript (ES6) | Sem build step, módulos nativos |
+| **Backend** | Cloudflare Pages Functions | Edge computing, low latency |
+| **Database** | Cloudflare D1 (SQLite) | Managed, 5.89 MB atual |
+| **Storage** | Cloudflare R2 | Backups e ficheiros |
+| **Auth** | JWT (HS256) | Token-based, stateless |
+| **Deploy** | Cloudflare Pages | Git-integrated CI/CD |
+
+---
 
 ## 📦 Instalação
 
 ```bash
-# Instalar dependências
+# 1. Clonar repositório
+git clone https://github.com/atlanticsupport/aspapp.git
+cd aspstock
+
+# 2. Instalar dependências
 npm install
 
-# Desenvolvimento local
-npm run dev
+# 3. Configurar .env.local (desenvolvimento)
+cp .env.example .env.local
+# Editar .env.local com JWT_SECRET gerado:
+# node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
-# Deploy para produção
-npm run deploy
+# 4. Iniciar desenvolvimento
+npm run dev
+# Aceder a: http://localhost:8788
 ```
+
+---
 
 ## 🔐 Configuração de Segurança
 
-### Variáveis de Ambiente Obrigatórias
+### ⚠️ Variáveis de Ambiente OBRIGATÓRIAS
 
-Adicione no Cloudflare Pages Dashboard:
-
+**Desenvolvimento Local** (.env.local):
+```bash
+JWT_SECRET=seu-secret-aqui-gerado-com-openssl
 ```
-JWT_SECRET=<seu-secret-forte-aqui>
-```
 
-⚠️ **IMPORTANTE**: Nunca faça deploy sem definir `JWT_SECRET`. O sistema irá falhar por segurança.
+**Produção** (Cloudflare Dashboard):
+```
+Pages > asp-app > Settings > Environment Variables
+
+Name:  JWT_SECRET
+Value: (novo secret gerado)
+```
 
 ### Gerar JWT_SECRET Seguro
 
 ```bash
-# Linux/Mac
+# Option 1: Node.js (cross-platform)
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+# Option 2: Linux/Mac
 openssl rand -base64 32
 
-# Node.js
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+# Output example: 7m/gwXwqnDY1+g9Eu3OCrJKMTWjmTgmLlYeWn1FLCz4=
 ```
 
-## 🗄️ Database Migrations
+---
+
+## 🗄️ Database
+
+### Informações Atuais
+
+```
+Size:       5.89 MB
+Tables:     10
+Region:     WEUR (Western Europe)
+Records:    ~12 products, 2 users, etc.
+Queries:    1,755 reads + 337 writes (últimas 24h)
+Status:     ✅ Healthy
+```
+
+### Tabelas Principais
+
+| Tabela | Descrição | Records |
+|--------|-----------|---------|
+| `products` | Inventário | 12 |
+| `app_users` | Utilizadores | 2 |
+| `movements` | Histórico de movimentos | 1+ |
+| `logistics_items` | Itens logísticos | ? |
+| `import_history` | Histórico de imports | ? |
+| `phc` | Dados PHC-Sync | ? |
+
+### Database Backups
 
 ```bash
+# Fazer backup manual
+npm run db:export
+
+# Restaurar de backup
+wrangler d1 execute aspstock-db \
+  --file database-backup-2026-03-18.sql --remote
+
+# Ver detalhes completos
+cat BACKUP_RECOVERY.md
+```
+
+---
+
+## 🚀 Deployment
+
+### Opção 1: Automático (Git Push)
+
+```bash
+git push origin main
+# Cloudflare Pages faz deploy automaticamente
+# Dashboard: https://dash.cloudflare.com/
+```
+
+### Opção 2: Manual
+
+```bash
+npm run deploy
+```
+
+### Checklist Pré-Deploy
+
+- [ ] `.env.local` não foi committed
+- [ ] `npm run lint:check` passa sem erros
+- [ ] `npm run format:check` passa sem erros
+- [ ] Database backup criado (`npm run db:export`)
+- [ ] Testes passam (se houver)
+
+---
+
+## 📋 Scripts Disponíveis
+
+```bash
+# Desenvolvimento
+npm run dev              # Start local dev server
+
+# Deployment
+npm run deploy           # Deploy to Cloudflare Pages
+
+# Código
+npm run lint             # Fix eslint + prettier issues
+npm run lint:check       # Check without fixing
+npm run format           # Format code
+npm run format:check     # Check formatting
+
+# Database
+npm run db:export        # Backup database
+npm run db:list          # List all databases
+npm run db:migrate       # Run migration
+```
+
+---
+
+## 📁 Project Structure
+
+```
+aspstock/
+├── public/                      # Static assets + frontend
+│   ├── index.html              # Main app entry
+│   ├── js/
+│   │   ├── app.js              # App initialization
+│   │   └── modules/            # Feature modules
+│   │       ├── core/           # Core functionality
+│   │       ├── features/       # Feature-specific logic
+│   │       └── ui/             # UI utilities
+│   └── css/
+│       ├── modules/            # CSS by feature
+│       └── styles.css
+├── functions/api/              # Backend handlers
+│   ├── rpc.js                  # Main RPC handler
+│   ├── auth.js                 # Auth endpoints
+│   └── data.js                 # Data operations
+├── migrations/                 # Database migrations
+│   ├── 001_add_indexes.sql
+│   ├── 002_add_constraints.sql
+│   └── ...
+├── wrangler.toml               # Cloudflare config
+├── package.json                # Dependencies
+└── README.md                   # This file
+```
+
+---
+
+## 🔧 Development
+
+### Code Quality
+
+ESLint e Prettier configurados:
+
+```bash
+# Antes de fazer commit
+npm run lint    # Fix issues
+npm run format  # Format code
+```
+
+### Debugging
+
+```javascript
+// Habilitar logs (app.js)
+// ... já tem console.time/timeEnd
+
+// Ver estado global
+window.state
+
+// Ver dados do utilizador
+window.state.currentUser
+```
+
+### Testes (Future)
+
+```bash
+# Será implementado em fase 3 do refactoring
+npm run test
+npm run test:watch
+```
+
+---
+
+## 📊 Documentação
+
+- 📖 [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md) - Guia de backup/restauro
+- 📖 [CLOUDFLARE_ENV_SETUP.md](CLOUDFLARE_ENV_SETUP.md) - Setup de variáveis
+- 📖 [REFACTORING_PLAN.md](REFACTORING_PLAN.md) - Roadmap de melhorias
+- 📖 [CHANGELOG.md](CHANGELOG.md) - Histórico de mudanças
+
+---
+
+## 🐛 Troubleshooting
+
+### "JWT_SECRET not found"
+
+```bash
+# 1. Certifique-se que .env.local existe
+cat .env.local
+
+# 2. Se vazio, gerar novo:
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+# 3. Adicionar a .env.local
+echo "JWT_SECRET=seu-secret" >> .env.local
+```
+
+### "Database connection failed"
+
+```bash
+# 1. Verificar autenticação
+npx wrangler d1 info aspstock-db
+
+# 2. Verificar binding em wrangler.toml
+cat wrangler.toml | grep database_id
+
+# 3. Restaurar de backup se necessário
+npm run db:export  # criar novo backup primeiro!
+```
+
+### "Port 8788 already in use"
+
+```bash
+# Matara processo anterior
+# Windows
+netstat -ano | findstr :8788
+taskkill /PID <PID> /F
+
+# Mac/Linux
+lsof -i :8788
+kill -9 <PID>
+```
+
+---
+
+## 🔐 Security Notes
+
+- ✅ JWT_SECRET nunca em plaintext em repositório
+- ✅ SQL injection protection (whitelist tables)
+- ✅ Password hashing (SHA-256 + salt)
+- ✅ CORS headers configured
+- ✅ Rate limiting on RPC endpoints
+- ⚠️ TODO: Adicionar CSRF protection
+- ⚠️ TODO: Adicionar rate limiting global
+
+---
+
+## 🎯 Roadmap
+
+### Phase 1: Code Quality ✅ (Em progresso)
+- [x] Security fixes (JWT_SECRET)
+- [x] Remove duplicates
+- [x] Setup ESLint + Prettier
+- [ ] Fix window pollution
+
+### Phase 2: Documentation (Próxima)
+- [ ] JSDoc comments
+- [ ] API documentation
+- [ ] Architecture diagram
+
+### Phase 3: Testing (Em planeamento)
+- [ ] Unit tests
+- [ ] Integration tests
+- [ ] E2E tests
+
+### Phase 4: Performance
+- [ ] Bundle optimization
+- [ ] Code splitting
+- [ ] Caching strategy
+
+Ver [REFACTORING_PLAN.md](REFACTORING_PLAN.md) para detalhes completos.
+
+---
+
+## 👥 Time & Support
+
+- **Maintainer:** Support@atlantic.com.pt
+- **Repository:** https://github.com/atlanticsupport/aspapp
+- **Issues:** [GitHub Issues](https://github.com/atlanticsupport/aspapp/issues)
+- **Cloudflare:** https://dash.cloudflare.com/
+
+---
+
+## 📝 License
+
+UNLICENSED - Internal use only
 # Aplicar índices (já aplicado)
 npm run db:migrate
 
