@@ -167,18 +167,34 @@ export function openEditModal(product) {
  */
 
 function setupAttachmentEvents() {
+    console.log('[SETUP] setupAttachmentEvents called');
     const galleryInput = document.getElementById('gallery-upload');
     const transitInput = document.getElementById('transit-media-upload');
+    console.log('[SETUP] galleryInput:', galleryInput);
+    console.log('[SETUP] transitInput:', transitInput);
 
-    if (galleryInput) galleryInput.onchange = (e) => {
-        handleAttachmentSelection(e, 'product');
-    };
-    if (transitInput) transitInput.onchange = (e) => {
-        handleAttachmentSelection(e, 'reception');
-    };
+    if (galleryInput) {
+        console.log('[SETUP] Attaching onchange to gallery-upload');
+        galleryInput.onchange = (e) => {
+            console.log('[EVENT] gallery-upload onchange fired, files:', e.target.files.length);
+            handleAttachmentSelection(e, 'product');
+        };
+    } else {
+        console.warn('[SETUP] gallery-upload input not found!');
+    }
+    if (transitInput) {
+        console.log('[SETUP] Attaching onchange to transit-media-upload');
+        transitInput.onchange = (e) => {
+            console.log('[EVENT] transit-media-upload onchange fired, files:', e.target.files.length);
+            handleAttachmentSelection(e, 'reception');
+        };
+    } else {
+        console.warn('[SETUP] transit-media-upload input not found!');
+    }
 }
     
 window.handleMultipleFiles = async function (files, category, targetListId = null) {
+    console.log('[UPLOAD] handleMultipleFiles called, files:', files.length, 'category:', category);
     if (!files || files.length === 0) return;
 
     const targetId = targetListId || (category === 'product' ? 'product-gallery-list' : 'transit-attachments-list');
@@ -186,6 +202,7 @@ window.handleMultipleFiles = async function (files, category, targetListId = nul
 
     const productId = document.getElementById('prod-id')?.value;
     const shouldAutoSave = !!productId;
+    console.log('[UPLOAD] productId:', productId, 'shouldAutoSave:', shouldAutoSave);
 
     const uploadPromises = [];
 
@@ -268,6 +285,7 @@ window.handleAttachmentSelectionFiles = async function (files, category) {
 };
 
 async function handleAttachmentSelection(e, category) {
+    console.log('[HANDLER] handleAttachmentSelection called, category:', category, 'files:', e.target.files.length);
     const files = Array.from(e.target.files);
     window.handleAttachmentSelectionFiles(files, category);
     e.target.value = '';
@@ -316,7 +334,9 @@ function renderAttachmentItem(att) {
 }
 
 async function removeAttachment(att, element) {
+    console.log('[REMOVE] removeAttachment called for attachment:', att.id);
     if (!confirm('Deseja eliminar este anexo permanentemente?')) return;
+    console.log('[REMOVE] User confirmed deletion');
     try {
         const { error } = await supabase.rpc('secure_delete_attachment', {
             p_user: state.currentUser.username,
