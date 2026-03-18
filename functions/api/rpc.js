@@ -271,11 +271,28 @@ export async function onRequestPost({ request, env }) {
                     revertSuccess = true;
                 } else if (op === 'UPDATE') {
                     // Reverting an update means putting back the old values
+                    // For tables with many columns, use targeted updates to avoid SQL variable limits
+                    const maxFieldsPerQuery = 10; // Safety limit
                     const keys = Object.keys(oldVal).filter(k => k !== 'criado_em' && k !== 'updated_at');
-                    const sets = keys.map(k => `${k} = ?`).join(', ');
-                    const vals = keys.map(k => u(oldVal[k]));
-                    vals.push(u(newVal.id || oldVal.id)); // target ID
-                    await db.prepare(`UPDATE ${table} SET ${sets} WHERE id = ?`).bind(...vals).run();
+                    
+                    if (keys.length <= maxFieldsPerQuery) {
+                        // Simple case: all fields in one query
+                        const sets = keys.map(k => `${k} = ?`).join(', ');
+                        const vals = keys.map(k => u(oldVal[k]));
+                        vals.push(u(newVal.id || oldVal.id));
+                        await db.prepare(`UPDATE ${table} SET ${sets} WHERE id = ?`).bind(...vals).run();
+                    } else {
+                        // Complex case: split into multiple queries to avoid variable limits
+                        const batches = [];
+                        for (let i = 0; i < keys.length; i += maxFieldsPerQuery) {
+                            const batch = keys.slice(i, i + maxFieldsPerQuery);
+                            const sets = batch.map(k => `${k} = ?`).join(', ');
+                            const vals = batch.map(k => u(oldVal[k]));
+                            vals.push(u(newVal.id || oldVal.id));
+                            batches.push(db.prepare(`UPDATE ${table} SET ${sets} WHERE id = ?`).bind(...vals));
+                        }
+                        await db.batch(batches);
+                    }
                     revertSuccess = true;
                 } else if (op === 'DELETE') {
                     // Reverting a delete means re-inserting the old data
@@ -1343,13 +1360,20 @@ export async function onRequestPost({ request, env }) {
                 if (!hasPermission(user, 'logistics', 'U')) throw new Error("Acesso negado para editar logística.");
                 const ulData = params.p_data;
                 const oldLogItem = await db.prepare("SELECT * FROM logistics_items WHERE id = ?").bind(params.p_id).first();
+                
+                // Limit to safe number of fields to avoid SQL variable limits
+                const safeFields = ['status', 'destination', 'notes', 'tracking_number', 'shipped_by', 'shipped_at', 'shipment_id', 'carrier', 'box_dimensions', 'box_image_url'];
                 const updateSets = [];
                 const updateParams = [];
-                for (const key of Object.keys(ulData)) {
-                    updateSets.push(`${key} = ?`);
-                    updateParams.push(ulData[key]);
+                
+                for (const key of safeFields) {
+                    if (key in ulData) {
+                        updateSets.push(`${key} = ?`);
+                        updateParams.push(ulData[key]);
+                    }
                 }
                 updateParams.push(params.p_id);
+                
                 if (updateSets.length > 0) {
                     await db.prepare(`UPDATE logistics_items SET ${updateSets.join(', ')} WHERE id = ?`).bind(...updateParams).run();
                     await recordAudit('logistics_items', 'UPDATE', oldLogItem, { ...oldLogItem, ...ulData });
