@@ -644,76 +644,70 @@ export async function updateHeaderImage(src, autoSave = false) {
 }
 
 export async function removeMainImage() {
-    // Get the currently visible image in the viewer
     const currentViewerUrl = state.currentGallery && state.currentGallery[state.galleryIndex];
     
-    if (!currentViewerUrl) {
+    if (!currentViewerUrl || !state.currentProductId) {
         showToast('Nenhuma imagem para remover.', 'info');
         return;
     }
     
-    // Check if it's the main product image
-    if (currentViewerUrl === state.currentImageUrl) {
-        // Remove main image from product
-        if (state.currentProductId) {
-            try {
-                await supabase.rpc('secure_update_product_field', {
-                    p_user: state.currentUser.username,
-                    p_pass: state.currentUser.password,
-                    p_product_id: parseInt(state.currentProductId),
-                    p_field: 'image_url',
-                    p_value: null
-                });
-            } catch (err) {
-                console.error('Error removing main image:', err);
-                showToast('Erro ao remover imagem.', 'error');
-                return;
+    const currentAttachment = state.loadedAttachments?.find(att => att.url === currentViewerUrl);
+    const isFirstImage = state.galleryIndex === 0;
+    
+    try {
+        if (isFirstImage && currentAttachment?.isMainImage) {
+            // Removing main image - clear image_url and promote next image if exists
+            await supabase.rpc('secure_update_product_field', {
+                p_user: state.currentUser.username,
+                p_pass: state.currentUser.password,
+                p_product_id: parseInt(state.currentProductId),
+                p_field: 'image_url',
+                p_value: null
+            });
+            
+            // If there's a second image, promote it to main
+            if (state.currentGallery.length > 1 && state.loadedAttachments.length > 1) {
+                const nextAttachment = state.loadedAttachments[1];
+                if (!nextAttachment.isMainImage) {
+                    await supabase.rpc('secure_update_product_field', {
+                        p_user: state.currentUser.username,
+                        p_pass: state.currentUser.password,
+                        p_product_id: parseInt(state.currentProductId),
+                        p_field: 'image_url',
+                        p_value: nextAttachment.url
+                    });
+                }
             }
+        } else if (currentAttachment && !currentAttachment.isMainImage) {
+            // Removing gallery attachment
+            await supabase.rpc('secure_delete_attachment', {
+                p_user: state.currentUser.username,
+                p_pass: state.currentUser.password,
+                p_id: currentAttachment.id
+            });
         }
-        state.mainImageFile = null;
-        state.currentImageUrl = null;
-        updateHeaderImage(null);
-    } else {
-        // It's a gallery attachment - find and remove it
-        const attachment = state.loadedAttachments?.find(att => att.url === currentViewerUrl);
         
-        if (attachment && state.currentProductId) {
-            try {
-                await supabase.rpc('secure_delete_attachment', {
-                    p_user: state.currentUser.username,
-                    p_pass: state.currentUser.password,
-                    p_id: attachment.id
-                });
-                
-                // Remove from state
-                state.loadedAttachments = state.loadedAttachments.filter(a => a.id !== attachment.id);
-                
-                // Reload attachments
-                await loadProductAttachments(state.currentProductId);
-            } catch (err) {
-                console.error('Error removing attachment:', err);
-                showToast('Erro ao remover imagem.', 'error');
-                return;
+        // Remove from gallery
+        state.currentGallery = state.currentGallery.filter((_, i) => i !== state.galleryIndex);
+        state.loadedAttachments = state.loadedAttachments.filter(att => att.url !== currentViewerUrl);
+        
+        if (state.currentGallery.length === 0) {
+            // No more images, close viewer
+            const viewerOverlay = document.getElementById('viewer-overlay');
+            if (viewerOverlay) viewerOverlay.classList.remove('open');
+        } else {
+            // Adjust index and update viewer
+            if (state.galleryIndex >= state.currentGallery.length) {
+                state.galleryIndex = state.currentGallery.length - 1;
             }
+            if (window.updateViewerFromGallery) window.updateViewerFromGallery();
         }
+        
+        showToast('Imagem removida.', 'success');
+    } catch (err) {
+        console.error('Error removing image:', err);
+        showToast('Erro ao remover imagem.', 'error');
     }
-    
-    // Remove from gallery and update viewer
-    state.currentGallery = state.currentGallery.filter((_, i) => i !== state.galleryIndex);
-    
-    if (state.currentGallery.length === 0) {
-        // No more images, close viewer
-        const viewerOverlay = document.getElementById('viewer-overlay');
-        if (viewerOverlay) viewerOverlay.classList.remove('open');
-    } else {
-        // Adjust index and update viewer
-        if (state.galleryIndex >= state.currentGallery.length) {
-            state.galleryIndex = state.currentGallery.length - 1;
-        }
-        if (window.updateViewerFromGallery) window.updateViewerFromGallery();
-    }
-    
-    showToast('Imagem removida.', 'success');
 }
 
 function handleAttachmentRemoved(att) {
