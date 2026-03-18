@@ -317,13 +317,17 @@ function renderAttachmentItem(att) {
 }
 
 async function removeAttachment(att, element) {
+    console.log('removeAttachment called, att.id:', att.id);
     if (!confirm('Deseja eliminar este anexo permanentemente?')) return;
+    console.log('User confirmed deletion');
     try {
-        const { error } = await supabase.rpc('secure_delete_attachment', {
+        console.log('Calling secure_delete_attachment RPC...');
+        const { data, error } = await supabase.rpc('secure_delete_attachment', {
             p_user: state.currentUser.username,
             p_pass: state.currentUser.password,
             p_id: att.id
         });
+        console.log('RPC response - data:', data, 'error:', error);
         if (error) throw error;
         
         element.remove();
@@ -332,12 +336,13 @@ async function removeAttachment(att, element) {
         
         // Reload attachments from DB
         if (state.currentProductId) {
+            console.log('Reloading attachments for product:', state.currentProductId);
             await loadProductAttachments(state.currentProductId);
         }
         showToast('Imagem removida.', 'success');
     } catch (err) {
         console.error('Error removing attachment:', err);
-        showToast('Erro ao remover imagem.', 'error');
+        showToast('Erro ao remover imagem: ' + err.message, 'error');
     }
 }
 
