@@ -1,6 +1,4 @@
 // Excel Import Handler - Integration with existing UI
-import { ExcelImporter } from './import-excel.js';
-import { showToast } from '../core/ui.js';
 
 // Initialize Excel import functionality
 export function initExcelImport() {
@@ -13,22 +11,9 @@ export function initExcelImport() {
 }
 
 function createExcelFileInput() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.xlsx,.xls';
-    input.style.display = 'none';
-    
-    input.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const importer = new ExcelImporter();
-            await importer.importExcelFile(file, 'products');
-        }
-        input.remove();
-    });
-    
-    document.body.appendChild(input);
-    input.click();
+    if (typeof window.importFromExcel === 'function') {
+        window.importFromExcel();
+    }
 }
 
 // Add to existing import dialog

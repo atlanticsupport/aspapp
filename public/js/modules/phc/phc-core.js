@@ -3,7 +3,6 @@ import { supabase } from '../supabase-client.js';
 import { showToast } from '../core/ui.js';
 import { dialog } from '../ui/dialogs-original.js';
 import { loadInventory } from '../inventory.js';
-import { ExcelImporter } from '../import/import-excel.js';
 
 // PHC Core Module - Main functions and initialization
 let detectedPhcItems = [];

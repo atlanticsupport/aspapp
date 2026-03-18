@@ -2,8 +2,6 @@ import { state } from '../core/state.js';
 import { supabase } from '../supabase-client.js';
 import { showToast, showGlobalLoading, hideGlobalLoading } from '../core/ui.js';
 import { loadInventory } from '../inventory.js';
-import { ExcelImporter } from '../import/import-excel.js';
-import { getDetectedPhcItems } from './phc-core.js';
 import { resetPhcImport } from './phc-core.js';
 
 // Table column cache
@@ -32,6 +30,29 @@ async function getValidColumns(tableName) {
     }
 }
 
+function getPhcBatchConfig(destLayout, targetTable, globalPo, itemCount, batchId = null) {
+    const destinationLabels = {
+        inventory: 'Inventario',
+        transit: 'Transito',
+        'stock-out': 'Saidas de Stock',
+        logistics: 'Encomendas / Chegadas'
+    };
+
+    return {
+        batchId: batchId || `BATCH-PHC-${destLayout.toUpperCase()}-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
+        label: `Importacao Processo PHC (${destinationLabels[destLayout] || 'Inventario'})`,
+        summary: `${itemCount} itens importados via processo PHC para ${destinationLabels[destLayout] || targetTable}`,
+        details: {
+            source: 'phc_process',
+            source_label: 'Processo PHC',
+            destination: destLayout,
+            destination_label: destinationLabels[destLayout] || targetTable,
+            process: globalPo || null,
+            table: targetTable
+        }
+    };
+}
+
 // Confirm and execute PHC import
 export async function confirmPhcImport() {
     const btn = document.getElementById('btn-confirm-phc-import');
@@ -50,21 +71,21 @@ export async function confirmPhcImport() {
         const rows = document.querySelectorAll('#phc-preview-table tbody tr');
         let count = 0;
 
-        const logisticsItems = [];
-        const productItems = [];
-
         // Determine destination
         const curPage = state.currentPage;
         const destLayout = curPage === 'logistics' ? 'logistics' :
             curPage === 'transit' ? 'transit' :
                 curPage === 'stock-out' ? 'stock-out' : 'inventory';
         const targetTable = (destLayout === 'logistics') ? 'logistics_items' : 'products';
+        const allItems = [];
 
         // Get valid columns
         const validColumns = await getValidColumns(targetTable);
         if (!validColumns) {
             throw new Error(`Não foi possível obter colunas da tabela ${targetTable}`);
         }
+
+        const batchId = `BATCH-PHC-${destLayout.toUpperCase()}-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 
         // Process each row
         for (let i = 0; i < rows.length; i++) {
@@ -129,79 +150,32 @@ export async function confirmPhcImport() {
             if (destLayout === 'logistics') filteredData.status = 'pending';
             else if (destLayout === 'stock-out') filteredData.status = 'stockout_pending';
             else filteredData.status = (destLayout === 'transit') ? 'transit' : 'available';
-
-            // Add to appropriate array
-            if (destLayout === 'logistics') {
-                logisticsItems.push(filteredData);
-            } else {
-                productItems.push(filteredData);
-            }
+            filteredData.batch_id = batchId;
+            allItems.push(filteredData);
         }
 
-        // Execute import via chunked system
-        const allItems = [...logisticsItems, ...productItems];
-        const tableName = logisticsItems.length > 0 ? 'logistics_items' : 'products';
-        
         if (allItems.length > 0) {
-            const importId = crypto.randomUUID();
-            const fileName = `PHC_Import_${globalPo || 'Manual'}.xlsx`;
-            const fileSize = JSON.stringify(allItems).length;
-            
             showGlobalLoading(`A importar ${allItems.length} itens...`);
-            
+
             try {
-                // Create import history
-                await supabase.rpc('create_import_history', {
-                    p_import_id: importId,
-                    p_table_name: tableName,
-                    p_file_name: fileName,
-                    p_file_size: fileSize
+                const batchConfig = getPhcBatchConfig(destLayout, targetTable, globalPo, allItems.length, batchId);
+                const { data: insertedCount, error } = await supabase.rpc('secure_batch_import', {
+                    p_user: state.currentUser.username,
+                    p_pass: state.currentUser.password,
+                    p_target: targetTable,
+                    p_items: allItems,
+                    p_label: batchConfig.label,
+                    p_summary: batchConfig.summary,
+                    p_details: batchConfig.details
                 });
-                
-                // Process in chunks
-                const CHUNK_SIZE = 1000;
-                const totalChunks = Math.ceil(allItems.length / CHUNK_SIZE);
-                let totalInserted = 0;
-                let totalFailed = 0;
-                
-                for (let i = 0; i < totalChunks; i++) {
-                    const start = i * CHUNK_SIZE;
-                    const end = Math.min(start + CHUNK_SIZE, allItems.length);
-                    const chunk = allItems.slice(start, end);
-                    
-                    showGlobalLoading(`A processar chunk ${i + 1}/${totalChunks}...`);
-                    
-                    const { data: result, error } = await supabase.rpc('secure_chunked_import', {
-                        p_import_id: importId,
-                        p_chunk_index: i,
-                        p_chunk_data: chunk,
-                        p_total_chunks: totalChunks,
-                        p_table_name: tableName,
-                        p_file_name: fileName,
-                        p_file_size: fileSize
-                    });
-                    
-                    if (error) throw error;
-                    
-                    totalInserted += result.inserted || 0;
-                    totalFailed += result.failed || 0;
-                    
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
-                
-                // Finalize import
-                await supabase.rpc('finalize_import', {
-                    p_import_id: importId,
-                    p_total_inserted: totalInserted,
-                    p_total_failed: totalFailed,
-                    p_status: totalFailed > 0 ? 'completed_with_errors' : 'completed'
-                });
-                
+
+                if (error) throw error;
+
                 hideGlobalLoading();
-                count = totalInserted;
+                count = insertedCount || allItems.length;
 
                 // Handle photo uploads if needed
-                await handlePhotoUploads(destLayout, totalInserted);
+                await handlePhotoUploads(destLayout, count);
 
                 // Show success message
                 showToast(`Importação concluída! ${count} itens criados.`, 'success');

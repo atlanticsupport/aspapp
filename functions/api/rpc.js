@@ -353,6 +353,46 @@ export async function onRequestPost({ request, env }) {
                 result = { success: true, count: batchEntries.length };
                 break;
 
+            case 'secure_fetch_batch_details': {
+                if (user.role !== 'admin' && !user.view_history) throw new Error("Acesso negado ao detalhe de importações.");
+                const requestedBatchId = params.p_batch_id;
+                if (!requestedBatchId) throw new Error("ID do lote não fornecido.");
+
+                const { results: batchDetailRows } = await db.prepare(`
+                    SELECT id, tabela_nome, operacao, dados_antigos, dados_novos, criado_em, foi_revertido
+                    FROM historico_geral
+                    WHERE (dados_novos LIKE ? OR dados_antigos LIKE ?)
+                      AND operacao IN ('INSERT', 'UPDATE', 'DELETE')
+                    ORDER BY criado_em ASC, id ASC
+                `).bind(`%${requestedBatchId}%`, `%${requestedBatchId}%`).all();
+
+                result = batchDetailRows.map((row) => {
+                    let oldData = null;
+                    let newData = null;
+
+                    try { oldData = row.dados_antigos ? JSON.parse(row.dados_antigos) : null; } catch (e) { }
+                    try { newData = row.dados_novos ? JSON.parse(row.dados_novos) : null; } catch (e) { }
+
+                    const payload = newData || oldData || {};
+
+                    return {
+                        audit_id: row.id,
+                        table_name: row.tabela_nome,
+                        table_label: row.tabela_nome === 'products' ? 'Produtos' : row.tabela_nome === 'logistics_items' ? 'Logistica' : row.tabela_nome,
+                        operation: row.operacao,
+                        item_id: payload.id || null,
+                        name: payload.name || payload.description || payload.order_to || '',
+                        part_number: payload.part_number || payload.reference || '',
+                        quantity: payload.quantity ?? payload.qty ?? null,
+                        status: payload.status || '',
+                        batch_id: payload.batch_id || requestedBatchId,
+                        created_at: row.criado_em,
+                        is_reverted: !!row.foi_revertido
+                    };
+                });
+                break;
+            }
+
             case 'secure_fetch_users':
                 if (user.role !== 'admin') throw new Error("Acesso negado. Apenas administradores.");
                 const { results: users } = await db.prepare("SELECT * FROM app_users ORDER BY role, username").all();
@@ -526,6 +566,35 @@ export async function onRequestPost({ request, env }) {
 
                 const { results: inv } = await db.prepare(sql).bind(...qParams).all();
 
+                if (inv.length > 0) {
+                    const productIds = inv.map((item) => item.id).filter((id) => id !== null && id !== undefined);
+                    const placeholders = productIds.map(() => '?').join(', ');
+                    const attachmentsSql = `
+                        SELECT *
+                        FROM attachments
+                        WHERE category = 'product' AND product_id IN (${placeholders})
+                        ORDER BY product_id ASC, sort_order ASC, id ASC
+                    `;
+                    const { results: attachmentRows } = await db.prepare(attachmentsSql).bind(...productIds).all();
+                    const attachmentsByProduct = new Map();
+
+                    attachmentRows.forEach((attachment) => {
+                        const current = attachmentsByProduct.get(attachment.product_id) || [];
+                        current.push(attachment);
+                        attachmentsByProduct.set(attachment.product_id, current);
+                    });
+
+                    inv.forEach((item) => {
+                        const productAttachments = attachmentsByProduct.get(item.id) || [];
+                        item.attachments = productAttachments;
+
+                        const primaryImage = productAttachments.find((attachment) => attachment.file_type === 'image');
+                        if (primaryImage?.url) {
+                            item.image_url = primaryImage.url;
+                        }
+                    });
+                }
+
                 // DATA LEAKAGE PREVENTION: Hide cost_price if user lacks permission
                 if (user.role !== 'admin' && !user.can_view_prices) {
                     inv.forEach(i => i.cost_price = null);
@@ -595,12 +664,49 @@ export async function onRequestPost({ request, env }) {
                                         hasPermission(user, 'transit', 'C') || 
                                         hasPermission(user, 'logistics', 'C');
                 if (!canAddAttachment) throw new Error("Acesso negado para adicionar anexos.");
-                const insertResult = await db.prepare("INSERT INTO attachments (product_id, url, file_type, category) VALUES (?, ?, ?, ?)")
-                    .bind(sa_data.product_id, sa_data.url, sa_data.file_type, sa_data.category).run();
+                let sortOrder = sa_data.sort_order;
+                if (sortOrder === undefined || sortOrder === null || Number.isNaN(Number(sortOrder))) {
+                    const sortRow = await db.prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order FROM attachments WHERE product_id = ? AND category = ?")
+                        .bind(sa_data.product_id, sa_data.category || 'product').first();
+                    sortOrder = sortRow?.next_sort_order ?? 0;
+                }
+                const insertResult = await db.prepare("INSERT INTO attachments (product_id, url, file_type, category, sort_order) VALUES (?, ?, ?, ?, ?)")
+                    .bind(sa_data.product_id, sa_data.url, sa_data.file_type, sa_data.category, Number(sortOrder)).run();
                 await recordAudit('attachments', 'INSERT', null, sa_data);
                 // Return the ID of the created attachment
                 const newAttachment = await db.prepare("SELECT * FROM attachments WHERE id = ?").bind(insertResult.meta.last_row_id).first();
                 result = newAttachment;
+                break;
+            }
+
+            case 'secure_reorder_attachments': {
+                const canReorderAttachments = hasPermission(user, 'inventory', 'U') ||
+                    hasPermission(user, 'transit', 'U') ||
+                    hasPermission(user, 'logistics', 'U');
+                if (!canReorderAttachments) throw new Error("Acesso negado para reordenar anexos.");
+
+                const orderItems = Array.isArray(params.p_items) ? params.p_items : [];
+                const productId = Number(params.p_product_id);
+                if (!productId || orderItems.length === 0) {
+                    result = true;
+                    break;
+                }
+
+                const updates = [];
+                for (const item of orderItems) {
+                    const attachmentId = Number(item?.id);
+                    const sortOrder = Number(item?.sort_order);
+                    if (!attachmentId || Number.isNaN(sortOrder)) continue;
+                    updates.push(
+                        db.prepare("UPDATE attachments SET sort_order = ? WHERE id = ? AND product_id = ?")
+                            .bind(sortOrder, attachmentId, productId)
+                    );
+                }
+
+                if (updates.length > 0) {
+                    await db.batch(updates);
+                }
+                result = true;
                 break;
             }
 
@@ -677,7 +783,18 @@ export async function onRequestPost({ request, env }) {
                         bParams.push(params.p_params.eq[keys[0]]);
                     }
                 }
-                if (t === 'movements') fetchSql += ' ORDER BY created_at DESC';
+                if (params.p_params && params.p_params.order) {
+                    const orderColumn = String(params.p_params.order.column || '').trim();
+                    const isSafeColumn = /^[A-Za-z_][A-Za-z0-9_]*$/.test(orderColumn);
+                    if (isSafeColumn) {
+                        const direction = params.p_params.order.ascending === false ? 'DESC' : 'ASC';
+                        fetchSql += ` ORDER BY ${orderColumn} ${direction}`;
+                    }
+                } else if (t === 'attachments') {
+                    fetchSql += ' ORDER BY sort_order ASC, id ASC';
+                } else if (t === 'movements') {
+                    fetchSql += ' ORDER BY created_at DESC';
+                }
 
                 const { results: anyRes } = await db.prepare(fetchSql).bind(...bParams).all();
 
@@ -1067,13 +1184,21 @@ export async function onRequestPost({ request, env }) {
 
                 const batchId = itemsToInsert[0].batch_id || `BATCH-${Date.now()}`;
                 const eventLabel = params.p_label || (targetTable === 'products' ? 'Importação de Inventário' : 'Importação de Logística');
+                const extraDetails = params.p_details && typeof params.p_details === 'object' ? params.p_details : {};
+                const eventSummary = params.p_summary || `${itemsToInsert.length} itens importados`;
 
                 await recordEvent(
                     'BATCH_IMPORT',
                     eventLabel,
-                    `${itemsToInsert.length} itens afetados`,
+                    eventSummary,
                     batchId,
-                    { count: itemsToInsert.length, table: targetTable, sample: itemsToInsert[0].name || itemsToInsert[0].part_number }
+                    {
+                        count: itemsToInsert.length,
+                        table: targetTable,
+                        sample: itemsToInsert[0].name || itemsToInsert[0].part_number,
+                        batch_id: batchId,
+                        ...extraDetails
+                    }
                 );
 
                 result = (rpc === 'secure_batch_import_with_ids') ? batchInsertedIds : itemsToInsert.length;
@@ -1082,6 +1207,34 @@ export async function onRequestPost({ request, env }) {
             case 'secure_fetch_logistics':
                 if (user.role !== 'admin' && !user.view_logistics && user.logistics_access === 'none') throw new Error("Acesso negado à logística.");
                 const { results: logRes } = await db.prepare("SELECT * FROM logistics_items WHERE is_deleted = 0 ORDER BY status DESC, id DESC").all();
+                if (logRes.length > 0) {
+                    const logisticsIds = logRes.map((item) => item.id).filter((id) => id !== null && id !== undefined);
+                    const placeholders = logisticsIds.map(() => '?').join(', ');
+                    const attachmentsSql = `
+                        SELECT *
+                        FROM attachments
+                        WHERE category = 'reception' AND product_id IN (${placeholders})
+                        ORDER BY product_id ASC, sort_order ASC, id ASC
+                    `;
+                    const { results: logisticsAttachmentRows } = await db.prepare(attachmentsSql).bind(...logisticsIds).all();
+                    const attachmentsByLogisticsItem = new Map();
+
+                    logisticsAttachmentRows.forEach((attachment) => {
+                        const current = attachmentsByLogisticsItem.get(attachment.product_id) || [];
+                        current.push(attachment);
+                        attachmentsByLogisticsItem.set(attachment.product_id, current);
+                    });
+
+                    logRes.forEach((item) => {
+                        const itemAttachments = attachmentsByLogisticsItem.get(item.id) || [];
+                        item.attachments = itemAttachments;
+
+                        const primaryImage = itemAttachments.find((attachment) => attachment.file_type === 'image');
+                        if (primaryImage?.url) {
+                            item.image_url = primaryImage.url;
+                        }
+                    });
+                }
                 result = logRes;
                 break;
 
@@ -1099,13 +1252,21 @@ export async function onRequestPost({ request, env }) {
 
             case 'secure_fetch_app_events': {
                 if (user.role !== 'admin' && !user.view_history) throw new Error("Acesso negado ao histórico de atividades.");
+                const eventTypeFilter = params.p_event_type || null;
+                const whereClause = eventTypeFilter ? "WHERE event_type = ?" : "";
+                const bindings = eventTypeFilter ? [eventTypeFilter] : [];
+
                 if (params.p_count_only) {
-                    const countRes = await db.prepare("SELECT COUNT(*) as total FROM app_events").first();
+                    const countQuery = `SELECT COUNT(*) as total FROM app_events ${whereClause}`;
+                    const countRes = eventTypeFilter
+                        ? await db.prepare(countQuery).bind(...bindings).first()
+                        : await db.prepare(countQuery).first();
                     result = countRes ? countRes.total : 0;
                 } else {
                     const limit = params.p_limit || 100;
                     const offset = params.p_offset || 0;
-                    const { results: eventRes } = await db.prepare("SELECT * FROM app_events ORDER BY created_at DESC LIMIT ? OFFSET ?").bind(limit, offset).all();
+                    const query = `SELECT * FROM app_events ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+                    const { results: eventRes } = await db.prepare(query).bind(...bindings, limit, offset).all();
                     result = eventRes;
                 }
                 break;

@@ -102,13 +102,32 @@
     bottom: 1.5rem;
     right: 1.5rem;
     display: flex;
-    gap: 0.75rem;
+    align-items: center;
+    gap: 0.6rem;
     background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(12px);
     padding: 0.6rem;
     border-radius: 50px;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.viewer-actions-panel {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    max-width: 420px;
+    overflow: hidden;
+    opacity: 1;
+    transform: translateX(0);
+    transition: max-width 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.viewer-actions-minimal.collapsed .viewer-actions-panel {
+    max-width: 0;
+    opacity: 0;
+    transform: translateX(10px);
+    pointer-events: none;
 }
 
 .btn-eye-action {
@@ -122,6 +141,22 @@
     cursor: pointer;
     transition: all 0.2s;
     font-size: 1rem;
+}
+
+.btn-eye-action:disabled {
+    opacity: 0.45;
+    cursor: default;
+    transform: none !important;
+}
+
+#btn-toggle-viewer-actions {
+    background: #1e293b;
+    color: white;
+}
+
+#btn-toggle-viewer-actions:hover {
+    background: #0f172a;
+    transform: scale(1.05);
 }
 
 #btn-change-image {
@@ -143,6 +178,19 @@
 #btn-delete-image:hover {
     background: #ef4444;
     color: white;
+    transform: translateY(-2px);
+}
+
+#btn-move-image-left,
+#btn-move-image-right {
+    background: #e2e8f0;
+    color: #334155;
+}
+
+#btn-move-image-left:hover,
+#btn-move-image-right:hover {
+    background: #cbd5e1;
+    color: #0f172a;
     transform: translateY(-2px);
 }
 

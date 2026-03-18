@@ -4,6 +4,7 @@ import { showToast } from './ui.js';
 import { views } from './dom.js';
 import { processImageForUpload } from './data.js';
 import { dialog } from './dialogs.js';
+import { getEntityPrimaryImageUrl, openEntityGallery } from './gallery.js';
 
 export async function loadLogisticsView() {
     if (!supabase) return;
@@ -592,10 +593,10 @@ function renderItemsTable(items, isShipped) {
                     <td style="text-align:right;">
                         <!-- Actions as before -->
                         <div style="display:flex; justify-content:flex-end; gap:8px;">
-                            ${item.image_url ? `
+                            ${getEntityPrimaryImageUrl(item, { attachmentCategory: 'reception', acceptedTypes: ['image'] }) ? `
                                 <div style="position: relative; display: inline-block;">
-                                    <img src="${item.image_url}" 
-                                         onclick="event.stopPropagation(); window.viewGenericImage('${item.image_url}')"
+                                    <img src="${getEntityPrimaryImageUrl(item, { attachmentCategory: 'reception', acceptedTypes: ['image'] }) || item.image_url}" 
+                                         onclick="event.stopPropagation(); window.openLogisticsGallery('${item.id}')"
                                          style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px; border: 1px solid #cbd5e1; cursor: pointer;"
                                          title="Ver foto">
                                 </div>
@@ -626,6 +627,22 @@ function renderItemsTable(items, isShipped) {
 }
 
 // Global actions shim
+export function openLogisticsGallery(id) {
+    const item = state.logisticsProducts.find((entry) => String(entry.id) === String(id));
+    if (!item) return;
+
+    const opened = openEntityGallery(item, {
+        attachmentCategory: 'reception',
+        acceptedTypes: ['image', 'video'],
+    });
+
+    if (!opened && item.image_url) {
+        window.viewGenericImage(item.image_url);
+    }
+}
+
+window.openLogisticsGallery = openLogisticsGallery;
+
 export async function checkLogisticsItem(id) {
     const fileInput = document.getElementById('logistics-item-photo');
     if (!fileInput) return;
@@ -640,6 +657,11 @@ export async function checkLogisticsItem(id) {
 
         try {
             showToast(`A processar ${files.length} ficheiro(s)...`, 'info');
+            let primaryReceiptImageUrl = null;
+            const currentItem = state.logisticsProducts.find((item) => String(item.id) === String(id));
+            if (currentItem?.image_url) {
+                primaryReceiptImageUrl = currentItem.image_url;
+            }
 
             for (const file of files) {
                 let uploadFile = file;
@@ -673,6 +695,10 @@ export async function checkLogisticsItem(id) {
                     }
                 });
 
+                if (!primaryReceiptImageUrl && fileType === 'image') {
+                    primaryReceiptImageUrl = publicUrl;
+                }
+
                 // Update main item status
                 await supabase.rpc('secure_update_logistics_item', {
                     p_user: state.currentUser.username,
@@ -680,7 +706,7 @@ export async function checkLogisticsItem(id) {
                     p_id: parseInt(id),
                     p_data: {
                         status: 'received',
-                        image_url: publicUrl, // Keep last one as main preview
+                        image_url: primaryReceiptImageUrl,
                         received_by: state.currentUser?.username || 'Armazém',
                         received_at: new Date().toISOString()
                     }

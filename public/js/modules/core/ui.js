@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { getEntityPrimaryImageUrl } from '../gallery.js';
 
 export function escapeHTML(str) {
     if (!str) return '';
@@ -21,18 +22,14 @@ export function formatCurrency(value) {
 }
 
 export function renderImageCellHTML(p) {
-    const mainImg = p.image_url;
-    let imagesCount = mainImg ? 1 : 0;
-    if (p.attachments && Array.isArray(p.attachments)) {
-        imagesCount += p.attachments.filter(a => a.file_type === 'image' || a.file_type === 'video').length;
-    }
+    const imgToShow = getEntityPrimaryImageUrl(p, {
+        attachmentCategory: 'product',
+        acceptedTypes: ['image', 'video'],
+    });
 
-    if (imagesCount > 0) {
-        const badgeHtml = imagesCount > 1 ? `<span class="image-count-badge">${imagesCount}</span>` : '';
-        const imgToShow = mainImg || (p.attachments && p.attachments.find(a => a.file_type === 'image' || a.file_type === 'video')?.url) || '';
+    if (imgToShow) {
         return `<div class="cell-image" onclick="event.stopPropagation(); window.openProductGallery(${p.id})">
                     <img src="${imgToShow}" alt="${p.name || ''}" loading="lazy" decoding="async" onerror="this.style.display='none'">
-                    ${badgeHtml}
                 </div>`;
     } else {
         return `<div class="cell-image-placeholder" onclick="event.stopPropagation(); window.openProductGallery(${p.id})">

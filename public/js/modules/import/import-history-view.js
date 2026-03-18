@@ -1,19 +1,20 @@
 // Import History View Module
 import { loadImportHistory } from './import-history.js';
+import { views } from '../core/dom.js';
 
 export function renderImportHistoryView() {
-    const container = document.getElementById('main-content');
+    const container = views['import-history'];
     if (!container) return;
 
     container.innerHTML = `
         <div class="page-header">
-            <h1>📋 Histórico de Importações</h1>
-            <p>Visualize e gerencie todas as importações de Excel realizadas</p>
+            <h1>Historico de Importacoes</h1>
+            <p>Visualize e anule importacoes de Excel e processos PHC no mesmo local.</p>
         </div>
 
         <div class="page-actions">
-            <button class="btn-primary" onclick="window.location.hash = '#inventory'">
-                <i class="fa-solid fa-plus"></i> Nova Importação
+            <button class="btn-primary" onclick="window.navigateTo('inventory')">
+                <i class="fa-solid fa-plus"></i> Nova Importacao
             </button>
         </div>
 

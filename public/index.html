@@ -358,19 +358,30 @@
                 <img id="viewer-img" src="" alt="Produto">
 
                 <!-- Float Actions on Image -->
-                <div class="viewer-actions-minimal">
-                    <button type="button" class="btn-eye-action" id="btn-take-photo" title="Tirar Foto">
-                        <i class="fa-solid fa-camera"></i>
+                <div class="viewer-actions-minimal collapsed" id="viewer-actions-minimal">
+                    <button type="button" class="btn-eye-action viewer-actions-toggle" id="btn-toggle-viewer-actions" title="Expandir ações" aria-expanded="false">
+                        <i class="fa-solid fa-ellipsis"></i>
                     </button>
-                    <button type="button" class="btn-eye-action" id="btn-change-image" title="Adicionar Media">
-                        <i class="fa-solid fa-plus"></i>
-                    </button>
-                    <button type="button" class="btn-eye-action" id="btn-delete-image" title="Apagar Imagem">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                    <button type="button" class="btn-eye-action" id="btn-close-viewer-x" title="Fechar">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
+                    <div class="viewer-actions-panel" id="viewer-actions-panel">
+                        <button type="button" class="btn-eye-action" id="btn-move-image-left" title="Mover para trás">
+                            <i class="fa-solid fa-arrow-left"></i>
+                        </button>
+                        <button type="button" class="btn-eye-action" id="btn-move-image-right" title="Mover para a frente">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                        <button type="button" class="btn-eye-action" id="btn-take-photo" title="Tirar Foto">
+                            <i class="fa-solid fa-camera"></i>
+                        </button>
+                        <button type="button" class="btn-eye-action" id="btn-change-image" title="Adicionar Media">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                        <button type="button" class="btn-eye-action" id="btn-delete-image" title="Apagar Imagem">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                        <button type="button" class="btn-eye-action" id="btn-close-viewer-x" title="Fechar">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div id="viewer-counter" class="viewer-counter">1 / 1</div>

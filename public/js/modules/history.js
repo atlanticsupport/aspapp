@@ -3,6 +3,7 @@ import { supabase } from './supabase-client.js';
 import { showToast, renderPagination, showGlobalLoading, hideGlobalLoading } from './ui.js';
 import { views } from './dom.js';
 import { dialog } from './dialogs.js';
+import { normalizeBatchEvent, getBatchMetaLine, fetchBatchDetails, renderBatchDetailsTable } from './import/batch-imports.js';
 
 export async function fetchHistory() {
     if (!supabase || !state.currentUser) return [];
@@ -26,10 +27,35 @@ export async function fetchHistory() {
 
             const isBatch = ev.event_type === 'BATCH_IMPORT';
 
+            if (isBatch) {
+                const batchEvent = normalizeBatchEvent(ev);
+
+                return {
+                    id: batchEvent.id,
+                    is_batch: true,
+                    batch_id: batchEvent.batchId,
+                    type: 'BATCH',
+                    event_type: ev.event_type,
+                    date: batchEvent.createdAt,
+                    author: batchEvent.author,
+                    title: batchEvent.title,
+                    summary: batchEvent.summary,
+                    details: batchEvent.summary,
+                    is_reverted: batchEvent.isReverted,
+                    revertido_por: batchEvent.revertedBy,
+                    revertido_em: batchEvent.revertedAt,
+                    raw_details: batchEvent.rawDetails,
+                    target_id: batchEvent.batchId,
+                    count: batchEvent.count,
+                    meta_line: getBatchMetaLine(batchEvent),
+                    destination_label: batchEvent.destinationLabel,
+                    source_label: batchEvent.sourceLabel
+                };
+            }
+
             // Map event type to UI type badges
             let uiType = 'UPDATE';
-            if (isBatch) uiType = 'BATCH';
-            else if (ev.event_type === 'STOCK_ADJUST') uiType = 'OUT'; // Use colors for visual help
+            if (ev.event_type === 'STOCK_ADJUST') uiType = 'OUT'; // Use colors for visual help
             else if (ev.event_type === 'PRODUCT_DELETE') uiType = 'DELETE';
             else if (ev.event_type === 'PRODUCT_CREATE') uiType = 'IN';
 
@@ -181,7 +207,7 @@ function renderHistoryRow(m) {
     const rowStyle = isReverted ? 'opacity: 0.6; background: #f8fafc;' : '';
 
     if (m.is_batch) {
-        const itemCount = m.raw_details?.count || m.summary.split(' ')[0] || '?';
+        const itemCount = m.count || m.raw_details?.count || m.summary.split(' ')[0] || '?';
         return `
             <tr style="${rowStyle}">
                 <td><div style="font-weight:600;">${dateStr}</div><div style="font-size:0.75rem; color:var(--text-secondary);">${timeStr}</div></td>
@@ -189,10 +215,14 @@ function renderHistoryRow(m) {
                 <td>${typeBadge}</td>
                 <td onclick="window.toggleHistoryBatch('${m.batch_id}')" style="cursor:pointer;">
                     <div style="font-weight:700; color:var(--primary-color);">${m.title}</div>
-                    <div style="font-size:0.75rem; color:#64748b;">ID: ${m.batch_id || 'N/A'} <i class="fa-solid fa-chevron-down" style="font-size:0.6rem; margin-left:4px;"></i></div>
+                    <div style="font-size:0.75rem; color:#475569;">${m.meta_line || m.summary}</div>
+                    <div style="font-size:0.72rem; color:#64748b;">ID: ${m.batch_id || 'N/A'} <i class="fa-solid fa-chevron-down" style="font-size:0.6rem; margin-left:4px;"></i></div>
                 </td>
                 <td style="text-align:center; font-weight:700;">${itemCount}</td>
-                <td><div style="font-size:0.85rem; color:var(--text-secondary);">${m.summary}</div></td>
+                <td>
+                    <div style="font-size:0.85rem; color:var(--text-secondary);">${m.summary}</div>
+                    <div style="font-size:0.72rem; color:#94a3b8; margin-top:4px;">Origem: ${m.source_label || '-'} | Destino: ${m.destination_label || '-'}</div>
+                </td>
                 <td style="text-align:right;">
                     ${isReverted ? renderReversionInfo(m) : `
                         <button class="btn btn-secondary btn-sm" onclick="window.revertBatch('${m.batch_id}')" title="Reverter Lote">
@@ -330,32 +360,12 @@ export async function toggleHistoryBatch(batchId) {
         el.style.display = 'table-row';
         const content = document.getElementById(`batch-content-${batchId}`);
 
-        // Fetch items from products table belonging to this batch
         try {
-            const { data, error } = await supabase.rpc('secure_fetch_inventory', {
-                p_user: state.currentUser.username,
-                p_pass: state.currentUser.password,
-                p_search: batchId,
-                p_category: 'all',
-                p_location: 'all'
-            });
-
-            if (error) throw error;
-
-            if (!data || data.length === 0) {
-                content.innerHTML = '<p style="font-size:0.8rem; color:#94a3b8;">Itens não encontrados ou já removidos.</p>';
-            } else {
-                content.innerHTML = `
-                    <div style="font-weight:700; font-size:0.8rem; margin-bottom:0.5rem; color:#475569;">ITENS DO LOTE:</div>
-                    <table style="width:100%; font-size:0.75rem;">
-                        <thead><tr style="text-align:left; color:#94a3b8;"><th>Produto</th><th>PN</th><th>Qtd</th></tr></thead>
-                        <tbody>
-                            ${data.slice(0, 15).map(i => `<tr><td>${i.name}</td><td class="font-mono">${i.part_number}</td><td>${i.quantity}</td></tr>`).join('')}
-                            ${data.length > 15 ? `<tr><td colspan="3" style="color:var(--primary-color); padding-top:4px;">... e mais ${data.length - 15} itens.</td></tr>` : ''}
-                        </tbody>
-                    </table>
-                `;
-            }
+            const items = await fetchBatchDetails(batchId);
+            content.innerHTML = `
+                <div style="font-weight:700; font-size:0.8rem; margin-bottom:0.75rem; color:#475569;">ITENS DO LOTE</div>
+                ${renderBatchDetailsTable(items, { emptyMessage: 'Itens nao encontrados ou ja removidos.' })}
+            `;
         } catch (e) {
             content.innerHTML = '<p style="color:red;">Erro ao carregar detalhes.</p>';
         }

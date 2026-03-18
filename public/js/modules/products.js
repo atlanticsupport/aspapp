@@ -7,6 +7,16 @@ import { closeViewer, openViewer } from './ag-grid-shim.js';
 import { loadDashboard } from './dashboard.js';
 import { loadInventory } from './inventory.js';
 import { printSingleLabel } from './printing.js';
+import { dialog } from './dialogs.js';
+import {
+    buildGalleryEntries,
+    getEntityPrimaryImageUrl,
+    getGallerySortOrder,
+    getPrimaryGalleryEntry,
+    normalizeGalleryAttachment,
+    openViewerGallery,
+    sortGalleryAttachments
+} from './gallery.js';
 
 /**
  * ACTIONS & MODALS
@@ -166,6 +176,279 @@ export function openEditModal(product) {
  * ATTACHMENTS LOGIC
  */
 
+function isImageAttachment(att) {
+    const type = att?.type || att?.file_type;
+    return (att?.category || 'product') === 'product' && type === 'image';
+}
+
+function getCurrentProductId() {
+    const rawId = document.getElementById('prod-id')?.value || state.currentProductId;
+    return rawId ? parseInt(rawId, 10) : null;
+}
+
+function normalizeAttachment(att) {
+    return normalizeGalleryAttachment(att, 'product');
+}
+
+function getAttachmentOrderValue(att, fallback = Number.MAX_SAFE_INTEGER) {
+    return getGallerySortOrder(att, fallback);
+}
+
+function sortProductImagesByOrder(list = []) {
+    return sortGalleryAttachments(list);
+}
+
+function shiftProductImageSortOrders(offset) {
+    if (!offset) return;
+
+    state.loadedAttachments = (state.loadedAttachments || []).map((att) => {
+        const normalized = normalizeAttachment(att);
+        if (!isImageAttachment(normalized)) return normalized;
+        return {
+            ...normalized,
+            sort_order: getAttachmentOrderValue(normalized, 0) + offset,
+        };
+    });
+
+    state.pendingAttachments = (state.pendingAttachments || []).map((att) => {
+        const normalized = normalizeAttachment(att);
+        if (!isImageAttachment(normalized)) return normalized;
+        return {
+            ...normalized,
+            sort_order: getAttachmentOrderValue(normalized, 0) + offset,
+        };
+    });
+}
+
+function syncProductAttachmentsReference(productId = getCurrentProductId()) {
+    if (!productId) return;
+    const attachments = sortProductImagesByOrder((state.loadedAttachments || [])
+        .map(normalizeAttachment)
+        .filter((att) => att && att.product_id === productId));
+
+    const collections = ['products', 'dashboardProducts', 'transitProducts', 'stockOutProducts', 'logisticsProducts'];
+    collections.forEach((key) => {
+        const list = state[key];
+        if (!Array.isArray(list)) return;
+        const product = list.find((item) => item.id === productId);
+        if (product) product.attachments = attachments;
+    });
+}
+
+function buildProductImageEntries() {
+    return buildGalleryEntries({
+        attachments: state.loadedAttachments || [],
+        pendingAttachments: state.pendingAttachments || [],
+        currentImageUrl: state.currentImageUrl,
+        attachmentCategory: 'product',
+        acceptedTypes: ['image'],
+    });
+}
+
+function getTransitMediaEntries() {
+    return buildGalleryEntries({
+        attachments: state.loadedAttachments || [],
+        pendingAttachments: state.pendingAttachments || [],
+        attachmentCategory: 'reception',
+        acceptedTypes: ['image', 'video'],
+        fallbackOnlyWhenEmpty: false,
+    });
+}
+
+function getPrimaryImageEntry(preferredUrl = null) {
+    return getPrimaryGalleryEntry({
+        attachments: state.loadedAttachments || [],
+        pendingAttachments: state.pendingAttachments || [],
+        currentImageUrl: state.currentImageUrl,
+        attachmentCategory: 'product',
+        acceptedTypes: ['image'],
+    });
+}
+
+function renderAttachmentPreview(item) {
+    if ((item.type || item.file_type) === 'video') {
+        return `
+            <video src="${item.url}"></video>
+            <div class="video-indicator"><i class="fa-solid fa-play"></i></div>
+        `;
+    }
+
+    const badge = item.isPrimary
+        ? `<div class="video-indicator" style="background:rgba(16,185,129,0.9);"><i class="fa-solid fa-star"></i></div>`
+        : '';
+    return `<img src="${item.url}" alt="Anexo">${badge}`;
+}
+
+function renderAllAttachmentItems() {
+    const galleryList = document.getElementById('product-gallery-list');
+    const transitList = document.getElementById('transit-attachments-list');
+    if (galleryList) galleryList.innerHTML = '';
+    if (transitList) transitList.innerHTML = '';
+
+    const productEntries = buildProductImageEntries();
+    productEntries.forEach((entry, index) => renderAttachmentItem({
+        ...entry,
+        canMoveLeft: index > 0,
+        canMoveRight: index < productEntries.length - 1,
+    }));
+    getTransitMediaEntries().forEach((entry) => renderAttachmentItem(entry));
+}
+
+export function openCurrentProductGallery(preferredUrl = null) {
+    const entries = buildProductImageEntries();
+    if (!openViewerGallery(entries, preferredUrl)) {
+        showToast('Sem imagens disponíveis.', 'info');
+        return false;
+    }
+    return true;
+}
+
+export function setProductImagesState(product, attachments = []) {
+    if (product?.id) state.currentProductId = product.id;
+    state.loadedAttachments = sortProductImagesByOrder((attachments || []).map(normalizeAttachment));
+    state.currentImageUrl = getEntityPrimaryImageUrl({
+        attachments: state.loadedAttachments,
+        image_url: product?.image_url || null,
+    }, {
+        attachmentCategory: 'product',
+        acceptedTypes: ['image'],
+    });
+    state.mainImageFile = null;
+    syncProductAttachmentsReference(product?.id || getCurrentProductId());
+    syncProductImageReference(state.currentImageUrl);
+}
+
+function applyProductImageOrder(entries) {
+    const normalizedEntries = entries.map((entry, index) => ({
+        ...entry,
+        sort_order: index,
+        isPrimary: index === 0,
+    }));
+
+    state.loadedAttachments = (state.loadedAttachments || []).map((att) => {
+        const normalized = normalizeAttachment(att);
+        const match = normalizedEntries.find((entry) => entry.attachmentId === normalized.id);
+        return match ? { ...normalized, sort_order: match.sort_order } : normalized;
+    });
+
+    state.pendingAttachments = (state.pendingAttachments || []).map((att) => {
+        const normalized = normalizeAttachment(att);
+        const match = normalizedEntries.find((entry) => entry.pendingId === normalized.id);
+        return match ? { ...normalized, sort_order: match.sort_order } : normalized;
+    });
+
+    state.currentImageUrl = normalizedEntries[0]?.url || null;
+    state.mainImageFile = normalizedEntries[0]?.pendingId ? normalizedEntries[0].file || null : null;
+
+    return normalizedEntries;
+}
+
+async function persistAttachmentOrder(productId, entries) {
+    if (!productId) return;
+    const items = entries
+        .filter((entry) => entry.attachmentId)
+        .map((entry) => ({
+            id: entry.attachmentId,
+            sort_order: entry.sort_order,
+        }));
+
+    if (!items.length) return;
+
+    const { error } = await supabase.rpc('secure_reorder_attachments', {
+        p_user: state.currentUser.username,
+        p_pass: state.currentUser.password,
+        p_product_id: productId,
+        p_items: items,
+    });
+
+    if (error) throw error;
+}
+
+async function persistPrimaryImage(productId, imageUrl) {
+    if (!productId) return;
+    const trackedCollections = ['products', 'dashboardProducts', 'transitProducts', 'stockOutProducts', 'logisticsProducts'];
+    for (const key of trackedCollections) {
+        const list = state[key];
+        if (!Array.isArray(list)) continue;
+        const product = list.find((item) => item.id === productId);
+        if (product && product.image_url === imageUrl) return;
+    }
+
+    const { error } = await supabase.rpc('secure_update_product_field', {
+        p_user: state.currentUser.username,
+        p_pass: state.currentUser.password,
+        p_product_id: productId,
+        p_field: 'image_url',
+        p_value: imageUrl,
+    });
+
+    if (error) throw error;
+}
+
+export async function moveProductImage(entry, direction) {
+    const entries = buildProductImageEntries();
+    const currentIndex = entries.findIndex((item) => item.key === entry.key);
+    const targetIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= entries.length) return;
+
+    const reorderedEntries = [...entries];
+    const [movedEntry] = reorderedEntries.splice(currentIndex, 1);
+    reorderedEntries.splice(targetIndex, 0, movedEntry);
+
+    const normalizedEntries = applyProductImageOrder(reorderedEntries);
+    const productId = getCurrentProductId();
+
+    try {
+        if (productId) {
+            await persistAttachmentOrder(productId, normalizedEntries);
+            await persistPrimaryImage(productId, normalizedEntries[0]?.url || null);
+        }
+
+        await reconcileProductImages({
+            preferredUrl: normalizedEntries[targetIndex]?.url || state.currentImageUrl,
+            keepViewerSelection: true,
+        });
+    } catch (err) {
+        console.error('Error reordering images:', err);
+        await loadProductAttachments(productId);
+        showToast('Erro ao alterar a ordem das imagens.', 'error');
+        return;
+    }
+
+    showToast('Ordem das imagens atualizada.', 'success');
+}
+
+async function reconcileProductImages(options = {}) {
+    const {
+        preferredUrl = null,
+        persistPrimary = false,
+        keepViewerSelection = false,
+    } = options;
+
+    const productId = getCurrentProductId();
+    const { entries, primary } = getPrimaryImageEntry(preferredUrl);
+
+    state.currentImageUrl = primary?.url || null;
+    state.mainImageFile = primary?.pendingId ? primary.file || null : null;
+
+    syncProductAttachmentsReference(productId);
+    renderAllAttachmentItems();
+    await updateHeaderImage(state.currentImageUrl);
+
+    if (persistPrimary && productId) {
+        await persistPrimaryImage(productId, state.currentImageUrl);
+    }
+
+    if (keepViewerSelection && viewerOverlay?.classList.contains('open')) {
+        if (entries.length > 0) {
+            openCurrentProductGallery(preferredUrl || state.currentImageUrl);
+        } else {
+            closeViewer();
+        }
+    }
+}
+
 function setupAttachmentEvents() {
     const galleryInput = document.getElementById('gallery-upload');
     const transitInput = document.getElementById('transit-media-upload');
@@ -178,80 +461,60 @@ function setupAttachmentEvents() {
     }
 }
     
-window.handleMultipleFiles = async function (files, category, targetListId = null) {
+window.handleMultipleFiles = async function (files, category, targetListId = null, options = {}) {
     if (!files || files.length === 0) return;
 
-    const targetId = targetListId || (category === 'product' ? 'product-gallery-list' : 'transit-attachments-list');
-    const list = document.getElementById(targetId);
-
-    // Use state.currentProductId instead of DOM element
-    const productId = state.currentProductId;
+    const { promoteFirstImage = false } = options;
+    const productId = getCurrentProductId();
     const shouldAutoSave = !!productId;
-
-    const uploadPromises = [];
-
-    for (const file of files) {
-        const id = 'new-' + Math.random().toString(36).substr(2, 9);
-        const reader = new FileReader();
-
-        const uploadPromise = new Promise((resolve, reject) => {
-            reader.onload = async (ev) => {
-                try {
-                    const data = {
-                        id: id,
-                        file: file,
-                        url: ev.target.result,
-                        category: category,
-                        type: file.type.startsWith('video/') ? 'video' : 'image',
-                        isNew: true,
-                        targetListId: targetId
-                    };
-
-                    state.pendingAttachments.push(data);
-
-                    // Only render if we have a target list in the DOM (e.g. inside product modal)
-                    if (list) {
-                        renderAttachmentItem(data);
-                    }
-
-                    // Automatically set main image if empty and we are in product context
-                    if (category === 'product' && !state.currentImageUrl && !state.mainImageFile && data.type === 'image') {
-                        state.mainImageFile = file;
-                        updateHeaderImage(ev.target.result);
-                    }
-
-                    // Update Viewer if open
-                    if (viewerOverlay && viewerOverlay.classList.contains('open')) {
-                        if (!state.currentGallery) state.currentGallery = [];
-                        if (!state.currentGallery.includes(ev.target.result)) {
-                            state.currentGallery.push(ev.target.result);
-                        }
-                        state.galleryIndex = state.currentGallery.indexOf(ev.target.result);
-                        if (window.updateViewerFromGallery) window.updateViewerFromGallery();
-                    }
-
-                    // AUTO-SAVE: Upload immediately if editing existing product
-                    if (shouldAutoSave) {
-                        await autoSaveAttachment(data, productId);
-                    }
-                    resolve();
-                } catch (err) {
-                    console.error('Error processing file:', err);
-                    reject(err);
-                }
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
-
-        uploadPromises.push(uploadPromise);
+    const productImageCount = files.filter((file) => file.type.startsWith('image/')).length;
+    if (category === 'product' && promoteFirstImage && productImageCount > 0) {
+        shiftProductImageSortOrders(productImageCount);
     }
-    
-    // Wait for all uploads to complete
+    const existingMaxSortOrder = buildProductImageEntries()
+        .reduce((max, entry) => Math.max(max, getAttachmentOrderValue(entry, -1)), -1);
+
+    const preparedAttachments = await Promise.all(files.map((file, index) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            resolve({
+                id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                file,
+                url: ev.target.result,
+                category,
+                type: file.type.startsWith('video/') ? 'video' : 'image',
+                isNew: true,
+                targetListId,
+                insertedAt: Date.now() + index,
+                sort_order: category === 'product' && promoteFirstImage
+                    ? index
+                    : existingMaxSortOrder + index + 1,
+            });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    })));
+
+    preparedAttachments.forEach((attachment) => {
+        state.pendingAttachments.push(attachment);
+    });
+
+    const firstProductImage = preparedAttachments.find((attachment) => attachment.category === 'product' && attachment.type === 'image');
+    if (firstProductImage && (promoteFirstImage || !state.currentImageUrl)) {
+        state.currentImageUrl = firstProductImage.url;
+        state.mainImageFile = firstProductImage.file;
+    }
+
+    await reconcileProductImages({
+        preferredUrl: firstProductImage?.url || state.currentImageUrl,
+        keepViewerSelection: true,
+    });
+
     if (shouldAutoSave) {
         try {
-            await Promise.all(uploadPromises);
-            // Reload attachments from DB
+            for (const attachment of preparedAttachments) {
+                await autoSaveAttachment(attachment, productId);
+            }
             await loadProductAttachments(productId);
             showToast(`${files.length} imagem(ns) guardada(s).`, 'success');
         } catch (err) {
@@ -259,13 +522,12 @@ window.handleMultipleFiles = async function (files, category, targetListId = nul
             showToast('Erro ao guardar imagens.', 'error');
         }
     } else {
-        await Promise.all(uploadPromises);
         showToast(`${files.length} imagem(ns) adicionada(s).`, 'success');
     }
 };
 
-window.handleAttachmentSelectionFiles = async function (files, category) {
-    window.handleMultipleFiles(files, category);
+window.handleAttachmentSelectionFiles = async function (files, category, options = {}) {
+    window.handleMultipleFiles(files, category, null, options);
 };
 
 async function handleAttachmentSelection(e, category) {
@@ -286,18 +548,49 @@ function renderAttachmentItem(att) {
 
     const item = document.createElement('div');
     item.className = 'attachment-item';
-    item.id = `att-${att.id}`;
+    item.id = `att-${att.key || att.id}`;
+    item.innerHTML = renderAttachmentPreview(att);
 
-    if (att.type === 'video') {
-        item.innerHTML = `
-            <video src="${att.url}"></video>
-            <div class="video-indicator"><i class="fa-solid fa-play"></i></div>
-        `;
-    } else {
-        item.innerHTML = `<img src="${att.url}" alt="Anexo">`;
+    item.onclick = () => {
+        if (att.category === 'product') {
+            openCurrentProductGallery(att.url);
+        } else {
+            window.viewGenericImage(att.url);
+        }
+    };
+
+    if (att.category === 'product') {
+        const controls = document.createElement('div');
+        controls.className = 'attachment-controls';
+
+        const moveLeftBtn = document.createElement('button');
+        moveLeftBtn.className = 'attachment-action-btn move-left-btn';
+        moveLeftBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+        moveLeftBtn.setAttribute('type', 'button');
+        moveLeftBtn.disabled = !att.canMoveLeft;
+        moveLeftBtn.title = 'Mover para a esquerda';
+        moveLeftBtn.onclick = async (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            await moveProductImage(att, -1);
+        };
+
+        const moveRightBtn = document.createElement('button');
+        moveRightBtn.className = 'attachment-action-btn move-right-btn';
+        moveRightBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+        moveRightBtn.setAttribute('type', 'button');
+        moveRightBtn.disabled = !att.canMoveRight;
+        moveRightBtn.title = 'Mover para a direita';
+        moveRightBtn.onclick = async (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            await moveProductImage(att, 1);
+        };
+
+        controls.appendChild(moveLeftBtn);
+        controls.appendChild(moveRightBtn);
+        item.appendChild(controls);
     }
-
-    item.onclick = () => window.viewGenericImage(att.url);
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'remove-btn';
@@ -306,20 +599,29 @@ function renderAttachmentItem(att) {
     removeBtn.onclick = (e) => {
         e.stopPropagation();
         e.preventDefault();
-        if (att.isNew) {
-            state.pendingAttachments = state.pendingAttachments.filter(a => a.id !== att.id);
-            item.remove();
-            handleAttachmentRemoved(att);
+        if (att.category === 'product') {
+            removeProductImage(att);
+        } else if (att.pendingId || att.isNew) {
+            const pendingId = att.pendingId || att.id;
+            state.pendingAttachments = state.pendingAttachments.filter(a => a.id !== pendingId);
+            renderAllAttachmentItems();
         } else {
-            removeAttachment(att, item);
+            removeAttachment(att);
         }
     };
     item.appendChild(removeBtn);
     list.appendChild(item);
 }
 
-async function removeAttachment(att, element) {
-    if (!confirm('Deseja eliminar este anexo permanentemente?')) return;
+async function removeAttachment(att) {
+    const confirmed = await dialog.confirm({
+        title: 'Remover Anexo',
+        message: 'Deseja eliminar este anexo permanentemente?',
+        confirmText: 'Remover',
+        cancelText: 'Cancelar',
+        type: 'danger'
+    });
+    if (!confirmed) return;
     try {
         const { error } = await supabase.rpc('secure_delete_attachment', {
             p_user: state.currentUser.username,
@@ -327,15 +629,9 @@ async function removeAttachment(att, element) {
             p_id: att.id
         });
         if (error) throw error;
-        
-        element.remove();
+
         state.loadedAttachments = (state.loadedAttachments || []).filter(a => a.id !== att.id);
-        handleAttachmentRemoved(att);
-        
-        // Reload attachments from DB
-        if (state.currentProductId) {
-            await loadProductAttachments(state.currentProductId);
-        }
+        renderAllAttachmentItems();
         showToast('Imagem removida.', 'success');
     } catch (err) {
         console.error('Error removing attachment:', err);
@@ -384,12 +680,24 @@ async function autoSaveMainImage(productId) {
 
 async function autoSaveAttachment(att, productId) {
     try {
-        const fileName = `${att.category}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-        const { data: uploadData, error: uploadErr } = await supabase.storage.from('product-images').upload(fileName, att.file);
+        const localPreviewUrl = att.url;
+        const shouldBecomePrimary =
+            att.category === 'product' &&
+            att.type === 'image' &&
+            (!state.currentImageUrl || state.currentImageUrl === localPreviewUrl);
+
+        const extension = att.type === 'image' ? 'webp' : (att.file.name.split('.').pop() || 'bin');
+        const fileName = `${att.category}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}.${extension}`;
+        const uploadFile = att.type === 'image' ? await processImageForUpload(att.file) : att.file;
+        const { error: uploadErr } = await supabase.storage.from('product-images').upload(fileName, uploadFile);
 
         if (uploadErr) {
             console.error('Auto-save upload failed:', uploadErr);
             throw new Error(`Upload failed: ${uploadErr.message}`);
+        }
+
+        if (!state.pendingAttachments.some((candidate) => candidate.id === att.id)) {
+            return;
         }
 
         const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
@@ -400,7 +708,8 @@ async function autoSaveAttachment(att, productId) {
                 product_id: parseInt(productId),
                 url: publicUrl,
                 file_type: att.type,
-                category: att.category
+                category: att.category,
+                sort_order: att.sort_order,
             }
         });
 
@@ -408,18 +717,24 @@ async function autoSaveAttachment(att, productId) {
             console.error('Auto-save DB insert failed:', dbErr);
             throw new Error(`DB insert failed: ${dbErr.message}`);
         }
-        
-        // Update attachment with DB data
-        if (rpcData) {
-            att.id = rpcData.id;
-            att.isNew = false;
-            att.url = publicUrl;
-            state.loadedAttachments = state.loadedAttachments || [];
-            state.loadedAttachments.push(rpcData);
-        }
-        
-        // Remove from pending
+
         state.pendingAttachments = state.pendingAttachments.filter(a => a.id !== att.id);
+
+        if (rpcData) {
+            state.loadedAttachments = state.loadedAttachments || [];
+            state.loadedAttachments.push(normalizeAttachment(rpcData));
+        }
+
+        if (shouldBecomePrimary) {
+            state.currentImageUrl = publicUrl;
+            state.mainImageFile = null;
+            await persistPrimaryImage(productId, publicUrl);
+        }
+
+        await reconcileProductImages({
+            preferredUrl: shouldBecomePrimary ? publicUrl : state.currentImageUrl,
+            keepViewerSelection: true,
+        });
     } catch (err) {
         console.error('Auto-save error:', err);
         throw err;
@@ -429,24 +744,22 @@ async function autoSaveAttachment(att, productId) {
 async function loadProductAttachments(productId) {
     if (!productId) return;
 
-    const galleryList = document.getElementById('product-gallery-list');
-    const transitList = document.getElementById('transit-attachments-list');
-    if (galleryList) galleryList.innerHTML = '';
-    if (transitList) transitList.innerHTML = '';
-
     try {
         const { data, error } = await supabase.rpc('secure_fetch_any', {
             p_user: state.currentUser.username,
             p_pass: state.currentUser.password,
             p_table: 'attachments',
-            p_params: { eq: { product_id: productId } }
+            p_params: {
+                eq: { product_id: productId },
+                order: { column: 'sort_order', ascending: true }
+            }
         });
         if (error) throw error;
-        state.loadedAttachments = data || [];
-        (data || []).forEach(att => renderAttachmentItem(att));
-        if (!state.currentImageUrl && !state.mainImageFile) {
-            trySetFallbackImage({ preferExistingOnly: true });
-        }
+        state.loadedAttachments = sortProductImagesByOrder((data || []).map(normalizeAttachment));
+        await reconcileProductImages({
+            persistPrimary: true,
+            keepViewerSelection: true,
+        });
     } catch (err) {
         console.error('Error loading attachments:', err);
     }
@@ -482,7 +795,7 @@ export async function saveProduct() {
         pallet: document.getElementById('prod-pallet').value,
         box: document.getElementById('prod-box').value,
         cost_price: parseFloat(document.getElementById('prod-cost-price').value) || 0,
-        image_url: state.currentImageUrl,
+        image_url: state.currentImageUrl && !String(state.currentImageUrl).startsWith('data:') ? state.currentImageUrl : null,
         status: document.getElementById('force-transit-status') ? 'transit' : 'available',
         order_to: document.getElementById('prod-order-to')?.value || '',
         order_date: document.getElementById('prod-order-date')?.value || null,
@@ -492,24 +805,12 @@ export async function saveProduct() {
         delivery_time: document.getElementById('prod-del-time')?.value || ''
     };
 
-    const mainFile = state.mainImageFile;
     const btn = productForm.querySelector('button[type="submit"]');
 
     if (btn) { btn.disabled = true; btn.textContent = 'A guardar...'; }
 
     try {
-        // 1. Upload Main Header Image
-        if (mainFile) {
-            const fileName = `main-${Date.now()}.webp`;
-            const optimized = await processImageForUpload(mainFile);
-            const { error: upErr } = await supabase.storage.from('product-images').upload(fileName, optimized);
-            if (!upErr) {
-                const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
-                productData.image_url = publicUrl;
-            }
-        }
-
-        // 2. Upsert Product
+        // 1. Upsert Product
         if (isEditing) productData.id = parseInt(id);
         const { data: savedId, error: upsertErr } = await supabase.rpc('secure_save_product', {
             p_user: state.currentUser.username,
@@ -523,12 +824,17 @@ export async function saveProduct() {
         }
         const finalId = productData.id || savedId;
 
-        // 3. Upload Gallery/Transit Attachments
+        // 2. Upload Gallery/Transit Attachments
         if (state.pendingAttachments.length > 0) {
             let failCount = 0;
-            for (const att of state.pendingAttachments) {
-                const fileName = `${att.category}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-                const { error: attErr } = await supabase.storage.from('product-images').upload(fileName, att.file);
+            let firstProductImageUrl = productData.image_url;
+            const pendingQueue = sortProductImagesByOrder([...state.pendingAttachments]);
+
+            for (const att of pendingQueue) {
+                const extension = att.type === 'image' ? 'webp' : (att.file.name.split('.').pop() || 'bin');
+                const fileName = `${att.category}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}.${extension}`;
+                const uploadFile = att.type === 'image' ? await processImageForUpload(att.file) : att.file;
+                const { error: attErr } = await supabase.storage.from('product-images').upload(fileName, uploadFile);
 
                 if (attErr) {
                     console.error('Attachment upload failed for file:', att.file.name, attErr);
@@ -537,39 +843,40 @@ export async function saveProduct() {
                 }
 
                 const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
-                const { error: insErr } = await supabase.rpc('secure_add_attachment', {
+                const { data: savedAttachment, error: insErr } = await supabase.rpc('secure_add_attachment', {
                     p_user: state.currentUser.username,
                     p_pass: state.currentUser.password,
                     p_data: {
                         product_id: finalId,
                         url: publicUrl,
                         file_type: att.type,
-                        category: att.category
+                        category: att.category,
+                        sort_order: att.sort_order,
                     }
                 });
 
                 if (insErr) console.error('Database insert failed:', insErr);
+                if (savedAttachment) {
+                    state.loadedAttachments.push(normalizeAttachment(savedAttachment));
+                }
+                if (!firstProductImageUrl && att.category === 'product' && att.type === 'image') {
+                    firstProductImageUrl = publicUrl;
+                }
+            }
+
+            state.pendingAttachments = [];
+
+            if (firstProductImageUrl !== productData.image_url) {
+                await persistPrimaryImage(finalId, firstProductImageUrl || null);
+                state.currentImageUrl = firstProductImageUrl || null;
             }
             if (failCount > 0) showToast(`${failCount} imagens não foram guardadas (Erro Storage).`, 'warning');
         }
 
-        // 4. Movement Recording
-        await recordProductMovement(finalId, productData, isEditing);
+        await reconcileProductImages();
 
-        // Automatically promote another available image
-        if (state.mainImageFile) {
-            const pendingCandidate = getPendingProductImages()[0];
-            if (pendingCandidate) {
-                state.mainImageFile = pendingCandidate.file || null;
-                updateHeaderImage(pendingCandidate.url);
-            } else {
-                const existingCandidate = getLoadedProductImages()[0];
-                if (existingCandidate) {
-                    state.mainImageFile = null;
-                    updateHeaderImage(existingCandidate.url);
-                }
-            }
-        }
+        // 3. Movement Recording
+        await recordProductMovement(finalId, productData, isEditing);
 
         showToast('Guardado com sucesso!', 'success');
         closeModal();
@@ -633,129 +940,71 @@ export async function updateHeaderImage(src, autoSave = false) {
         imageContainer.classList.remove('has-image');
     }
     syncProductImageReference(state.currentImageUrl);
-    
-    // Auto-save if editing existing product and autoSave flag is true
-    if (autoSave && state.mainImageFile) {
-        const productId = document.getElementById('prod-id')?.value;
-        if (productId) {
-            await autoSaveMainImage(productId);
-        }
+    if (autoSave) {
+        await reconcileProductImages({
+            persistPrimary: !!getCurrentProductId(),
+            keepViewerSelection: true,
+        });
     }
 }
 
 export async function removeMainImage() {
-    const currentViewerUrl = state.currentGallery && state.currentGallery[state.galleryIndex];
-    
-    if (!currentViewerUrl || !state.currentProductId) {
+    const currentViewerItem = state.currentGallery && state.currentGallery[state.galleryIndex];
+    const currentViewerUrl = typeof currentViewerItem === 'string' ? currentViewerItem : currentViewerItem?.url;
+
+    if (!currentViewerUrl) {
         showToast('Nenhuma imagem para remover.', 'info');
         return;
     }
-    
-    const currentAttachment = state.loadedAttachments?.find(att => att.url === currentViewerUrl);
-    if (!currentAttachment) {
-        showToast('Imagem não encontrada.', 'error');
-        return;
-    }
-    
+
+    const currentEntry = buildProductImageEntries().find((entry) => entry.url === currentViewerUrl);
+    if (!currentEntry) return showToast('Imagem não encontrada.', 'error');
+
+    await removeProductImage(currentEntry);
+}
+
+async function removeProductImage(entry) {
+    const confirmed = await dialog.confirm({
+        title: 'Remover Imagem',
+        message: 'Deseja eliminar esta imagem permanentemente?',
+        confirmText: 'Remover',
+        cancelText: 'Cancelar',
+        type: 'danger'
+    });
+    if (!confirmed) return;
+
+    const productId = getCurrentProductId();
+    const removingPrimary = state.currentImageUrl === entry.url;
+
     try {
-        // If it's the main image (first in gallery)
-        if (currentAttachment.isMainImage) {
-            await supabase.rpc('secure_update_product_field', {
+        if (entry.attachmentId) {
+            const { error } = await supabase.rpc('secure_delete_attachment', {
                 p_user: state.currentUser.username,
                 p_pass: state.currentUser.password,
-                p_product_id: parseInt(state.currentProductId),
-                p_field: 'image_url',
-                p_value: null
+                p_id: entry.attachmentId
             });
-        } else {
-            // It's a gallery attachment
-            await supabase.rpc('secure_delete_attachment', {
-                p_user: state.currentUser.username,
-                p_pass: state.currentUser.password,
-                p_id: currentAttachment.id
-            });
+            if (error) throw error;
+            state.loadedAttachments = (state.loadedAttachments || []).filter((att) => att.id !== entry.attachmentId);
         }
-        
-        // Refresh product data from DB
-        const { data: updatedProduct } = await supabase.rpc('secure_fetch_any', {
-            p_user: state.currentUser.username,
-            p_pass: state.currentUser.password,
-            p_table: 'products',
-            p_params: { eq: { id: state.currentProductId } }
+
+        if (entry.pendingId) {
+            state.pendingAttachments = (state.pendingAttachments || []).filter((att) => att.id !== entry.pendingId);
+        }
+
+        if (removingPrimary) {
+            const remainingEntries = buildProductImageEntries().filter((item) => item.url !== entry.url);
+            const nextPrimaryUrl = remainingEntries[0]?.url || null;
+            state.currentImageUrl = nextPrimaryUrl;
+            state.mainImageFile = remainingEntries[0]?.pendingId ? remainingEntries[0].file || null : null;
+
+            if (productId) {
+                await persistPrimaryImage(productId, nextPrimaryUrl);
+            }
+        }
+
+        await reconcileProductImages({
+            keepViewerSelection: true,
         });
-        
-        if (updatedProduct && updatedProduct[0]) {
-            const product = updatedProduct[0];
-            
-            // Update header image
-            const headerImg = document.getElementById('header-image-container');
-            if (headerImg) {
-                const img = headerImg.querySelector('img');
-                if (product.image_url) {
-                    if (img) {
-                        img.src = product.image_url;
-                    } else {
-                        headerImg.innerHTML = `<img src="${product.image_url}" alt="Produto">`;
-                    }
-                } else {
-                    headerImg.innerHTML = '<div class="no-image-placeholder">Sem imagem</div>';
-                }
-            }
-            
-            // Reload attachments to refresh viewer-image-box (gallery thumbnails)
-            await loadProductAttachments(state.currentProductId);
-            
-            // Fetch fresh attachments for viewer update
-            const { data: freshAttachments } = await supabase.rpc('secure_fetch_any', {
-                p_user: state.currentUser.username,
-                p_pass: state.currentUser.password,
-                p_table: 'attachments',
-                p_params: { eq: { product_id: state.currentProductId } }
-            });
-            
-            // Update viewer-img directly if viewer is open
-            const viewerOverlay = document.getElementById('viewer-overlay');
-            if (viewerOverlay && viewerOverlay.classList.contains('open')) {
-                const viewerImg = document.getElementById('viewer-img');
-                
-                // Build new gallery
-                let newGallery = [];
-                if (product.image_url) newGallery.push(product.image_url);
-                if (freshAttachments) {
-                    freshAttachments.forEach(a => {
-                        if (a.file_type === 'image') newGallery.push(a.url);
-                    });
-                }
-                
-                if (newGallery.length > 0) {
-                    // Update state and viewer
-                    state.currentGallery = newGallery;
-                    state.galleryIndex = 0;
-                    if (viewerImg) viewerImg.src = newGallery[0];
-                    
-                    // Update counter
-                    const counter = document.getElementById('viewer-counter');
-                    if (counter) counter.textContent = `1 / ${newGallery.length}`;
-                } else {
-                    // No images left, close viewer
-                    viewerOverlay.classList.remove('open');
-                }
-            }
-            
-            // Update grid if exists (includes cell-image) - force complete refresh
-            if (window.gridApi) {
-                const rowNode = window.gridApi.getRowNode(state.currentProductId);
-                if (rowNode) {
-                    rowNode.setData(product);
-                    window.gridApi.refreshCells({ 
-                        rowNodes: [rowNode], 
-                        force: true,
-                        suppressFlash: false 
-                    });
-                }
-            }
-        }
-        
         showToast('Imagem removida.', 'success');
     } catch (err) {
         console.error('Error removing image:', err);
@@ -763,50 +1012,8 @@ export async function removeMainImage() {
     }
 }
 
-function handleAttachmentRemoved(att) {
-    const matchesFile = att.file && state.mainImageFile === att.file;
-    const matchesUrl = att.url && state.currentImageUrl === att.url;
-    if (!matchesFile && !matchesUrl) return;
-    state.mainImageFile = null;
-    state.currentImageUrl = null;
-    if (!trySetFallbackImage()) {
-        updateHeaderImage(null);
-    }
-}
-
-function trySetFallbackImage(options = {}) {
-    const { preferExistingOnly = false } = options;
-    if (!preferExistingOnly) {
-        const pendingCandidate = getPendingProductImages()[0];
-        if (pendingCandidate) {
-            state.mainImageFile = pendingCandidate.file || null;
-            updateHeaderImage(pendingCandidate.url);
-            return true;
-        }
-    }
-
-    const existingCandidate = getLoadedProductImages()[0];
-    if (existingCandidate) {
-        state.mainImageFile = null;
-        updateHeaderImage(existingCandidate.url);
-        return true;
-    }
-
-    return false;
-}
-
-function getPendingProductImages() {
-    return (state.pendingAttachments || []).filter(att => att.category === 'product' && att.type === 'image');
-}
-
-function getLoadedProductImages() {
-    return (state.loadedAttachments || []).filter(att => (att.category || 'product') === 'product' && att.file_type === 'image');
-}
-
 function syncProductImageReference(newUrl) {
-    const idInput = document.getElementById('prod-id');
-    const rawId = idInput?.value || state.currentProductId;
-    const productId = rawId ? parseInt(rawId, 10) : null;
+    const productId = getCurrentProductId();
     if (!productId) return;
     const collections = ['products', 'dashboardProducts', 'transitProducts', 'stockOutProducts', 'logisticsProducts'];
     collections.forEach(key => {
@@ -815,6 +1022,10 @@ function syncProductImageReference(newUrl) {
         const item = list.find(p => p.id === productId);
         if (item) item.image_url = newUrl;
     });
+
+    if (state.currentPage === 'inventory') {
+        loadInventory({ skipRefetch: true });
+    }
 }
 
 export function printCurrentProduct() {

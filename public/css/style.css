@@ -1038,7 +1038,41 @@ h2 {
     transition: opacity 0.2s;
 }
 
+.attachment-item .attachment-controls {
+    position: absolute;
+    left: 2px;
+    right: 24px;
+    bottom: 2px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.attachment-item .attachment-action-btn {
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.82);
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.65rem;
+}
+
+.attachment-item .attachment-action-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
 .attachment-item:hover .remove-btn {
+    opacity: 1;
+}
+
+.attachment-item:hover .attachment-controls {
     opacity: 1;
 }
 

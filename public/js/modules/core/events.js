@@ -4,20 +4,40 @@ import { showToast, showGlobalLoading, hideGlobalLoading } from './ui.js';
 import { views, modal, scannerModal, productForm, imageContainer, imageInput, viewerOverlay, viewerImg, btnAddProduct, searchInput, qsModal } from './dom.js';
 import { loadInventory, updateFilterOptions, renderProducts } from '../inventory.js';
 import { navigateTo } from '../views/views.js';
-import { openEditModal, saveProduct, updateHeaderImage, removeMainImage, openModal, closeModal, printCurrentProduct } from '../products.js';
+import {
+    openEditModal,
+    saveProduct,
+    updateHeaderImage,
+    removeMainImage,
+    openModal,
+    closeModal,
+    printCurrentProduct,
+    openCurrentProductGallery,
+    setProductImagesState,
+    moveProductImage
+} from '../products.js';
 import { closeViewer, openViewer } from '../ag-grid-shim.js';
 import { login, logout } from '../auth.js';
 import { printPalletLabel, printBoxLabel } from '../printing.js';
 import { dialog } from '../ui/dialogs-original.js';
 import { openUserModal } from '../admin.js';
+import { openViewerGallery } from '../gallery.js';
+
+function openImageSourcePicker() {
+    state.imageTarget = 'header';
+    const sourceModal = document.getElementById('image-source-modal');
+    if (sourceModal) {
+        sourceModal.classList.add('open');
+    } else if (imageInput) {
+        imageInput.click();
+    }
+}
 
 // Global actions shim
 // Global actions shim
 window.openProductGallery = async (productId) => {
     if (!productId) return;
     try {
-        // Fetch product main image + all attachments
-        // Fetch product main image + all attachments via SECURE RPC
         const { data: products } = await supabase.rpc('secure_fetch_any', {
             p_user: state.currentUser.username,
             p_pass: state.currentUser.password,
@@ -30,42 +50,25 @@ window.openProductGallery = async (productId) => {
             p_user: state.currentUser.username,
             p_pass: state.currentUser.password,
             p_table: 'attachments',
-            p_params: { eq: { product_id: productId } }
+            p_params: {
+                eq: { product_id: productId },
+                order: { column: 'sort_order', ascending: true }
+            }
         });
 
-        // Build gallery: main image first, then attachments
-        let images = [];
-        let allAttachments = [];
-        
-        // Add main image as first item if exists
-        if (product && product.image_url) {
-            images.push(product.image_url);
-            allAttachments.push({ 
-                url: product.image_url, 
-                isMainImage: true,
-                product_id: productId 
-            });
-        }
-        
-        // Add gallery attachments
-        if (attachments) {
-            attachments.forEach(a => {
-                if (a.file_type === 'image') {
-                    images.push(a.url);
-                    allAttachments.push({ ...a, isMainImage: false });
-                }
-            });
+        const hasMedia = !!product?.image_url || (attachments || []).some((att) => {
+            const type = att?.file_type || att?.type;
+            return !!att?.url && (type === 'image' || type === 'video');
+        });
+
+        if (!hasMedia && product) {
+            openEditModal(product);
+            openImageSourcePicker();
+            return;
         }
 
-        if (images.length === 0) return showToast('Sem imagens disponíveis.', 'info');
-
-        // Populate state - first image is always main
-        state.loadedAttachments = allAttachments;
-        state.currentGallery = images;
-        state.galleryIndex = 0;
-        state.currentProductId = productId;
-        updateViewerFromGallery();
-        viewerOverlay.classList.add('open');
+        setProductImagesState(product, attachments || []);
+        openCurrentProductGallery();
     } catch (err) {
         console.error(err);
         showToast('Erro ao carregar galeria.', 'error');
@@ -74,15 +77,14 @@ window.openProductGallery = async (productId) => {
 
 window.viewGenericImage = (url) => {
     if (!url) return;
-    state.currentGallery = [url];
-    state.galleryIndex = 0;
-    updateViewerFromGallery();
-    viewerOverlay.classList.add('open');
+    openViewerGallery([{ key: `generic:${url}`, url, category: 'generic' }]);
 };
 
 function updateViewerFromGallery() {
     if (!state.currentGallery || !state.currentGallery.length) return;
-    const url = state.currentGallery[state.galleryIndex];
+    const currentItem = state.currentGallery[state.galleryIndex];
+    const url = typeof currentItem === 'string' ? currentItem : currentItem?.url;
+    if (!url) return;
     viewerImg.src = url;
 
     const counter = document.getElementById('viewer-counter');
@@ -93,8 +95,40 @@ function updateViewerFromGallery() {
     const nextBtn = document.getElementById('viewer-next');
     if (prevBtn) prevBtn.style.display = state.currentGallery.length > 1 ? 'flex' : 'none';
     if (nextBtn) nextBtn.style.display = state.currentGallery.length > 1 ? 'flex' : 'none';
+
+    const canReorder =
+        !!currentItem &&
+        typeof currentItem === 'object' &&
+        currentItem.category === 'product' &&
+        state.currentGallery.length > 1 &&
+        (!!currentItem.attachmentId || !!currentItem.pendingId);
+    const canDelete =
+        !!currentItem &&
+        typeof currentItem === 'object' &&
+        currentItem.category === 'product';
+
+    const moveLeftBtn = document.getElementById('btn-move-image-left');
+    const moveRightBtn = document.getElementById('btn-move-image-right');
+    const deleteBtn = document.getElementById('btn-delete-image');
+
+    if (moveLeftBtn) moveLeftBtn.disabled = !canReorder || state.galleryIndex === 0;
+    if (moveRightBtn) moveRightBtn.disabled = !canReorder || state.galleryIndex === state.currentGallery.length - 1;
+    if (deleteBtn) deleteBtn.disabled = !canDelete;
 }
 window.updateViewerFromGallery = updateViewerFromGallery;
+
+function setViewerActionsExpanded(expanded) {
+    const actions = document.getElementById('viewer-actions-minimal');
+    const toggleBtn = document.getElementById('btn-toggle-viewer-actions');
+    if (!actions || !toggleBtn) return;
+
+    actions.classList.toggle('collapsed', !expanded);
+    toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    toggleBtn.title = expanded ? 'Recolher ações' : 'Expandir ações';
+    toggleBtn.innerHTML = expanded
+        ? '<i class="fa-solid fa-chevron-right"></i>'
+        : '<i class="fa-solid fa-ellipsis"></i>';
+}
 
 function nextGalleryImage() {
     if (!state.currentGallery) return;
@@ -111,6 +145,8 @@ function prevGalleryImage() {
 let html5QrcodeScanner = null;
 
 export function setupEventListeners() {
+    setViewerActionsExpanded(false);
+
     // Cookie helpers for Sidebar
     const setCookie = (name, val, days = 365) => {
         const d = new Date();
@@ -415,24 +451,10 @@ export function setupEventListeners() {
 
         if (!state.currentImageUrl && !hasExtraImages) {
             // Open Source Picker
-            state.imageTarget = 'header';
-            const sourceModal = document.getElementById('image-source-modal');
-            if (sourceModal) sourceModal.classList.add('open');
-            else imageInput.click(); // Fallback
+            openImageSourcePicker();
             return;
         }
-
-        const gallery = [];
-        if (state.currentImageUrl) gallery.push(state.currentImageUrl);
-
-        document.querySelectorAll('#product-gallery-list img, #transit-attachments-list img, #product-gallery-list video, #transit-attachments-list video').forEach(el => {
-            if (!gallery.includes(el.src)) gallery.push(el.src);
-        });
-
-        state.currentGallery = gallery;
-        state.galleryIndex = 0;
-        window.updateViewerFromGallery();
-        viewerOverlay.classList.add('open');
+        openCurrentProductGallery();
     });
 
     // Image Source Modal Handlers (CORRECTED)
@@ -441,17 +463,25 @@ export function setupEventListeners() {
         // Camera Button
         const btnCam = document.getElementById('btn-source-camera');
         if (btnCam) {
-            btnCam.onclick = () => {
+            btnCam.onclick = async () => {
                 sourceMo.classList.remove('open');
                 const cam = document.getElementById('prod-camera-input');
                 if (cam) {
                     try {
                         cam.click();
                     } catch (e) {
-                        alert('Erro CAM: ' + e.message);
+                        await dialog.alert({
+                            title: 'Erro na Camara',
+                            message: `Nao foi possivel abrir a camara.\n${e.message}`,
+                            type: 'danger'
+                        });
                     }
                 } else {
-                    alert('Erro: Input de câmara não encontrado');
+                    await dialog.alert({
+                        title: 'Camara Indisponivel',
+                        message: 'Input de camara nao encontrado.',
+                        type: 'danger'
+                    });
                 }
             };
         }
@@ -459,16 +489,24 @@ export function setupEventListeners() {
         // Gallery Button
         const btnGal = document.getElementById('btn-source-gallery');
         if (btnGal) {
-            btnGal.onclick = () => {
+            btnGal.onclick = async () => {
                 sourceMo.classList.remove('open');
                 if (imageInput) {
                     try {
                         imageInput.click();
                     } catch (e) {
-                        alert('Erro GAL: ' + e.message);
+                        await dialog.alert({
+                            title: 'Erro na Galeria',
+                            message: `Nao foi possivel abrir a galeria.\n${e.message}`,
+                            type: 'danger'
+                        });
                     }
                 } else {
-                    alert('Erro: Input de galeria não encontrado');
+                    await dialog.alert({
+                        title: 'Galeria Indisponivel',
+                        message: 'Input de galeria nao encontrado.',
+                        type: 'danger'
+                    });
                 }
             };
         }
@@ -482,12 +520,23 @@ export function setupEventListeners() {
     }
 
     const btnCloseViewer = document.getElementById('btn-close-viewer-x');
-    if (btnCloseViewer) btnCloseViewer.onclick = closeViewer;
+    if (btnCloseViewer) btnCloseViewer.onclick = () => {
+        setViewerActionsExpanded(false);
+        closeViewer();
+    };
 
     const btnCloseViewerTop = document.getElementById('btn-close-viewer-top');
-    if (btnCloseViewerTop) btnCloseViewerTop.onclick = closeViewer;
+    if (btnCloseViewerTop) btnCloseViewerTop.onclick = () => {
+        setViewerActionsExpanded(false);
+        closeViewer();
+    };
 
-    if (viewerOverlay) viewerOverlay.addEventListener('click', (e) => { if (e.target === viewerOverlay) closeViewer(); });
+    if (viewerOverlay) viewerOverlay.addEventListener('click', (e) => {
+        if (e.target === viewerOverlay) {
+            setViewerActionsExpanded(false);
+            closeViewer();
+        }
+    });
 
     // Carousel Nav
     const btnPrev = document.getElementById('viewer-prev');
@@ -495,12 +544,45 @@ export function setupEventListeners() {
     if (btnPrev) btnPrev.onclick = (e) => { e.stopPropagation(); prevGalleryImage(); };
     if (btnNext) btnNext.onclick = (e) => { e.stopPropagation(); nextGalleryImage(); };
 
+    const btnToggleViewerActions = document.getElementById('btn-toggle-viewer-actions');
+    if (btnToggleViewerActions) {
+        btnToggleViewerActions.onclick = (e) => {
+            e.stopPropagation();
+            const actions = document.getElementById('viewer-actions-minimal');
+            const isCollapsed = actions?.classList.contains('collapsed');
+            setViewerActionsExpanded(!!isCollapsed);
+        };
+    }
+
+    const btnMoveImageLeft = document.getElementById('btn-move-image-left');
+    if (btnMoveImageLeft) {
+        btnMoveImageLeft.onclick = async (e) => {
+            e.stopPropagation();
+            const currentItem = state.currentGallery?.[state.galleryIndex];
+            if (!currentItem || typeof currentItem !== 'object') return;
+            await moveProductImage(currentItem, -1);
+        };
+    }
+
+    const btnMoveImageRight = document.getElementById('btn-move-image-right');
+    if (btnMoveImageRight) {
+        btnMoveImageRight.onclick = async (e) => {
+            e.stopPropagation();
+            const currentItem = state.currentGallery?.[state.galleryIndex];
+            if (!currentItem || typeof currentItem !== 'object') return;
+            await moveProductImage(currentItem, 1);
+        };
+    }
+
     // Keyboard Nav for viewer
     document.addEventListener('keydown', (e) => {
         if (!viewerOverlay.classList.contains('open')) return;
         if (e.key === 'ArrowRight') nextGalleryImage();
         if (e.key === 'ArrowLeft') prevGalleryImage();
-        if (e.key === 'Escape') closeViewer();
+        if (e.key === 'Escape') {
+            setViewerActionsExpanded(false);
+            closeViewer();
+        }
     });
 
     if (imageInput) imageInput.addEventListener('change', (e) => {
@@ -510,37 +592,14 @@ export function setupEventListeners() {
         const category = state.currentTransitId ? 'reception' : 'product';
 
         if (state.imageTarget === 'gallery') {
-            // Process all as gallery additions
             if (window.handleAttachmentSelectionFiles) {
                 window.handleAttachmentSelectionFiles(files, category);
             }
         } else {
-            // Default target is 'header' (first image goes to header)
-            state.mainImageFile = files[0];
-            const reader = new FileReader();
-            reader.onload = async (ev) => {
-                const productId = document.getElementById('prod-id')?.value;
-                await updateHeaderImage(ev.target.result, !!productId);
-                if (viewerOverlay.classList.contains('open')) {
-                    if (!state.currentGallery) state.currentGallery = [];
-                    if (!state.currentGallery.includes(ev.target.result)) {
-                        state.currentGallery.push(ev.target.result);
-                    }
-                    state.galleryIndex = state.currentGallery.indexOf(ev.target.result);
-                    if (window.updateViewerFromGallery) window.updateViewerFromGallery();
-                }
-                if (!productId) {
-                    showToast('Imagem principal definida com sucesso!', 'success');
-                }
-            };
-            reader.readAsDataURL(files[0]);
-
-            // Remaining images go to gallery
-            if (files.length > 1) {
-                const extraFiles = files.slice(1);
-                if (window.handleAttachmentSelectionFiles) {
-                    window.handleAttachmentSelectionFiles(extraFiles, category);
-                }
+            if (window.handleAttachmentSelectionFiles) {
+                window.handleAttachmentSelectionFiles(files, category, {
+                    promoteFirstImage: true,
+                });
             }
         }
 
@@ -565,9 +624,7 @@ export function setupEventListeners() {
     const btnDelImg = document.getElementById('btn-delete-image');
     if (btnDelImg) {
         btnDelImg.onclick = async () => {
-            if (confirm('Tem a certeza que deseja apagar a imagem?')) {
-                await removeMainImage();
-            }
+            await removeMainImage();
         };
     }
 
@@ -585,14 +642,11 @@ export function setupEventListeners() {
                     window.handleAttachmentSelectionFiles([file], category);
                 }
             } else {
-                state.mainImageFile = file;
-                if (imageInput) imageInput.value = ''; // clear other
-                const reader = new FileReader();
-                reader.onload = async (ev) => {
-                    const productId = document.getElementById('prod-id')?.value;
-                    await updateHeaderImage(ev.target.result, !!productId);
-                };
-                reader.readAsDataURL(file);
+                if (window.handleAttachmentSelectionFiles) {
+                    window.handleAttachmentSelectionFiles([file], category, {
+                        promoteFirstImage: true,
+                    });
+                }
             }
             e.target.value = '';
             state.imageTarget = null;
@@ -1266,7 +1320,16 @@ async function showMappingModal(sheet, excelColumns) {
                 p_pass: state.currentUser.password,
                 p_target: 'products',
                 p_items: items,
-                p_label: 'Importação Excel (Manual)'
+                p_label: 'Importação Excel (Manual)',
+                p_summary: `${items.length} itens importados via Excel manual para Inventario`,
+                p_details: {
+                    source: 'excel_manual',
+                    source_label: 'Excel Manual',
+                    destination: 'inventory',
+                    destination_label: 'Inventario',
+                    file_name: file.name,
+                    table: 'products'
+                }
             });
 
             if (error) throw error;
