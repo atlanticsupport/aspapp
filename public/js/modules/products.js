@@ -304,36 +304,28 @@ function renderAttachmentItem(att) {
     removeBtn.innerHTML = '&times;';
     removeBtn.setAttribute('type', 'button');
     removeBtn.onclick = (e) => {
-        console.log('REMOVE BTN CLICKED!', att.id, 'isNew:', att.isNew);
         e.stopPropagation();
         e.preventDefault();
         if (att.isNew) {
-            console.log('Removing new attachment from pending');
             state.pendingAttachments = state.pendingAttachments.filter(a => a.id !== att.id);
             item.remove();
             handleAttachmentRemoved(att);
         } else {
-            console.log('Calling removeAttachment for existing attachment');
             removeAttachment(att, item);
         }
     };
     item.appendChild(removeBtn);
     list.appendChild(item);
-    console.log('Attachment item rendered with remove button:', att.id);
 }
 
 async function removeAttachment(att, element) {
-    console.log('removeAttachment called, att.id:', att.id);
     if (!confirm('Deseja eliminar este anexo permanentemente?')) return;
-    console.log('User confirmed deletion');
     try {
-        console.log('Calling secure_delete_attachment RPC...');
-        const { data, error } = await supabase.rpc('secure_delete_attachment', {
+        const { error } = await supabase.rpc('secure_delete_attachment', {
             p_user: state.currentUser.username,
             p_pass: state.currentUser.password,
             p_id: att.id
         });
-        console.log('RPC response - data:', data, 'error:', error);
         if (error) throw error;
         
         element.remove();
@@ -342,13 +334,12 @@ async function removeAttachment(att, element) {
         
         // Reload attachments from DB
         if (state.currentProductId) {
-            console.log('Reloading attachments for product:', state.currentProductId);
             await loadProductAttachments(state.currentProductId);
         }
         showToast('Imagem removida.', 'success');
     } catch (err) {
         console.error('Error removing attachment:', err);
-        showToast('Erro ao remover imagem: ' + err.message, 'error');
+        showToast('Erro ao remover imagem.', 'error');
     }
 }
 
@@ -653,15 +644,13 @@ export async function updateHeaderImage(src, autoSave = false) {
 }
 
 export async function removeMainImage() {
-    const productId = document.getElementById('prod-id')?.value;
-    
     // Auto-save: clear main image in DB if editing existing product
-    if (productId && state.currentImageUrl) {
+    if (state.currentProductId && state.currentImageUrl) {
         try {
             await supabase.rpc('secure_update_product_field', {
                 p_user: state.currentUser.username,
                 p_pass: state.currentUser.password,
-                p_product_id: parseInt(productId),
+                p_product_id: parseInt(state.currentProductId),
                 p_field: 'image_url',
                 p_value: null
             });
