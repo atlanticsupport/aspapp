@@ -23,18 +23,27 @@ import { initPhcImport } from './modules/phc/index.js';
 import { supabase, initSupabase } from './modules/supabase-client.js';
 export { supabase };
 
+// Legacy handler registry (backward compatibility for inline onclick)
+import { registerLegacyHandlers, exposeToWindow } from './modules/legacy-handlers.js';
+
 // 1. Start Supabase Init IMMEDIATELY (Don't wait for DOM)
 const supabasePromise = initSupabase();
 
-// Attach functions to window for onclick handlers in HTML
-window.navigateTo = navigateTo;
-window.logout = logout;
-Object.assign(window, inventoryLogic);
-Object.assign(window, productsLogic);
-Object.assign(window, historyLogic);
-Object.assign(window, adminLogic);
-Object.assign(window, printingLogic);
-Object.assign(window, shimLogic);
+// 2. Register legacy handlers for backward compatibility with inline onclick handlers
+// This maintains full compatibility while organizing code better
+registerLegacyHandlers({
+    navigateTo,
+    logout,
+    ...inventoryLogic,
+    ...productsLogic,
+    ...historyLogic,
+    ...adminLogic,
+    ...printingLogic,
+    ...shimLogic
+});
+
+// Expose handlers to window for inline onclick support
+exposeToWindow();
 
 // App Initialization
 document.addEventListener('DOMContentLoaded', async () => {
