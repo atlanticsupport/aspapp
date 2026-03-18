@@ -644,8 +644,13 @@ export async function updateHeaderImage(src, autoSave = false) {
 }
 
 export async function removeMainImage() {
+    console.log('[REMOVE] removeMainImage called');
+    
     // Get the currently visible image in the viewer
     const currentViewerUrl = state.currentGallery && state.currentGallery[state.galleryIndex];
+    console.log('[REMOVE] currentViewerUrl:', currentViewerUrl);
+    console.log('[REMOVE] state.currentImageUrl:', state.currentImageUrl);
+    console.log('[REMOVE] state.loadedAttachments:', state.loadedAttachments);
     
     if (!currentViewerUrl) {
         showToast('Nenhuma imagem para remover.', 'info');
@@ -654,16 +659,19 @@ export async function removeMainImage() {
     
     // Check if it's the main product image
     if (currentViewerUrl === state.currentImageUrl) {
+        console.log('[REMOVE] Removing main product image');
         // Remove main image from product
         if (state.currentProductId) {
             try {
-                await supabase.rpc('secure_update_product_field', {
+                console.log('[REMOVE] Calling secure_update_product_field RPC');
+                const result = await supabase.rpc('secure_update_product_field', {
                     p_user: state.currentUser.username,
                     p_pass: state.currentUser.password,
                     p_product_id: parseInt(state.currentProductId),
                     p_field: 'image_url',
                     p_value: null
                 });
+                console.log('[REMOVE] RPC result:', result);
             } catch (err) {
                 console.error('Error removing main image:', err);
                 showToast('Erro ao remover imagem.', 'error');
@@ -674,27 +682,35 @@ export async function removeMainImage() {
         state.currentImageUrl = null;
         updateHeaderImage(null);
     } else {
+        console.log('[REMOVE] Removing gallery attachment');
         // It's a gallery attachment - find and remove it
         const attachment = state.loadedAttachments?.find(att => att.url === currentViewerUrl);
+        console.log('[REMOVE] Found attachment:', attachment);
         
         if (attachment && state.currentProductId) {
             try {
-                await supabase.rpc('secure_delete_attachment', {
+                console.log('[REMOVE] Calling secure_delete_attachment RPC for id:', attachment.id);
+                const result = await supabase.rpc('secure_delete_attachment', {
                     p_user: state.currentUser.username,
                     p_pass: state.currentUser.password,
                     p_id: attachment.id
                 });
+                console.log('[REMOVE] RPC result:', result);
                 
                 // Remove from state
                 state.loadedAttachments = state.loadedAttachments.filter(a => a.id !== attachment.id);
+                console.log('[REMOVE] Reloading attachments for product:', state.currentProductId);
                 
                 // Reload attachments
                 await loadProductAttachments(state.currentProductId);
+                console.log('[REMOVE] Attachments reloaded');
             } catch (err) {
                 console.error('Error removing attachment:', err);
                 showToast('Erro ao remover imagem.', 'error');
                 return;
             }
+        } else {
+            console.warn('[REMOVE] No attachment found or no productId');
         }
     }
     
