@@ -33,19 +33,34 @@ window.openProductGallery = async (productId) => {
             p_params: { eq: { product_id: productId } }
         });
 
+        // Build gallery: main image first, then attachments
         let images = [];
-        if (product && product.image_url) images.push(product.image_url);
+        let allAttachments = [];
+        
+        // Add main image as first item if exists
+        if (product && product.image_url) {
+            images.push(product.image_url);
+            allAttachments.push({ 
+                url: product.image_url, 
+                isMainImage: true,
+                product_id: productId 
+            });
+        }
+        
+        // Add gallery attachments
         if (attachments) {
             attachments.forEach(a => {
-                if (a.file_type === 'image') images.push(a.url);
+                if (a.file_type === 'image') {
+                    images.push(a.url);
+                    allAttachments.push({ ...a, isMainImage: false });
+                }
             });
         }
 
         if (images.length === 0) return showToast('Sem imagens disponíveis.', 'info');
 
-        // Populate state with attachments and current image
-        state.loadedAttachments = attachments || [];
-        state.currentImageUrl = product?.image_url || null;
+        // Populate state - first image is always main
+        state.loadedAttachments = allAttachments;
         state.currentGallery = images;
         state.galleryIndex = 0;
         state.currentProductId = productId;
