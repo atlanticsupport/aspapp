@@ -585,21 +585,27 @@ export async function onRequestPost({ request, env }) {
 
                 if (inv.length > 0) {
                     const productIds = inv.map((item) => item.id).filter((id) => id !== null && id !== undefined);
-                    const placeholders = productIds.map(() => '?').join(', ');
-                    const attachmentsSql = `
-                        SELECT *
-                        FROM attachments
-                        WHERE category = 'product' AND product_id IN (${placeholders})
-                        ORDER BY product_id ASC, sort_order ASC, id ASC
-                    `;
-                    const { results: attachmentRows } = await db.prepare(attachmentsSql).bind(...productIds).all();
                     const attachmentsByProduct = new Map();
-
-                    attachmentRows.forEach((attachment) => {
-                        const current = attachmentsByProduct.get(attachment.product_id) || [];
-                        current.push(attachment);
-                        attachmentsByProduct.set(attachment.product_id, current);
-                    });
+                    
+                    // Fetch attachments in batches to avoid SQL variable limit
+                    const BATCH_SIZE = 20;
+                    for (let i = 0; i < productIds.length; i += BATCH_SIZE) {
+                        const batchIds = productIds.slice(i, i + BATCH_SIZE);
+                        const placeholders = batchIds.map(() => '?').join(', ');
+                        const attachmentsSql = `
+                            SELECT *
+                            FROM attachments
+                            WHERE category = 'product' AND product_id IN (${placeholders})
+                            ORDER BY product_id ASC, sort_order ASC, id ASC
+                        `;
+                        const { results: attachmentRows } = await db.prepare(attachmentsSql).bind(...batchIds).all();
+                        
+                        attachmentRows.forEach((attachment) => {
+                            const current = attachmentsByProduct.get(attachment.product_id) || [];
+                            current.push(attachment);
+                            attachmentsByProduct.set(attachment.product_id, current);
+                        });
+                    }
 
                     inv.forEach((item) => {
                         const productAttachments = attachmentsByProduct.get(item.id) || [];

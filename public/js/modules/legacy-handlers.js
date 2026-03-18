@@ -35,13 +35,8 @@ export function getLegacyHandlers() {
  * @returns {void}
  */
 export function exposeToWindow() {
-    // First assign individual critical functions
-    if (window.navigateTo) console.warn('[LEGACY] navigateTo already exposed');
-    if (window.logout) console.warn('[LEGACY] logout already exposed');
-
-    // Then assign all registered handlers
+    // Assign all registered handlers to window for inline onclick support
     Object.assign(window, legacyHandlers);
-
     console.log('[LEGACY] Exposed', Object.keys(legacyHandlers).length, 'handlers to window');
 }
 
