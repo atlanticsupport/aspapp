@@ -167,42 +167,26 @@ export function openEditModal(product) {
  */
 
 function setupAttachmentEvents() {
-    console.log('[SETUP] setupAttachmentEvents called');
     const galleryInput = document.getElementById('gallery-upload');
     const transitInput = document.getElementById('transit-media-upload');
-    console.log('[SETUP] galleryInput:', galleryInput);
-    console.log('[SETUP] transitInput:', transitInput);
 
     if (galleryInput) {
-        console.log('[SETUP] Attaching onchange to gallery-upload');
-        galleryInput.onchange = (e) => {
-            console.log('[EVENT] gallery-upload onchange fired, files:', e.target.files.length);
-            handleAttachmentSelection(e, 'product');
-        };
-    } else {
-        console.warn('[SETUP] gallery-upload input not found!');
+        galleryInput.onchange = (e) => handleAttachmentSelection(e, 'product');
     }
     if (transitInput) {
-        console.log('[SETUP] Attaching onchange to transit-media-upload');
-        transitInput.onchange = (e) => {
-            console.log('[EVENT] transit-media-upload onchange fired, files:', e.target.files.length);
-            handleAttachmentSelection(e, 'reception');
-        };
-    } else {
-        console.warn('[SETUP] transit-media-upload input not found!');
+        transitInput.onchange = (e) => handleAttachmentSelection(e, 'reception');
     }
 }
     
 window.handleMultipleFiles = async function (files, category, targetListId = null) {
-    console.log('[UPLOAD] handleMultipleFiles called, files:', files.length, 'category:', category);
     if (!files || files.length === 0) return;
 
     const targetId = targetListId || (category === 'product' ? 'product-gallery-list' : 'transit-attachments-list');
     const list = document.getElementById(targetId);
 
-    const productId = document.getElementById('prod-id')?.value;
+    // Use state.currentProductId instead of DOM element
+    const productId = state.currentProductId;
     const shouldAutoSave = !!productId;
-    console.log('[UPLOAD] productId:', productId, 'shouldAutoSave:', shouldAutoSave);
 
     const uploadPromises = [];
 
@@ -263,20 +247,20 @@ window.handleMultipleFiles = async function (files, category, targetListId = nul
         uploadPromises.push(uploadPromise);
     }
     
-    // Wait for all uploads to complete before showing toast
+    // Wait for all uploads to complete
     if (shouldAutoSave) {
         try {
             await Promise.all(uploadPromises);
-            
-            // Verify all attachments were saved by reloading from DB
+            // Reload attachments from DB
             await loadProductAttachments(productId);
-            showToast(`${files.length} ficheiro(s) guardado(s) automaticamente.`, 'success');
+            showToast(`${files.length} imagem(ns) guardada(s).`, 'success');
         } catch (err) {
             console.error('Error during auto-save:', err);
-            showToast('Erro ao guardar alguns ficheiros.', 'error');
+            showToast('Erro ao guardar imagens.', 'error');
         }
     } else {
-        showToast(`${files.length} ficheiro(s) adicionado(s).`, 'success');
+        await Promise.all(uploadPromises);
+        showToast(`${files.length} imagem(ns) adicionada(s).`, 'success');
     }
 };
 
@@ -285,7 +269,6 @@ window.handleAttachmentSelectionFiles = async function (files, category) {
 };
 
 async function handleAttachmentSelection(e, category) {
-    console.log('[HANDLER] handleAttachmentSelection called, category:', category, 'files:', e.target.files.length);
     const files = Array.from(e.target.files);
     window.handleAttachmentSelectionFiles(files, category);
     e.target.value = '';
@@ -334,9 +317,7 @@ function renderAttachmentItem(att) {
 }
 
 async function removeAttachment(att, element) {
-    console.log('[REMOVE] removeAttachment called for attachment:', att.id);
     if (!confirm('Deseja eliminar este anexo permanentemente?')) return;
-    console.log('[REMOVE] User confirmed deletion');
     try {
         const { error } = await supabase.rpc('secure_delete_attachment', {
             p_user: state.currentUser.username,
@@ -345,33 +326,18 @@ async function removeAttachment(att, element) {
         });
         if (error) throw error;
         
-        // Verify deletion by checking if attachment still exists in DB
-        const productId = document.getElementById('prod-id')?.value;
-        if (productId) {
-            const { data: verifyData } = await supabase.rpc('secure_fetch_any', {
-                p_user: state.currentUser.username,
-                p_pass: state.currentUser.password,
-                p_table: 'attachments',
-                p_params: { eq: { id: att.id } }
-            });
-            
-            if (verifyData && verifyData.length > 0) {
-                throw new Error('Anexo não foi removido da base de dados');
-            }
-        }
-        
         element.remove();
         state.loadedAttachments = (state.loadedAttachments || []).filter(a => a.id !== att.id);
         handleAttachmentRemoved(att);
-        showToast('Anexo removido com sucesso.', 'success');
         
-        // Reload attachments to ensure UI is in sync with DB
-        if (productId) {
-            await loadProductAttachments(productId);
+        // Reload attachments from DB
+        if (state.currentProductId) {
+            await loadProductAttachments(state.currentProductId);
         }
+        showToast('Imagem removida.', 'success');
     } catch (err) {
         console.error('Error removing attachment:', err);
-        showToast('Erro ao remover anexo: ' + err.message, 'error');
+        showToast('Erro ao remover imagem.', 'error');
     }
 }
 
@@ -448,34 +414,10 @@ async function autoSaveAttachment(att, productId) {
             att.url = publicUrl;
             state.loadedAttachments = state.loadedAttachments || [];
             state.loadedAttachments.push(rpcData);
-            
-            // Verify attachment was saved by fetching it from DB
-            const { data: verifyData, error: verifyErr } = await supabase.rpc('secure_fetch_any', {
-                p_user: state.currentUser.username,
-                p_pass: state.currentUser.password,
-                p_table: 'attachments',
-                p_params: { eq: { id: rpcData.id } }
-            });
-            
-            if (verifyErr || !verifyData || verifyData.length === 0) {
-                throw new Error('Anexo não foi encontrado na base de dados após inserção');
-            }
         }
         
-        // Remove from pending attachments
+        // Remove from pending
         state.pendingAttachments = state.pendingAttachments.filter(a => a.id !== att.id);
-        
-        // Update the rendered item to reflect it's no longer new
-        const itemElement = document.getElementById(`att-${att.id}`);
-        if (itemElement) {
-            const removeBtn = itemElement.querySelector('.remove-btn');
-            if (removeBtn) {
-                removeBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    removeAttachment(att, itemElement);
-                };
-            }
-        }
     } catch (err) {
         console.error('Auto-save error:', err);
         throw err;
