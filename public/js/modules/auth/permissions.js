@@ -88,7 +88,6 @@ export function hasModuleAccess(user, module, action = 'view') {
     
     const moduleConfig = MODULES[module];
     if (!moduleConfig) {
-        console.warn(`[PERMISSIONS] Unknown module: ${module}`);
         return false;
     }
     
@@ -130,19 +129,14 @@ export function hasModuleAccess(user, module, action = 'view') {
  */
 export function applyPermissionsToUI(user) {
     if (!user) {
-        console.error('[PERMISSIONS] No user provided');
         return;
     }
-    
-    console.log('[PERMISSIONS] Applying permissions for user:', user.username);
     
     // Apply navigation permissions
     const navItems = document.querySelectorAll('.nav-item[data-page]');
     navItems.forEach(item => {
         const page = item.dataset.page;
         const hasAccess = hasModuleAccess(user, page, 'view');
-        
-        console.log(`[PERMISSIONS] Module ${page}: ${hasAccess ? 'GRANTED' : 'DENIED'}`);
         item.style.display = hasAccess ? 'flex' : 'none';
     });
     
@@ -162,7 +156,6 @@ export function applyPermissionsToUI(user) {
     const nameEl = document.getElementById('current-user-name');
     if (nameEl) nameEl.textContent = user.username;
     
-    console.log('[PERMISSIONS] UI permissions applied successfully');
 }
 
 /**

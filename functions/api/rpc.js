@@ -617,6 +617,24 @@ export async function onRequestPost({ request, env }) {
                 break;
             }
 
+            case 'secure_update_product_field':
+                // Check if user has update permission
+                const canUpdateField = hasPermission(user, 'inventory', 'U');
+                if (!canUpdateField) throw new Error("Acesso negado para atualizar produto.");
+                const oldProdField = await db.prepare("SELECT * FROM products WHERE id = ?").bind(params.p_product_id).first();
+                if (!oldProdField) throw new Error("Produto não encontrado.");
+                
+                // Update the specific field
+                const fieldName = params.p_field;
+                const fieldValue = params.p_value;
+                await db.prepare(`UPDATE products SET ${fieldName} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+                    .bind(fieldValue, params.p_product_id).run();
+                
+                const newData = { ...oldProdField, [fieldName]: fieldValue };
+                await recordAudit('products', 'UPDATE', oldProdField, newData);
+                result = true;
+                break;
+
             case 'secure_delete_attachment':
                 // Check if user has delete permission for attachments
                 const canDeleteAttachment = hasPermission(user, 'inventory', 'D') || 

@@ -4,13 +4,10 @@ import { showToast } from '../core/ui.js';
 import { validateUserSession, applyPermissionsToUI, getPermissionsSummary } from './permissions.js';
 
 export async function checkAuth() {
-    console.log('[AUTH] checkAuth() called');
     const saved = localStorage.getItem('aspapp_session');
-    console.log('[AUTH] Session data:', saved);
     
     if (!saved) {
         // Show login if no session
-        console.log('[AUTH] No session found, showing login');
         const loginOverlay = document.getElementById('login-overlay');
         if (loginOverlay) {
             loginOverlay.classList.add('open');
@@ -19,7 +16,6 @@ export async function checkAuth() {
             loginOverlay.style.setProperty('opacity', '1', 'important');
             loginOverlay.style.setProperty('pointer-events', 'auto', 'important');
             loginOverlay.style.setProperty('visibility', 'visible', 'important');
-            console.log('[AUTH] Login overlay shown');
         } else {
             console.error('[AUTH] Login overlay element not found!');
         }
@@ -28,28 +24,23 @@ export async function checkAuth() {
 
     try {
         const user = JSON.parse(saved);
-        console.log('[AUTH] Parsed user:', user);
         
         // Check if this is an old session without permissions
         if (!user.transit_access && !user.stock_out_access && !user.logistics_access) {
-            console.log('[AUTH] Old session detected (missing permissions), clearing and forcing new login');
             localStorage.removeItem('aspapp_session');
             const loginOverlay = document.getElementById('login-overlay');
             if (loginOverlay) {
                 loginOverlay.classList.add('open');
-                console.log('[AUTH] Login overlay shown for old session');
             }
             return;
         }
         
         // Validate session using new system
         if (!validateUserSession(user)) {
-            console.log('[AUTH] Invalid session data, clearing and showing login');
             localStorage.removeItem('aspapp_session');
             const loginOverlay = document.getElementById('login-overlay');
             if (loginOverlay) {
                 loginOverlay.classList.add('open');
-                console.log('[AUTH] Login overlay shown after clearing invalid session');
             }
             return;
         }
@@ -57,7 +48,6 @@ export async function checkAuth() {
         // Skip session validation for now - assume token is valid if it exists
         // TODO: Implement proper session validation when rpc_test_session is available
         if (false) {
-            console.log('[AUTH] Session expired, showing login');
             localStorage.removeItem('aspapp_session');
             const loginOverlay = document.getElementById('login-overlay');
             if (loginOverlay) {
@@ -67,9 +57,7 @@ export async function checkAuth() {
                 loginOverlay.style.setProperty('opacity', '1', 'important');
                 loginOverlay.style.setProperty('pointer-events', 'auto', 'important');
                 loginOverlay.style.setProperty('visibility', 'visible', 'important');
-                console.log('[AUTH] Login overlay shown after expired session');
             } else {
-                console.error('[AUTH] Login overlay element not found!');
             }
             return;
         }
@@ -80,7 +68,6 @@ export async function checkAuth() {
         applyPermissionsToUI(user);
         
         // Debug: Show permissions summary
-        console.log('[AUTH] Permissions summary:', getPermissionsSummary(user));
         
         const loginOverlay = document.getElementById('login-overlay');
         if (loginOverlay) {
@@ -91,14 +78,12 @@ export async function checkAuth() {
             loginOverlay.style.setProperty('pointer-events', 'none', 'important');
             loginOverlay.style.setProperty('visibility', 'hidden', 'important');
         }
-        console.log('[AUTH] User authenticated successfully');
     } catch (e) {
-        console.error('[AUTH] Error checking auth:', e);
+        console.error('Error checking auth:', e);
         localStorage.removeItem('aspapp_session');
         const loginOverlay = document.getElementById('login-overlay');
         if (loginOverlay) {
             loginOverlay.classList.add('open');
-            console.log('[AUTH] Login overlay shown after error');
         }
     }
 }
@@ -122,20 +107,11 @@ export async function login(username, password) {
     
     // Save COMPLETE user object with all permissions and password
     localStorage.setItem('aspapp_session', JSON.stringify(data[0]));
-    
-    // Debug: Verify all permissions are saved
-    console.log('[AUTH] Saved user permissions:', {
-        transit_access: data[0].transit_access,
-        stock_out_access: data[0].stock_out_access,
-        logistics_access: data[0].logistics_access,
-        inventory_access: data[0].inventory_access
-    });
 
     // Apply permissions using new system
     applyPermissionsToUI(data[0]);
     
     // Debug: Show permissions summary
-    console.log('[AUTH] Permissions summary:', getPermissionsSummary(data[0]));
     
     // Hide login overlay
     const loginOverlay = document.getElementById('login-overlay');

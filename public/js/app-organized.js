@@ -14,7 +14,6 @@ import {
 
 // Initialize app
 async function initApp() {
-    console.log('[BOOT] Initializing organized app...');
     
     // Wait for DOM to be ready
     if (document.readyState !== 'complete') {
@@ -27,20 +26,16 @@ async function initApp() {
         });
     }
     
-    console.log('[BOOT] DOM ready');
     
     // Initialize Supabase
     await initSupabase();
-    console.log('[BOOT] Supabase initialized');
     
     // Check authentication FIRST
     await checkAuth();
-    console.log('[BOOT] Auth checked');
     
     // Setup event listeners
     setupEventListeners();
     setupAuthEvents();
-    console.log('[BOOT] Events setup complete');
     
     // Initialize autocomplete and load processes
     initProcessAutocomplete();
@@ -50,14 +45,11 @@ async function initApp() {
     
     // Only load dashboard if user is authenticated
     if (state.currentUser) {
-        console.log('[BOOT] User authenticated, loading dashboard');
         await navigateTo('dashboard');
         await loadDashboard();
     } else {
-        console.log('[BOOT] No user authenticated, login should be visible');
     }
     
-    console.log('[BOOT] App initialization complete');
     
     // Hide the app loader
     const appLoader = document.getElementById('app-loader');
