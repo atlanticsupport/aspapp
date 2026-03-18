@@ -22,7 +22,7 @@
   "license": "UNLICENSED",
   "private": true,
   "devDependencies": {
-    "wrangler": "^3.0.0"
+    "wrangler": "^4.75.0"
   },
   "engines": {
     "node": ">=18.0.0"
