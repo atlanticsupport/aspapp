@@ -62,9 +62,6 @@ export async function navigateTo(page) {
         } else if (page === 'backups') {
             const { loadBackupsView } = await import('../backups.js');
             await loadBackupsView();
-        } else if (page === 'import-history') {
-            const { renderImportHistoryView } = await import('../import/import-history-view.js');
-            renderImportHistoryView();
         }
     }
 }

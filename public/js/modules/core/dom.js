@@ -8,8 +8,7 @@ export const views = {
     logistics: document.getElementById('view-logistics'),
     settings: document.getElementById('view-settings'),
     usage: document.getElementById('view-usage'),
-    backups: document.getElementById('view-backups'),
-    'import-history': document.getElementById('view-import-history')
+    backups: document.getElementById('view-backups')
 };
 
 export const inventoryContent = document.getElementById('inventory-content');

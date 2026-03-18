@@ -12,17 +12,8 @@ function isSupabaseConfigured() {
     return supabase && supabase.supabaseUrl && supabase.supabaseKey;
 }
 
-// Initialize PHC Import Module
+// Initialize PHC Import Module (setup event listeners only, don't auto-open modal)
 export function initPhcImport() {
-    const trigger = document.getElementById('btn-import-phc');
-    if (trigger) {
-        const modal = document.getElementById('phc-import-modal');
-        if (modal) {
-            modal.classList.add('open');
-            resetPhcImport();
-        }
-    }
-
     // Setup fetch button event
     const btnFetch = document.getElementById('btn-phc-fetch');
     if (btnFetch) {
