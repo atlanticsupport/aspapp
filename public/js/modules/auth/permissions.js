@@ -82,44 +82,44 @@ export const MODULES = {
  */
 export function hasModuleAccess(user, module, action = 'view') {
     if (!user || !module) return false;
-    
+
     // Admin has access to everything
     if (user.role === 'admin') return true;
-    
+
     const moduleConfig = MODULES[module];
     if (!moduleConfig) {
         return false;
     }
-    
+
     // Check if module is admin-only
     if (moduleConfig.adminOnly && user.role !== 'admin') return false;
-    
+
     // Check view permission
-    const hasView = user[moduleConfig.viewKey] === 1 || 
-                   user[moduleConfig.viewKey] === true || 
+    const hasView = user[moduleConfig.viewKey] === 1 ||
+                   user[moduleConfig.viewKey] === true ||
                    user[moduleConfig.viewKey] === '1';
-    
+
     if (!hasView) return false;
-    
+
     // Check action-specific permissions
     const access = user[moduleConfig.accessKey] || PERMISSION_LEVELS.NONE;
-    
+
     switch (action) {
-        case 'view':
-            return access !== PERMISSION_LEVELS.NONE;
-        case 'create':
-            return access === PERMISSION_LEVELS.WRITE || 
+    case 'view':
+        return access !== PERMISSION_LEVELS.NONE;
+    case 'create':
+        return access === PERMISSION_LEVELS.WRITE ||
                    access === PERMISSION_LEVELS.RCUD ||
                    access.includes('C');
-        case 'update':
-            return access === PERMISSION_LEVELS.WRITE || 
+    case 'update':
+        return access === PERMISSION_LEVELS.WRITE ||
                    access === PERMISSION_LEVELS.RCUD ||
                    access.includes('U');
-        case 'delete':
-            return access === PERMISSION_LEVELS.RCUD ||
+    case 'delete':
+        return access === PERMISSION_LEVELS.RCUD ||
                    access.includes('D');
-        default:
-            return false;
+    default:
+        return false;
     }
 }
 
@@ -131,7 +131,7 @@ export function applyPermissionsToUI(user) {
     if (!user) {
         return;
     }
-    
+
     // Apply navigation permissions
     const navItems = document.querySelectorAll('.nav-item[data-page]');
     navItems.forEach(item => {
@@ -139,23 +139,23 @@ export function applyPermissionsToUI(user) {
         const hasAccess = hasModuleAccess(user, page, 'view');
         item.style.display = hasAccess ? 'flex' : 'none';
     });
-    
+
     // Apply folder visibility
     document.querySelectorAll('.nav-folder').forEach(folder => {
         const items = folder.querySelectorAll('.nav-item');
-        const hasVisibleItems = Array.from(items).some(item => 
+        const hasVisibleItems = Array.from(items).some(item =>
             item.style.display !== 'none'
         );
         folder.style.display = hasVisibleItems ? 'block' : 'none';
     });
-    
+
     // Apply button permissions
     applyButtonPermissions(user);
-    
+
     // Update user info
     const nameEl = document.getElementById('current-user-name');
     if (nameEl) nameEl.textContent = user.username;
-    
+
 }
 
 /**
@@ -165,15 +165,15 @@ export function applyPermissionsToUI(user) {
 function applyButtonPermissions(user) {
     // Inventory buttons only - other pages control their own buttons
     const canCreateInventory = hasModuleAccess(user, 'inventory', 'create');
-    
+
     const btnAddProduct = document.getElementById('btn-add-product');
     const btnImportPhc = document.getElementById('btn-import-phc');
     const btnAddMobile = document.getElementById('btn-add-product-mobile');
-    
+
     if (btnAddProduct) btnAddProduct.style.display = canCreateInventory ? 'flex' : 'none';
     if (btnImportPhc) btnImportPhc.style.display = canCreateInventory ? 'flex' : 'none';
     if (btnAddMobile) btnAddMobile.style.display = canCreateInventory ? 'flex' : 'none';
-    
+
     // Don't control PHC buttons from other pages here - they control their own
 }
 
@@ -184,7 +184,7 @@ function applyButtonPermissions(user) {
  */
 export function validateUserSession(user) {
     if (!user) return false;
-    
+
     // Check required fields
     const required = ['id', 'username', 'role', 'token'];
     for (const field of required) {
@@ -193,14 +193,14 @@ export function validateUserSession(user) {
             return false;
         }
     }
-    
+
     // Check token format (basic JWT validation)
     const parts = user.token.split('.');
     if (parts.length !== 3) {
         console.warn('[PERMISSIONS] Invalid token format');
         return false;
     }
-    
+
     return true;
 }
 
@@ -211,13 +211,13 @@ export function validateUserSession(user) {
  */
 export function getPermissionsSummary(user) {
     if (!user) return null;
-    
+
     const summary = {
         username: user.username,
         role: user.role,
         modules: {}
     };
-    
+
     Object.entries(MODULES).forEach(([module, config]) => {
         summary.modules[module] = {
             canView: hasModuleAccess(user, module, 'view'),
@@ -226,6 +226,6 @@ export function getPermissionsSummary(user) {
             canDelete: hasModuleAccess(user, module, 'delete')
         };
     });
-    
+
     return summary;
 }

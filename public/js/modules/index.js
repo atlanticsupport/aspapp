@@ -24,7 +24,7 @@ export * from './history.js';
 export * from './admin.js';
 export * from './transit.js';
 export * from './logistics.js';
-export *from './stock-out.js';
+export * from './stock-out.js';
 export * from './usage.js';
 export * from './backups.js';
 

@@ -22,7 +22,7 @@ export function initPhcImport() {
             resetPhcImport();
         }
     }
-    
+
     // Setup fetch button event
     const btnFetch = document.getElementById('btn-phc-fetch');
     if (btnFetch) {

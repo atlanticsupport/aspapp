@@ -14,7 +14,7 @@ export function normalizeGalleryAttachment(att, fallbackCategory = 'product') {
         category: att.category || fallbackCategory,
         type: att.type || att.file_type || 'image',
         file_type: att.file_type || att.type || 'image',
-        sort_order: Number.isNaN(normalizedSortOrder) ? null : normalizedSortOrder,
+        sort_order: Number.isNaN(normalizedSortOrder) ? null : normalizedSortOrder
     };
 }
 
@@ -45,7 +45,7 @@ export function buildGalleryEntries(options = {}) {
         acceptedTypes = ['image'],
         fallbackCategory = attachmentCategory,
         includePending = true,
-        fallbackOnlyWhenEmpty = true,
+        fallbackOnlyWhenEmpty = true
     } = options;
 
     const acceptedTypeSet = new Set(acceptedTypes);
@@ -82,7 +82,7 @@ export function buildGalleryEntries(options = {}) {
             category: entry.category || attachmentCategory,
             type: entry.type || 'image',
             file_type: entry.file_type || entry.type || 'image',
-            sort_order: getGallerySortOrder(entry),
+            sort_order: getGallerySortOrder(entry)
         });
     };
 
@@ -97,7 +97,7 @@ export function buildGalleryEntries(options = {}) {
                 category: att.category,
                 type: att.type,
                 file_type: att.file_type,
-                sort_order: att.sort_order,
+                sort_order: att.sort_order
             });
         });
 
@@ -114,7 +114,7 @@ export function buildGalleryEntries(options = {}) {
                     category: att.category,
                     type: att.type,
                     file_type: att.file_type,
-                    sort_order: att.sort_order,
+                    sort_order: att.sort_order
                 });
             });
     }
@@ -127,14 +127,14 @@ export function buildGalleryEntries(options = {}) {
             category: attachmentCategory,
             type: 'image',
             file_type: 'image',
-            sort_order: -1,
+            sort_order: -1
         });
     }
 
     return sortGalleryAttachments(entries).map((entry, index) => ({
         ...entry,
         isPrimary: index === 0,
-        sort_order: index,
+        sort_order: index
     }));
 }
 
@@ -148,7 +148,7 @@ export function getEntityPrimaryImageUrl(entity, options = {}) {
     const { primary } = getPrimaryGalleryEntry({
         attachments: entity?.attachments || [],
         currentImageUrl: entity?.image_url || null,
-        ...options,
+        ...options
     });
     return primary?.url || null;
 }
@@ -170,7 +170,7 @@ export function openEntityGallery(entity, options = {}) {
     const entries = buildGalleryEntries({
         attachments: entity?.attachments || [],
         currentImageUrl: entity?.image_url || null,
-        ...options,
+        ...options
     });
     return openViewerGallery(entries, options.preferredUrl || null);
 }

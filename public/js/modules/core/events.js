@@ -302,7 +302,6 @@ export function setupEventListeners() {
         }
     });
 
-
     // Modal Triggers
     if (btnAddProduct) btnAddProduct.onclick = () => { closeModal(); openModal(); };
     const btnAddProductMobile = document.getElementById('btn-add-product-mobile');
@@ -598,7 +597,7 @@ export function setupEventListeners() {
         } else {
             if (window.handleAttachmentSelectionFiles) {
                 window.handleAttachmentSelectionFiles(files, category, {
-                    promoteFirstImage: true,
+                    promoteFirstImage: true
                 });
             }
         }
@@ -644,7 +643,7 @@ export function setupEventListeners() {
             } else {
                 if (window.handleAttachmentSelectionFiles) {
                     window.handleAttachmentSelectionFiles([file], category, {
-                        promoteFirstImage: true,
+                        promoteFirstImage: true
                     });
                 }
             }
@@ -657,8 +656,6 @@ export function setupEventListeners() {
     if (btnTakePhoto && camInput) {
         btnTakePhoto.onclick = () => { closeViewer(); camInput.click(); };
     }
-
-
 
     // Excel Actions
     const btnExcel = document.getElementById('btn-export-excel');
@@ -771,8 +768,8 @@ function setupDragToScroll() {
         if (['BUTTON', 'INPUT', 'A', 'I'].includes(e.target.tagName)) return;
 
         let isDown = true;
-        let startX = e.pageX - container.offsetLeft;
-        let scrollLeft = container.scrollLeft;
+        const startX = e.pageX - container.offsetLeft;
+        const scrollLeft = container.scrollLeft;
 
         const onMouseMove = (ev) => {
             if (!isDown) return;
@@ -801,22 +798,22 @@ function startScanner() {
     if (html5QrcodeScanner) return;
 
     try {
-        const html5QrCode = new Html5Qrcode("reader");
+        const html5QrCode = new Html5Qrcode('reader');
         html5QrcodeScanner = html5QrCode;
 
         showToast('A iniciar câmara...', 'info');
         // Mobile optimization: prefer environment camera
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-        html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
+        html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess)
             .catch(err => {
-                console.error("Error starting scanner", err);
+                console.error('Error starting scanner', err);
                 showToast('Erro ao iniciar câmara: ' + err, 'error');
                 scannerModal.classList.remove('open');
                 html5QrcodeScanner = null;
             });
     } catch (e) {
-        console.error("Scanner Lib Error", e);
+        console.error('Scanner Lib Error', e);
         showToast('Erro biblioteca scanner.', 'error');
     }
 }
@@ -1050,7 +1047,7 @@ function setupQuickScanEvents() {
         };
     });
 }
-// Note: openQuickScanModal is called by... where? 
+// Note: openQuickScanModal is called by... where?
 // In app.js it was called if match? No, app.js changed to openEditModal.
 // Is quick scan still used?
 // The user summary said "Scanning a product directly opens the full product edit modal".
@@ -1184,7 +1181,7 @@ async function importFromExcel() {
                     }
 
                     const headerRow = sheet.getRow(1);
-                    if (!headerRow || !headerRow.values.length) throw new Error("Ficheiro parece estar vazio ou sem cabeçalhos na linha 1.");
+                    if (!headerRow || !headerRow.values.length) throw new Error('Ficheiro parece estar vazio ou sem cabeçalhos na linha 1.');
 
                     const excelColumns = [];
                     headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
@@ -1313,7 +1310,7 @@ async function showMappingModal(sheet, excelColumns) {
                 }
             });
 
-            if (items.length === 0) throw new Error("Não foram encontrados dados para importar.");
+            if (items.length === 0) throw new Error('Não foram encontrados dados para importar.');
 
             const { data: count, error } = await supabase.rpc('secure_batch_import', {
                 p_user: state.currentUser.username,

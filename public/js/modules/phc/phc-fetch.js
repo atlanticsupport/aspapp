@@ -76,7 +76,7 @@ export async function handlePhcFetch(processId) {
                     document.getElementById('prod-cost-price').value = existingItem.cost_price || 0;
                     document.getElementById('prod-desc').value = existingItem.description || '';
                     document.getElementById('prod-process').value = existingItem.sales_process || '';
-                    
+
                     modal.classList.add('open');
                 }
                 const triggerModal = document.getElementById('phc-import-modal');
@@ -104,7 +104,7 @@ export async function handlePhcFetch(processId) {
 
         // Filter documents based on current view
         const filteredDocs = filterDocuments(docs, state.currentPage, record);
-        
+
         if (filteredDocs.length === 0) {
             const msg = state.currentPage === 'logistics' ?
                 'Nenhum documento de Venda (OC) encontrado.' :
@@ -172,20 +172,20 @@ function filterDocuments(docs, currentPage, record) {
 // Process and merge items from documents
 function processAndMergeItems(filteredDocs, record) {
     const collated = [];
-    
+
     filteredDocs.forEach(doc => {
         const info = doc.info || doc.dossier_info || doc;
         const docItems = doc.items || [];
-        
+
         docItems.forEach(item => {
             const pn = (item.pn || item.part_number || '').trim().toUpperCase();
             if (pn === 'PACKING' || pn === 'PORTES') return;
 
             const qty = parseFloat(item.qty || item.quantity || 0);
-            
+
             // Calculate price
             let price = parseFloat(
-                item.uprice || item.unit_price || item.epu || item.puni || 
+                item.uprice || item.unit_price || item.epu || item.puni ||
                 item.preco || (item.venda > 0 ? item.venda : item.custo) || 0
             );
 

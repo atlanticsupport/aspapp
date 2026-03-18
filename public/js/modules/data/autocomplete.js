@@ -34,7 +34,7 @@ function handleProcessInput(input) {
     const value = input.value.trim().toLowerCase();
 
     // Clear existing
-    let container = getOrCreateSuggestionContainer(input);
+    const container = getOrCreateSuggestionContainer(input);
     if (!value || value.length < 1) {
         container.classList.remove('active');
         return;

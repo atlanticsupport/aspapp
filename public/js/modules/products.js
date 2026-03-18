@@ -93,7 +93,7 @@ export function closeModal() {
     const forceTransit = document.getElementById('force-transit-status');
     if (forceTransit) forceTransit.remove();
 
-    imageContainer.innerHTML = `<i class="fa-solid fa-camera"></i>`;
+    imageContainer.innerHTML = '<i class="fa-solid fa-camera"></i>';
     imageContainer.classList.remove('has-image');
 
     const historySection = document.getElementById('product-history-section');
@@ -164,7 +164,7 @@ export function openEditModal(product) {
     if (product.image_url) updateHeaderImage(product.image_url);
     else {
         state.currentImageUrl = null;
-        imageContainer.innerHTML = `<i class="fa-solid fa-camera"></i>`;
+        imageContainer.innerHTML = '<i class="fa-solid fa-camera"></i>';
         imageContainer.classList.remove('has-image');
     }
 
@@ -206,7 +206,7 @@ function shiftProductImageSortOrders(offset) {
         if (!isImageAttachment(normalized)) return normalized;
         return {
             ...normalized,
-            sort_order: getAttachmentOrderValue(normalized, 0) + offset,
+            sort_order: getAttachmentOrderValue(normalized, 0) + offset
         };
     });
 
@@ -215,7 +215,7 @@ function shiftProductImageSortOrders(offset) {
         if (!isImageAttachment(normalized)) return normalized;
         return {
             ...normalized,
-            sort_order: getAttachmentOrderValue(normalized, 0) + offset,
+            sort_order: getAttachmentOrderValue(normalized, 0) + offset
         };
     });
 }
@@ -241,7 +241,7 @@ function buildProductImageEntries() {
         pendingAttachments: state.pendingAttachments || [],
         currentImageUrl: state.currentImageUrl,
         attachmentCategory: 'product',
-        acceptedTypes: ['image'],
+        acceptedTypes: ['image']
     });
 }
 
@@ -251,7 +251,7 @@ function getTransitMediaEntries() {
         pendingAttachments: state.pendingAttachments || [],
         attachmentCategory: 'reception',
         acceptedTypes: ['image', 'video'],
-        fallbackOnlyWhenEmpty: false,
+        fallbackOnlyWhenEmpty: false
     });
 }
 
@@ -261,7 +261,7 @@ function getPrimaryImageEntry(preferredUrl = null) {
         pendingAttachments: state.pendingAttachments || [],
         currentImageUrl: state.currentImageUrl,
         attachmentCategory: 'product',
-        acceptedTypes: ['image'],
+        acceptedTypes: ['image']
     });
 }
 
@@ -274,7 +274,7 @@ function renderAttachmentPreview(item) {
     }
 
     const badge = item.isPrimary
-        ? `<div class="video-indicator" style="background:rgba(16,185,129,0.9);"><i class="fa-solid fa-star"></i></div>`
+        ? '<div class="video-indicator" style="background:rgba(16,185,129,0.9);"><i class="fa-solid fa-star"></i></div>'
         : '';
     return `<img src="${item.url}" alt="Anexo">${badge}`;
 }
@@ -289,7 +289,7 @@ function renderAllAttachmentItems() {
     productEntries.forEach((entry, index) => renderAttachmentItem({
         ...entry,
         canMoveLeft: index > 0,
-        canMoveRight: index < productEntries.length - 1,
+        canMoveRight: index < productEntries.length - 1
     }));
     getTransitMediaEntries().forEach((entry) => renderAttachmentItem(entry));
 }
@@ -308,10 +308,10 @@ export function setProductImagesState(product, attachments = []) {
     state.loadedAttachments = sortProductImagesByOrder((attachments || []).map(normalizeAttachment));
     state.currentImageUrl = getEntityPrimaryImageUrl({
         attachments: state.loadedAttachments,
-        image_url: product?.image_url || null,
+        image_url: product?.image_url || null
     }, {
         attachmentCategory: 'product',
-        acceptedTypes: ['image'],
+        acceptedTypes: ['image']
     });
     state.mainImageFile = null;
     syncProductAttachmentsReference(product?.id || getCurrentProductId());
@@ -322,7 +322,7 @@ function applyProductImageOrder(entries) {
     const normalizedEntries = entries.map((entry, index) => ({
         ...entry,
         sort_order: index,
-        isPrimary: index === 0,
+        isPrimary: index === 0
     }));
 
     state.loadedAttachments = (state.loadedAttachments || []).map((att) => {
@@ -349,7 +349,7 @@ async function persistAttachmentOrder(productId, entries) {
         .filter((entry) => entry.attachmentId)
         .map((entry) => ({
             id: entry.attachmentId,
-            sort_order: entry.sort_order,
+            sort_order: entry.sort_order
         }));
 
     if (!items.length) return;
@@ -358,7 +358,7 @@ async function persistAttachmentOrder(productId, entries) {
         p_user: state.currentUser.username,
         p_pass: state.currentUser.password,
         p_product_id: productId,
-        p_items: items,
+        p_items: items
     });
 
     if (error) throw error;
@@ -379,7 +379,7 @@ async function persistPrimaryImage(productId, imageUrl) {
         p_pass: state.currentUser.password,
         p_product_id: productId,
         p_field: 'image_url',
-        p_value: imageUrl,
+        p_value: imageUrl
     });
 
     if (error) throw error;
@@ -407,7 +407,7 @@ export async function moveProductImage(entry, direction) {
 
         await reconcileProductImages({
             preferredUrl: normalizedEntries[targetIndex]?.url || state.currentImageUrl,
-            keepViewerSelection: true,
+            keepViewerSelection: true
         });
     } catch (err) {
         console.error('Error reordering images:', err);
@@ -423,7 +423,7 @@ async function reconcileProductImages(options = {}) {
     const {
         preferredUrl = null,
         persistPrimary = false,
-        keepViewerSelection = false,
+        keepViewerSelection = false
     } = options;
 
     const productId = getCurrentProductId();
@@ -460,7 +460,7 @@ function setupAttachmentEvents() {
         transitInput.onchange = (e) => handleAttachmentSelection(e, 'reception');
     }
 }
-    
+
 window.handleMultipleFiles = async function (files, category, targetListId = null, options = {}) {
     if (!files || files.length === 0) return;
 
@@ -488,7 +488,7 @@ window.handleMultipleFiles = async function (files, category, targetListId = nul
                 insertedAt: Date.now() + index,
                 sort_order: category === 'product' && promoteFirstImage
                     ? index
-                    : existingMaxSortOrder + index + 1,
+                    : existingMaxSortOrder + index + 1
             });
         };
         reader.onerror = reject;
@@ -507,7 +507,7 @@ window.handleMultipleFiles = async function (files, category, targetListId = nul
 
     await reconcileProductImages({
         preferredUrl: firstProductImage?.url || state.currentImageUrl,
-        keepViewerSelection: true,
+        keepViewerSelection: true
     });
 
     if (shouldAutoSave) {
@@ -641,20 +641,20 @@ async function removeAttachment(att) {
 
 async function autoSaveMainImage(productId) {
     if (!state.mainImageFile || !productId) return;
-    
+
     try {
         const fileName = `main-${Date.now()}.webp`;
         const optimized = await processImageForUpload(state.mainImageFile);
         const { error: uploadErr } = await supabase.storage.from('product-images').upload(fileName, optimized);
-        
+
         if (uploadErr) {
             console.error('Main image upload failed:', uploadErr);
             showToast('Erro ao guardar imagem principal.', 'error');
             return;
         }
-        
+
         const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
-        
+
         // Update product with new image URL
         const { error: updateErr } = await supabase.rpc('secure_update_product_field', {
             p_user: state.currentUser.username,
@@ -663,7 +663,7 @@ async function autoSaveMainImage(productId) {
             p_field: 'image_url',
             p_value: publicUrl
         });
-        
+
         if (updateErr) {
             console.error('Main image DB update failed:', updateErr);
             showToast('Erro ao atualizar imagem na base de dados.', 'error');
@@ -709,7 +709,7 @@ async function autoSaveAttachment(att, productId) {
                 url: publicUrl,
                 file_type: att.type,
                 category: att.category,
-                sort_order: att.sort_order,
+                sort_order: att.sort_order
             }
         });
 
@@ -733,7 +733,7 @@ async function autoSaveAttachment(att, productId) {
 
         await reconcileProductImages({
             preferredUrl: shouldBecomePrimary ? publicUrl : state.currentImageUrl,
-            keepViewerSelection: true,
+            keepViewerSelection: true
         });
     } catch (err) {
         console.error('Auto-save error:', err);
@@ -758,7 +758,7 @@ async function loadProductAttachments(productId) {
         state.loadedAttachments = sortProductImagesByOrder((data || []).map(normalizeAttachment));
         await reconcileProductImages({
             persistPrimary: true,
-            keepViewerSelection: true,
+            keepViewerSelection: true
         });
     } catch (err) {
         console.error('Error loading attachments:', err);
@@ -851,7 +851,7 @@ export async function saveProduct() {
                         url: publicUrl,
                         file_type: att.type,
                         category: att.category,
-                        sort_order: att.sort_order,
+                        sort_order: att.sort_order
                     }
                 });
 
@@ -936,14 +936,14 @@ export async function updateHeaderImage(src, autoSave = false) {
         imageContainer.innerHTML = `<img src="${src}" style="width:100%; height:100%; object-fit:cover;">`;
         imageContainer.classList.add('has-image');
     } else {
-        imageContainer.innerHTML = `<i class="fa-solid fa-camera"></i>`;
+        imageContainer.innerHTML = '<i class="fa-solid fa-camera"></i>';
         imageContainer.classList.remove('has-image');
     }
     syncProductImageReference(state.currentImageUrl);
     if (autoSave) {
         await reconcileProductImages({
             persistPrimary: !!getCurrentProductId(),
-            keepViewerSelection: true,
+            keepViewerSelection: true
         });
     }
 }
@@ -1003,7 +1003,7 @@ async function removeProductImage(entry) {
         }
 
         await reconcileProductImages({
-            keepViewerSelection: true,
+            keepViewerSelection: true
         });
         showToast('Imagem removida.', 'success');
     } catch (err) {

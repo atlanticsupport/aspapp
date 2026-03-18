@@ -60,7 +60,7 @@ export function renderPhcPreview() {
     const palletGroup = document.getElementById('phc-global-pallet-group');
     const boxGroup = document.getElementById('phc-global-box-group');
     const locationGroup = document.getElementById('phc-global-location-group');
-    
+
     if (palletGroup) palletGroup.style.display = isInventory ? 'block' : 'none';
     if (boxGroup) boxGroup.style.display = isInventory ? 'block' : 'none';
     if (locationGroup) locationGroup.style.display = isInventory ? 'block' : 'none';

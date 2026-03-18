@@ -93,17 +93,17 @@ async function fetchAndRenderBackups() {
         });
 
         const json = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(json.error || "Acesso negado à grelha manifest");
+        if (!res.ok) throw new Error(json.error || 'Acesso negado à grelha manifest');
 
         if (json.error || !json.data) {
-            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">Sem Acesso ou Vazio</td></tr>`;
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Sem Acesso ou Vazio</td></tr>';
             return;
         }
 
         const list = json.data || [];
 
         if (list.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 2rem;">Ainda sem Backups na NUVEM R2</td></tr>`;
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 2rem;">Ainda sem Backups na NUVEM R2</td></tr>';
             return;
         }
 
@@ -164,13 +164,13 @@ window.downloadBackup = async (key) => {
 
         if (!res.ok) {
             const errorText = await res.text();
-            throw new Error(errorText || "Recusado pelo servidor");
+            throw new Error(errorText || 'Recusado pelo servidor');
         }
 
         const blob = await res.blob();
         console.log('[BACKUP] Received blob size:', blob.size);
 
-        if (blob.size === 0) throw new Error("Ficheiro vazio recebido.");
+        if (blob.size === 0) throw new Error('Ficheiro vazio recebido.');
 
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -191,7 +191,7 @@ window.downloadBackup = async (key) => {
         console.error('[BACKUP] Download error:', e);
         showToast('Erro ao baixar ficheiro: ' + e.message, 'error');
     }
-}
+};
 
 window.deleteBackup = async (key) => {
     if (!confirm('Atenção: Ao apagar esta snapshot do Bunker vai apagar irreversivelmente a informação dessa data. Prosseguir?')) return;
@@ -215,4 +215,4 @@ window.deleteBackup = async (key) => {
     } catch (e) {
         showToast('Erro: ' + e.message, 'error');
     }
-}
+};

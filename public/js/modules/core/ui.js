@@ -24,7 +24,7 @@ export function formatCurrency(value) {
 export function renderImageCellHTML(p) {
     const imgToShow = getEntityPrimaryImageUrl(p, {
         attachmentCategory: 'product',
-        acceptedTypes: ['image', 'video'],
+        acceptedTypes: ['image', 'video']
     });
 
     if (imgToShow) {
@@ -41,7 +41,7 @@ export function renderImageCellHTML(p) {
 export function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) {
-        // Create container if not exists - this should probably be in DOM logic, 
+        // Create container if not exists - this should probably be in DOM logic,
         // but it's okay here for utility.
         const div = document.createElement('div');
         div.id = 'toast-container';
@@ -57,11 +57,11 @@ export function showToast(message, type = 'info') {
 
 export function getDateRangeLabel(range) {
     switch (range) {
-        case 'today': return 'Hoje';
-        case '7days': return 'Últimos 7 dias';
-        case '30days': return 'Últimos 30 dias';
-        case 'custom': return 'Personalizado';
-        default: return 'Sempre';
+    case 'today': return 'Hoje';
+    case '7days': return 'Últimos 7 dias';
+    case '30days': return 'Últimos 30 dias';
+    case 'custom': return 'Personalizado';
+    default: return 'Sempre';
     }
 }
 
@@ -145,11 +145,11 @@ export function setupNavDragDrop() {
         items.forEach(item => item.classList.remove('over'));
     }
 
-    let items = navList.querySelectorAll('.nav-item');
+    const items = navList.querySelectorAll('.nav-item');
     items.forEach(function (item) {
         if (item.getAttribute('draggable') !== 'true') return; // Only apply if draggable
         // Actually, we need to make them draggable if not already?
-        // Let's assume user markup has draggable="true" or we add it. 
+        // Let's assume user markup has draggable="true" or we add it.
         // The previous code implied adding event listeners to .nav-item.
         item.setAttribute('draggable', 'true'); // Force enable
         item.addEventListener('dragstart', handleDragStart, false);

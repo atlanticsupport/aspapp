@@ -63,7 +63,7 @@ export async function loadInventory(options = {}) {
     if (titleEl) titleEl.textContent = title;
 
     if (!options.skipRefetch) {
-        inventoryContent.innerHTML = `<div class="loading-state"><p><i class="fa-solid fa-spinner fa-spin"></i> A carregar...</p></div>`;
+        inventoryContent.innerHTML = '<div class="loading-state"><p><i class="fa-solid fa-spinner fa-spin"></i> A carregar...</p></div>';
 
         // OPTIMIZATION: If we already have the "all" products from dashboard and no searching, reuse it
         const hasDashboardData = state.dashboardProducts && state.dashboardProducts.length > 0;
@@ -95,7 +95,7 @@ export function renderProducts(products, options = {}) {
     }
 
     // Apply client-side filters (for box, pallet, status)
-    let filtered = products.filter(p => {
+    const filtered = products.filter(p => {
         const matchesStatus = state.filterState.status === 'all' || (state.filterState.status === 'low' && p.quantity <= p.min_quantity && p.quantity > 0) || (state.filterState.status === 'out' && p.quantity === 0);
         const matchesCategory = state.filterState.category === 'all' || p.category === state.filterState.category;
         const matchesBox = state.filterState.box === 'all' || p.box === state.filterState.box;
@@ -237,7 +237,7 @@ export function updateFilterOptions() {
     const optionsPallet = document.getElementById('options-pallet');
     if (!optionsCat || !optionsBox) return;
 
-    let source = (state.dashboardProducts && state.dashboardProducts.length > 0) ? state.dashboardProducts : (state.products || []);
+    const source = (state.dashboardProducts && state.dashboardProducts.length > 0) ? state.dashboardProducts : (state.products || []);
     const categories = [...new Set(source.map(p => p.category).filter(Boolean))].sort();
     const boxes = [...new Set(source.map(p => p.box).filter(Boolean))].sort();
     const pallets = [...new Set(source.map(p => p.pallet).filter(Boolean))].sort();
@@ -252,7 +252,6 @@ export function updateFilterOptions() {
     if (btnPrintBox) {
         btnPrintBox.style.display = (state.filterState.box && state.filterState.box !== 'all') ? 'inline-flex' : 'none';
     }
-
 
     const renderItems = (items, current, allLabel) => {
         let html = `<div class="dropdown-item ${current === 'all' ? 'selected' : ''}" data-value="all">${allLabel}</div>`;

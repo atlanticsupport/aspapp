@@ -26,7 +26,7 @@ export async function loadUsageView() {
 
         renderUsageDashboard(data);
     } catch (error) {
-        console.error("Usage fetch error:", error);
+        console.error('Usage fetch error:', error);
     }
 }
 
@@ -233,7 +233,7 @@ function renderUsageDashboard(data) {
         </svg>`;
     };
 
-    let rowsHtml = metricsList.map(m => `
+    const rowsHtml = metricsList.map(m => `
         <tr>
             <td>
                 <div class="metric-name-cell">

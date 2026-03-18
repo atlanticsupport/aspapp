@@ -183,13 +183,13 @@ export function openUserModal(userId) {
                         </label>
                     </div>
                     <div style="display:flex; justify-content:center;" title="Adicionar / Criar">
-                        ${allowed.includes('C') ? `<input type="checkbox" class="tab-perm-bit" data-bit="C" ${hasC ? 'checked' : ''} style="width:18px; height:18px; cursor:pointer; accent-color: var(--primary-color);">` : `<span style="color:#cbd5e1; font-weight:bold;">-</span>`}
+                        ${allowed.includes('C') ? `<input type="checkbox" class="tab-perm-bit" data-bit="C" ${hasC ? 'checked' : ''} style="width:18px; height:18px; cursor:pointer; accent-color: var(--primary-color);">` : '<span style="color:#cbd5e1; font-weight:bold;">-</span>'}
                     </div>
                     <div style="display:flex; justify-content:center;" title="Editar / Atualizar">
-                        ${allowed.includes('U') ? `<input type="checkbox" class="tab-perm-bit" data-bit="U" ${hasU ? 'checked' : ''} style="width:18px; height:18px; cursor:pointer; accent-color: var(--primary-color);">` : `<span style="color:#cbd5e1; font-weight:bold;">-</span>`}
+                        ${allowed.includes('U') ? `<input type="checkbox" class="tab-perm-bit" data-bit="U" ${hasU ? 'checked' : ''} style="width:18px; height:18px; cursor:pointer; accent-color: var(--primary-color);">` : '<span style="color:#cbd5e1; font-weight:bold;">-</span>'}
                     </div>
                     <div style="display:flex; justify-content:center;" title="Apagar / Remover">
-                        ${allowed.includes('D') ? `<input type="checkbox" class="tab-perm-bit" data-bit="D" ${hasD ? 'checked' : ''} style="width:18px; height:18px; cursor:pointer; accent-color: #ef4444;">` : `<span style="color:#cbd5e1; font-weight:bold;">-</span>`}
+                        ${allowed.includes('D') ? `<input type="checkbox" class="tab-perm-bit" data-bit="D" ${hasD ? 'checked' : ''} style="width:18px; height:18px; cursor:pointer; accent-color: #ef4444;">` : '<span style="color:#cbd5e1; font-weight:bold;">-</span>'}
                     </div>
                 </div>
             `;
@@ -206,13 +206,13 @@ export function openUserModal(userId) {
 
         document.getElementById('user-id').value = user.id;
         document.getElementById('user-username').value = user.username;
-        document.getElementById('user-password').placeholder = "Deixe vazio para não alterar";
+        document.getElementById('user-password').placeholder = 'Deixe vazio para não alterar';
 
         document.getElementById('perm-admin').checked = user.role === 'admin';
         renderPermissionMatrix(user);
     } else {
         document.getElementById('user-id').value = '';
-        document.getElementById('user-password').placeholder = "Defina uma password forte";
+        document.getElementById('user-password').placeholder = 'Defina uma password forte';
         document.getElementById('perm-admin').checked = false;
         renderPermissionMatrix();
     }
@@ -243,7 +243,7 @@ export function setupAdminEvents() {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        
+
         const id = document.getElementById('user-id').value;
         const username = document.getElementById('user-username').value.trim();
         const passwordRaw = document.getElementById('user-password').value;
@@ -305,14 +305,14 @@ export function setupAdminEvents() {
             console.log('DEBUG: state.currentUser.username:', state.currentUser.username);
             console.log('DEBUG: state.currentUser.password:', state.currentUser.password);
             console.log('DEBUG: userData:', JSON.stringify(userData, null, 2));
-            
+
             const { error, data } = await supabase.rpc('rpc_manage_user', {
                 p_admin_user: state.currentUser.username,
                 p_admin_pass: state.currentUser.password,
                 p_action: id ? 'update' : 'create',
                 p_user_data: userData
             });
-            
+
             console.log('DEBUG: RPC response - error:', error);
             console.log('DEBUG: RPC response - data:', data);
 
@@ -332,10 +332,10 @@ export function setupAdminEvents() {
             saveBtn.disabled = false;
             saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar Alterações';
         }
-        
+
         return false; // Prevent any form submission
     };
-    
+
     // Also prevent form submission entirely
     form.onsubmit = (e) => {
         e.preventDefault();
@@ -390,7 +390,7 @@ async function performFactoryReset() {
     if (!confirmed) return;
 
     const doubleCheck = prompt('Confirme escrevendo "APAGAR TUDO" para prosseguir:');
-    
+
     if (doubleCheck !== 'APAGAR TUDO') {
         showToast('Cancelado. Texto de confirmação incorreto.', 'warning');
         return;
@@ -399,7 +399,7 @@ async function performFactoryReset() {
     try {
         const { showGlobalLoading, hideGlobalLoading } = await import('./ui.js');
         showGlobalLoading('A formatar base de dados...');
-        
+
         const { data, error } = await supabase.rpc('secure_factory_reset', {
             p_user: state.currentUser.username,
             p_pass: state.currentUser.password
@@ -409,11 +409,11 @@ async function performFactoryReset() {
 
         hideGlobalLoading();
         showToast('Base de Dados apagada com sucesso! A reiniciar...', 'success');
-        
+
         setTimeout(() => {
             window.location.reload();
         }, 1500);
-        
+
     } catch (error) {
         const { hideGlobalLoading } = await import('./ui.js');
         hideGlobalLoading();

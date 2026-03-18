@@ -34,7 +34,7 @@ class ExcelImporter {
 
             // Read Excel file
             const data = await this.readExcelFile(file);
-            
+
             if (!data || data.length === 0) {
                 throw new Error('O ficheiro Excel está vazio ou não pôde ser lido');
             }
@@ -59,17 +59,17 @@ class ExcelImporter {
     async readExcelFile(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            
+
             reader.onload = (e) => {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    
+
                     // Get first worksheet
                     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    
+
                     // Convert to JSON with raw values
-                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {
                         raw: true,
                         defval: null,
                         header: 1 // Get raw array first
@@ -83,7 +83,7 @@ class ExcelImporter {
 
                     const headers = jsonData[0];
                     const rows = jsonData.slice(1);
-                    
+
                     // Convert to objects
                     const result = rows.map(row => {
                         const obj = {};
@@ -94,7 +94,7 @@ class ExcelImporter {
                                     .replace(/[^a-z0-9_]/g, '_')
                                     .replace(/_+/g, '_')
                                     .replace(/^_|_$/g, '');
-                                
+
                                 obj[cleanHeader] = row[index];
                             }
                         });
@@ -106,7 +106,7 @@ class ExcelImporter {
                     reject(error);
                 }
             };
-            
+
             reader.onerror = () => reject(new Error('Erro ao ler o ficheiro'));
             reader.readAsArrayBuffer(file);
         });
@@ -129,7 +129,7 @@ class ExcelImporter {
             try {
                 // Process chunk with retry logic
                 const result = await this.processChunk(chunk, i, totalChunks, tableName);
-                
+
                 processedChunks++;
                 totalInserted += result.inserted || 0;
                 totalFailed += result.failed || 0;
@@ -143,7 +143,7 @@ class ExcelImporter {
             } catch (error) {
                 console.error(`Chunk ${i} failed:`, error);
                 totalFailed += chunk.length;
-                
+
                 // Continue with next chunk
                 processedChunks++;
                 this.updateProgress(processedChunks, totalChunks, totalInserted, totalFailed);
@@ -167,7 +167,7 @@ class ExcelImporter {
         };
 
         const { data, error } = await supabase.rpc('rpc', params);
-        
+
         if (error) {
             throw new Error(error.message || 'Erro no processamento do chunk');
         }
@@ -203,7 +203,7 @@ class ExcelImporter {
         const overlay = document.createElement('div');
         overlay.className = 'dialog-overlay';
         overlay.id = 'import-progress-overlay';
-        
+
         overlay.innerHTML = `
             <div class="dialog-card" style="max-width: 500px;">
                 <div class="import-progress-dialog">
@@ -259,12 +259,12 @@ class ExcelImporter {
     showImportComplete() {
         const progressText = document.getElementById('import-progress-text');
         const btnViewHistory = document.getElementById('btn-view-history');
-        
+
         if (progressText) progressText.textContent = '✅ Importação concluída!';
         if (btnViewHistory) btnViewHistory.style.display = 'inline-block';
 
         showToast('Importação concluída com sucesso!', 'success');
-        
+
         // Auto-close after 3 seconds
         setTimeout(() => {
             const dialog = document.querySelector('.dialog-container');

@@ -190,17 +190,17 @@ function renderHistoryRow(m) {
     const isReverted = m.is_reverted;
 
     let typeBadge = '';
-    const badgeStyle = "padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; display: inline-flex; align-items: center; gap: 4px;";
+    const badgeStyle = 'padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; display: inline-flex; align-items: center; gap: 4px;';
 
     if (isReverted) {
         typeBadge = `<span style="${badgeStyle} background: #e2e8f0; color: #64748b;"><i class="fa-solid fa-rotate-left"></i> Anulado</span>`;
     } else {
         switch (m.type) {
-            case 'IN': typeBadge = `<span style="${badgeStyle} background: #f0fdf4; color: #166534;"><i class="fa-solid fa-arrow-down"></i> Entrada</span>`; break;
-            case 'OUT': typeBadge = `<span style="${badgeStyle} background: #fef2f2; color: #991b1b;"><i class="fa-solid fa-arrow-up"></i> Saída</span>`; break;
-            case 'BATCH': typeBadge = `<span style="${badgeStyle} background: #f0f9ff; color: #0369a1;"><i class="fa-solid fa-layer-group"></i> Lote</span>`; break;
-            case 'DELETE': typeBadge = `<span style="${badgeStyle} background: #fef2f2; color: #dc2626;"><i class="fa-solid fa-trash"></i> Apagado</span>`; break;
-            default: typeBadge = `<span style="${badgeStyle} background: #f8fafc; color: #475569;"><i class="fa-solid fa-pen"></i> Edição</span>`;
+        case 'IN': typeBadge = `<span style="${badgeStyle} background: #f0fdf4; color: #166534;"><i class="fa-solid fa-arrow-down"></i> Entrada</span>`; break;
+        case 'OUT': typeBadge = `<span style="${badgeStyle} background: #fef2f2; color: #991b1b;"><i class="fa-solid fa-arrow-up"></i> Saída</span>`; break;
+        case 'BATCH': typeBadge = `<span style="${badgeStyle} background: #f0f9ff; color: #0369a1;"><i class="fa-solid fa-layer-group"></i> Lote</span>`; break;
+        case 'DELETE': typeBadge = `<span style="${badgeStyle} background: #fef2f2; color: #dc2626;"><i class="fa-solid fa-trash"></i> Apagado</span>`; break;
+        default: typeBadge = `<span style="${badgeStyle} background: #f8fafc; color: #475569;"><i class="fa-solid fa-pen"></i> Edição</span>`;
         }
     }
 
@@ -315,7 +315,7 @@ export async function revertMovement(eventId) {
 export async function revertBatch(batchId) {
     const confirmed = await dialog.confirm({
         title: 'Reverter Importação Completa',
-        message: `Deseja anular TODOS os itens desta importação? O stock será restaurado para o estado anterior.`,
+        message: 'Deseja anular TODOS os itens desta importação? O stock será restaurado para o estado anterior.',
         confirmText: 'Sim, anular tudo',
         type: 'danger'
     });
@@ -343,7 +343,7 @@ export async function revertBatch(batchId) {
         const { loadInventory } = await import('./inventory.js');
         loadInventory({ forceFetch: true });
 
-        showToast(`Sucesso: Importação anulada.`, 'success');
+        showToast('Sucesso: Importação anulada.', 'success');
 
     } catch (err) {
         showToast('Erro ao reverter lote: ' + err.message, 'error');

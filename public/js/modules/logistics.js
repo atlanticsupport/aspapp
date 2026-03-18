@@ -119,7 +119,6 @@ export async function loadLogisticsView() {
         fetchLogisticsItems();
     });
 
-
     const searchInput = document.getElementById('logistics-search');
     searchInput.oninput = (e) => {
         state.logisticsFilterState.search = e.target.value;
@@ -408,17 +407,17 @@ function renderLogisticsItems() {
 
         if (hasReceivables) {
             actionButtonsHtml = canWriteLog ? `
-                ${isPartiallyShipped ? `<span class="badge badge-warning" style="margin-right:8px;">Parcial</span>` : ''}
+                ${isPartiallyShipped ? '<span class="badge badge-warning" style="margin-right:8px;">Parcial</span>' : ''}
                 <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window.shipLogisticsOrder('${process}')" title="Dar saída aos itens conferidos">
                     <i class="fa-solid fa-truck-ramp-box"></i> Enviar (${countReceived})
                 </button>
             ` : `<span class="badge badge-warning">Conferido (${countReceived})</span>`;
         } else if (isFullyShipped) {
-            actionButtonsHtml = `<span class="badge badge-success"><i class="fa-solid fa-check-double"></i> Tudo Enviado</span>`;
+            actionButtonsHtml = '<span class="badge badge-success"><i class="fa-solid fa-check-double"></i> Tudo Enviado</span>';
         } else if (isPartiallyShipped) {
-            actionButtonsHtml = `<span class="badge badge-warning">Parcialmente Enviado</span>`;
+            actionButtonsHtml = '<span class="badge badge-warning">Parcialmente Enviado</span>';
         } else {
-            actionButtonsHtml = `<span class="badge badge-warning">Pendente</span>`;
+            actionButtonsHtml = '<span class="badge badge-warning">Pendente</span>';
         }
 
         if (canWriteLog || (state.currentUser?.logistics_access?.includes('D'))) {
@@ -583,12 +582,12 @@ function renderItemsTable(items, isShipped) {
                     <td style="text-align:center; font-weight:600;">${item.quantity}</td>
                     <td>
                         ${item.status === 'pending' ?
-            '<span class="text-muted"><i class="fa-regular fa-clock"></i> Aguardando...</span>' :
-            `<div class="check-info">
+        '<span class="text-muted"><i class="fa-regular fa-clock"></i> Aguardando...</span>' :
+        `<div class="check-info">
                                 <span class="check-user"><i class="fa-solid fa-user-check"></i> ${item.received_by || 'Sistema'}</span>
                                 <span class="check-date">${new Date(item.received_at).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                              </div>`
-        }
+}
                     </td>
                     <td style="text-align:right;">
                         <!-- Actions as before -->
@@ -633,7 +632,7 @@ export function openLogisticsGallery(id) {
 
     const opened = openEntityGallery(item, {
         attachmentCategory: 'reception',
-        acceptedTypes: ['image', 'video'],
+        acceptedTypes: ['image', 'video']
     });
 
     if (!opened && item.image_url) {
@@ -665,7 +664,7 @@ export async function checkLogisticsItem(id) {
 
             for (const file of files) {
                 let uploadFile = file;
-                let fileType = file.type.startsWith('video/') ? 'video' : 'image';
+                const fileType = file.type.startsWith('video/') ? 'video' : 'image';
 
                 if (fileType === 'image') {
                     uploadFile = await import('./data.js').then(m => m.processImageForUpload(file));

@@ -5,7 +5,7 @@ import { validateUserSession, applyPermissionsToUI, getPermissionsSummary } from
 
 export async function checkAuth() {
     const saved = localStorage.getItem('aspapp_session');
-    
+
     if (!saved) {
         // Show login if no session
         const loginOverlay = document.getElementById('login-overlay');
@@ -24,7 +24,7 @@ export async function checkAuth() {
 
     try {
         const user = JSON.parse(saved);
-        
+
         // Check if this is an old session without permissions
         if (!user.transit_access && !user.stock_out_access && !user.logistics_access) {
             localStorage.removeItem('aspapp_session');
@@ -34,7 +34,7 @@ export async function checkAuth() {
             }
             return;
         }
-        
+
         // Validate session using new system
         if (!validateUserSession(user)) {
             localStorage.removeItem('aspapp_session');
@@ -44,7 +44,7 @@ export async function checkAuth() {
             }
             return;
         }
-        
+
         // Skip session validation for now - assume token is valid if it exists
         // TODO: Implement proper session validation when rpc_test_session is available
         if (false) {
@@ -61,14 +61,14 @@ export async function checkAuth() {
             }
             return;
         }
-        
+
         state.currentUser = user;
-        
+
         // Apply permissions using new system
         applyPermissionsToUI(user);
-        
+
         // Debug: Show permissions summary
-        
+
         const loginOverlay = document.getElementById('login-overlay');
         if (loginOverlay) {
             loginOverlay.classList.remove('open');
@@ -88,7 +88,6 @@ export async function checkAuth() {
     }
 }
 
-
 export async function login(username, password) {
     const { data, error } = await supabase.rpc('rpc_login', {
         p_username: username,
@@ -102,17 +101,17 @@ export async function login(username, password) {
 
     // Store plain password for RPC authentication (server removes it from response)
     data[0].password = password;
-    
+
     state.currentUser = data[0];
-    
+
     // Save COMPLETE user object with all permissions and password
     localStorage.setItem('aspapp_session', JSON.stringify(data[0]));
 
     // Apply permissions using new system
     applyPermissionsToUI(data[0]);
-    
+
     // Debug: Show permissions summary
-    
+
     // Hide login overlay
     const loginOverlay = document.getElementById('login-overlay');
     if (loginOverlay) {
@@ -123,7 +122,7 @@ export async function login(username, password) {
         loginOverlay.style.setProperty('pointer-events', 'none', 'important');
         loginOverlay.style.setProperty('visibility', 'hidden', 'important');
     }
-    
+
     showToast('Sessão iniciada!', 'success');
     // Removed auto-reload to preserve console logs for debugging
     return true;

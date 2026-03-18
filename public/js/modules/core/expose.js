@@ -1,4 +1,4 @@
-// This module is a bridge to attach all module functions to the window object 
+// This module is a bridge to attach all module functions to the window object
 // so that existing HTML onclick attributes continue to work.
 
 import * as inventory from '../inventory.js';
@@ -13,7 +13,7 @@ import { openViewer, closeViewer } from '../ag-grid-shim.js'; // Assuming basic 
 export function exposeToWindow() {
     // Inventory
     window.loadInventory = inventory.loadInventory;
-    window.editProduct = inventory.editProduct; // Attached to window in inventory.js? Yes, likely. 
+    window.editProduct = inventory.editProduct; // Attached to window in inventory.js? Yes, likely.
     // Wait, modules execute. If they assign to window, we don't need to reassign here unless we want to be explicit.
     // However, since we are using ES modules, top-level code runs once.
 

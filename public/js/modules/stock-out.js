@@ -252,7 +252,7 @@ export function renderStockOutItems() {
                 </div>
                 <div class="folder-actions">
                     <div style="display:flex; align-items:center; gap:8px;">
-                         ${countPending > 0 ? `<span class="badge badge-warning" style="padding: 4px 10px; font-weight:600;">${countPending} Pendentes</span>` : `<span class="badge badge-success" style="padding: 4px 10px; font-weight:600;"><i class="fa-solid fa-check"></i> Concluído</span>`}
+                         ${countPending > 0 ? `<span class="badge badge-warning" style="padding: 4px 10px; font-weight:600;">${countPending} Pendentes</span>` : '<span class="badge badge-success" style="padding: 4px 10px; font-weight:600;"><i class="fa-solid fa-check"></i> Concluído</span>'}
                          <button class="btn-icon-danger btn-delete-all-mobile" onclick="event.stopPropagation(); window.deleteAllStockOutItems('${process}')" title="Apagar todos os itens deste processo" style="padding: 6px 10px; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
                             <i class="fa-solid fa-trash"></i>
                          </button>
@@ -560,7 +560,7 @@ export async function executeStockOutFulfillment(demandId, physicalId) {
             p_id: physicalId,
             p_new_qty: newPhysQty,
             p_event_type: 'STOCK_OUT',
-            p_event_title: `Saída de Stock Física`,
+            p_event_title: 'Saída de Stock Física',
             p_event_summary: `Ref ${physData.part_number}: ${physTotal} → ${newPhysQty} (Proc: ${demand.sales_process || 'N/A'})`
         });
 
@@ -717,9 +717,9 @@ async function deleteAllStockOutItems(process) {
             showToast('Nenhum item encontrado para apagar.', 'warning');
             return;
         }
-        
+
         const itemsToDelete = state.stockOutProducts.filter(item => item.sales_process === process);
-        
+
         if (itemsToDelete.length === 0) {
             showToast('Nenhum item encontrado para apagar.', 'warning');
             return;

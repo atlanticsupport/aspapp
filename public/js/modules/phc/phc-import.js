@@ -10,7 +10,7 @@ const tableColumnCache = {};
 // Get valid columns for a table
 async function getValidColumns(tableName) {
     if (tableColumnCache[tableName]) return tableColumnCache[tableName];
-    
+
     try {
         const { data, error } = await supabase.rpc('get_table_columns', {
             p_user: state.currentUser.username,
@@ -221,7 +221,7 @@ async function handlePhotoUploads(destLayout, itemCount) {
     // Note: In a real implementation, you would need to fetch the inserted IDs
     // from the import_items table to associate photos with correct products
     const results = []; // Placeholder for inserted IDs
-    
+
     if (results.length === 0) return;
 
     const files = Array.from(photosInput.files);
@@ -233,7 +233,7 @@ async function handlePhotoUploads(destLayout, itemCount) {
         for (const file of files) {
             try {
                 let uploadFile = file;
-                let fileType = file.type.startsWith('video/') ? 'video' : 'image';
+                const fileType = file.type.startsWith('video/') ? 'video' : 'image';
 
                 if (fileType === 'image') {
                     uploadFile = await processImageForUpload(file);
@@ -270,21 +270,21 @@ async function handlePhotoUploads(destLayout, itemCount) {
 // Refresh the appropriate view
 async function refreshView(page) {
     switch (page) {
-        case 'logistics':
-            const { fetchLogisticsItems } = await import('../logistics.js');
-            await fetchLogisticsItems();
-            break;
-        case 'transit':
-            const { fetchTransitItems } = await import('../transit.js');
-            await fetchTransitItems();
-            break;
-        case 'stock-out':
-            const { fetchStockOutItems } = await import('../stock-out.js');
-            await fetchStockOutItems();
-            break;
-        default:
-            state.products = [];
-            await loadInventory();
+    case 'logistics':
+        const { fetchLogisticsItems } = await import('../logistics.js');
+        await fetchLogisticsItems();
+        break;
+    case 'transit':
+        const { fetchTransitItems } = await import('../transit.js');
+        await fetchTransitItems();
+        break;
+    case 'stock-out':
+        const { fetchStockOutItems } = await import('../stock-out.js');
+        await fetchStockOutItems();
+        break;
+    default:
+        state.products = [];
+        await loadInventory();
     }
 }
 

@@ -21,7 +21,7 @@ export function addExcelImportToDialog() {
     // Find existing import modal
     const modal = document.getElementById('phc-import-modal');
     if (!modal) return;
-    
+
     // Add Excel import button if not exists
     if (!modal.querySelector('.btn-excel-import')) {
         const buttonContainer = modal.querySelector('.modal-actions');

@@ -261,7 +261,6 @@ export function loadSettings() {
         };
     }
 
-
     // Load Local Prefs
     const localPrefs = JSON.parse(localStorage.getItem('localPrefs')) || { theme: 'light', lang: 'pt' };
     if (document.getElementById('local-theme')) document.getElementById('local-theme').value = localPrefs.theme;

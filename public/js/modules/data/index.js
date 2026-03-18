@@ -1,7 +1,7 @@
 // Data management modules
-export { 
-    fetchProducts, 
-    fetchAllProcesses, 
+export {
+    fetchProducts,
+    fetchAllProcesses,
     secureFetch,
     fetchInventory,
     fetchLogisticsItems,

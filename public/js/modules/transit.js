@@ -9,13 +9,13 @@ import { views } from './dom.js';
 
 export async function loadTransitView() {
     if (!supabase) return;
-    
+
     // Debug permissions and state
     console.log('[TRANSIT] Current user permissions:', {
         transit_access: state.currentUser?.transit_access,
         role: state.currentUser?.role
     });
-    
+
     console.log('[TRANSIT] state.currentUser:', state.currentUser);
     console.log('[TRANSIT] localStorage session:', localStorage.getItem('aspapp_session')?.substring(0, 100) + '...');
 
@@ -137,7 +137,7 @@ export async function fetchTransitItems() {
         showToast('Utilizador não autenticado.', 'error');
         return;
     }
-    
+
     try {
         const { data, error } = await supabase.rpc('secure_fetch_inventory', {
             p_user: state.currentUser.username,
@@ -250,7 +250,7 @@ export function renderTransitItems() {
                 </div>
                 <div class="folder-actions">
                     <div style="display:flex; align-items:center; gap:8px;">
-                         ${countPending > 0 ? `<span class="badge badge-warning" style="padding: 4px 10px; font-weight:600;">${countPending} por Confirmar</span>` : `<span class="badge badge-success" style="padding: 4px 10px; font-weight:600;"><i class="fa-solid fa-check-double"></i> Concluído</span>`}
+                         ${countPending > 0 ? `<span class="badge badge-warning" style="padding: 4px 10px; font-weight:600;">${countPending} por Confirmar</span>` : '<span class="badge badge-success" style="padding: 4px 10px; font-weight:600;"><i class="fa-solid fa-check-double"></i> Concluído</span>'}
                          <button class="btn-icon-danger btn-delete-all-mobile" onclick="event.stopPropagation(); window.deleteAllTransitItems('${process}')" title="Apagar todos os itens deste processo" style="padding: 6px 10px; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
                             <i class="fa-solid fa-trash"></i>
                          </button>
@@ -378,7 +378,7 @@ function renderTransitTable(items) {
                                 <button class="btn-icon" onclick="window.deleteTransitItem(${item.id})" title="Eliminar" style="color:#dc2626;">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>` : ''}
-                            ` : `<span class="badge badge-warning">A aguardar...</span>`)}
+                            ` : '<span class="badge badge-warning">A aguardar...</span>')}
                         </div>
                     </td>
                 </tr>
@@ -517,9 +517,9 @@ async function deleteAllTransitItems(process) {
             showToast('Nenhum item encontrado para apagar.', 'warning');
             return;
         }
-        
+
         const itemsToDelete = state.transitProducts.filter(item => item.sales_process === process);
-        
+
         if (itemsToDelete.length === 0) {
             showToast('Nenhum item encontrado para apagar.', 'warning');
             return;

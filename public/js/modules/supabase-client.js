@@ -1,4 +1,4 @@
-// Este ficheiro foi 100% REPROGRAMADO para simular a API do Supabase 
+// Este ficheiro foi 100% REPROGRAMADO para simular a API do Supabase
 // mas utilizando apenas endpoints Cloudflare (Pages + D1 + R2) nativos!
 import { state } from './state.js';
 
@@ -26,13 +26,13 @@ export async function initSupabase() {
                     }
                 }
 
-                const res = await fetch(`/api/rpc`, {
+                const res = await fetch('/api/rpc', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(reqBody)
                 });
                 const result = await res.json();
-                
+
                 // Check for expired token
                 if (res.status === 401 && result.error && result.error.includes('expirada')) {
                     console.log('[SUPABASE] Token expired, attempting refresh...');
@@ -59,10 +59,10 @@ export async function initSupabase() {
                                 const updatedUser = refreshResult.data[0];
                                 localStorage.setItem('aspapp_session', JSON.stringify(updatedUser));
                                 state.currentUser = updatedUser;
-                                
+
                                 // Retry original request with new token
                                 reqBody.token = updatedUser.token;
-                                const retryRes = await fetch(`/api/rpc`, {
+                                const retryRes = await fetch('/api/rpc', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify(reqBody)
@@ -74,7 +74,7 @@ export async function initSupabase() {
                         }
                     }
                 }
-                
+
                 if (!res.ok) throw new Error(result.error || 'Server RPC falhou');
                 return { data: result.data, error: null };
             } catch (err) {
@@ -96,7 +96,7 @@ export async function initSupabase() {
                             base64 = fileData;
                         }
 
-                        const res = await fetch(`/api/storage/upload`, {
+                        const res = await fetch('/api/storage/upload', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ bucket: bucketName, fileName, fileContentBase64: base64 })
