@@ -676,9 +676,48 @@ export async function removeMainImage() {
             });
         }
         
-        // Close viewer and reload to get fresh data from DB
+        // Close viewer
         const viewerOverlay = document.getElementById('viewer-overlay');
         if (viewerOverlay) viewerOverlay.classList.remove('open');
+        
+        // Refresh product data from DB
+        const { data: updatedProduct } = await supabase.rpc('secure_fetch_any', {
+            p_user: state.currentUser.username,
+            p_pass: state.currentUser.password,
+            p_table: 'products',
+            p_params: { eq: { id: state.currentProductId } }
+        });
+        
+        if (updatedProduct && updatedProduct[0]) {
+            const product = updatedProduct[0];
+            
+            // Update header image
+            const headerImg = document.getElementById('header-image-container');
+            if (headerImg) {
+                const img = headerImg.querySelector('img');
+                if (product.image_url) {
+                    if (img) {
+                        img.src = product.image_url;
+                    } else {
+                        headerImg.innerHTML = `<img src="${product.image_url}" alt="Produto">`;
+                    }
+                } else {
+                    headerImg.innerHTML = '<div class="no-image-placeholder">Sem imagem</div>';
+                }
+            }
+            
+            // Reload attachments to refresh viewer-image-box (gallery thumbnails)
+            await loadProductAttachments(state.currentProductId);
+            
+            // Update grid if exists (includes cell-image)
+            if (window.gridApi) {
+                const rowNode = window.gridApi.getRowNode(state.currentProductId);
+                if (rowNode) {
+                    rowNode.setData(product);
+                    window.gridApi.refreshCells({ rowNodes: [rowNode], force: true });
+                }
+            }
+        }
         
         showToast('Imagem removida.', 'success');
     } catch (err) {
