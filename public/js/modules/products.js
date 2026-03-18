@@ -302,18 +302,24 @@ function renderAttachmentItem(att) {
     const removeBtn = document.createElement('button');
     removeBtn.className = 'remove-btn';
     removeBtn.innerHTML = '&times;';
+    removeBtn.setAttribute('type', 'button');
     removeBtn.onclick = (e) => {
+        console.log('REMOVE BTN CLICKED!', att.id, 'isNew:', att.isNew);
         e.stopPropagation();
+        e.preventDefault();
         if (att.isNew) {
+            console.log('Removing new attachment from pending');
             state.pendingAttachments = state.pendingAttachments.filter(a => a.id !== att.id);
             item.remove();
             handleAttachmentRemoved(att);
         } else {
+            console.log('Calling removeAttachment for existing attachment');
             removeAttachment(att, item);
         }
     };
     item.appendChild(removeBtn);
     list.appendChild(item);
+    console.log('Attachment item rendered with remove button:', att.id);
 }
 
 async function removeAttachment(att, element) {
