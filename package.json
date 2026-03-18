@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "wrangler pages dev public --d1 DB=aspstock-db",
     "deploy": "wrangler pages deploy public",
+    "lint": "eslint public/js --fix",
+    "format": "prettier --write 'public/js/**/*.js' 'functions/**/*.js'",
+    "lint:check": "eslint public/js",
+    "format:check": "prettier --check 'public/js/**/*.js' 'functions/**/*.js'",
+    "db:export": "wrangler d1 export aspstock-db --remote --output database-backup-$(date +%s).sql",
     "db:migrate": "wrangler d1 execute aspstock-db --file migrations/001_add_indexes.sql --remote",
-    "db:backup": "wrangler d1 backup create aspstock-db",
-    "db:list": "wrangler d1 list",
-    "db:query": "wrangler d1 execute aspstock-db --remote"
+    "db:list": "wrangler d1 list"
   },
   "keywords": [
     "inventory",
@@ -22,7 +25,9 @@
   "license": "UNLICENSED",
   "private": true,
   "devDependencies": {
-    "wrangler": "^4.75.0"
+    "wrangler": "^4.75.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.2.0"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -46,7 +46,23 @@ build/
 *.bak
 *.backup
 
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# Vitest
+.vitest/
+*.test.js
+**/__tests__/
+
+# Playwright
+test-results/
+playwright-report/
+
 # Package lock files (opcional - descomente se quiser versionar)
 # package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
 # yarn.lock
 # pnpm-lock.yaml

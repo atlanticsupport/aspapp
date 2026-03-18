@@ -1,0 +1,12 @@
+node_modules/
+.git/
+dist/
+build/
+.wrangler/
+.dev.vars
+.env.local
+.env.*.local
+database-backup-*.sql
+*.log
+public/css/
+public/fonts/
