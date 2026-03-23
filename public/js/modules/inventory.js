@@ -7,6 +7,46 @@ import { openEditModal } from './products.js';
 import { loadDashboard } from './dashboard.js';
 import { printPalletLabel } from './printing.js';
 
+const QUICK_STOCK_BATCH_MS = 700;
+const pendingStockBatches = new Map();
+
+async function flushStockBatch(productId) {
+    const key = String(productId);
+    const batch = pendingStockBatches.get(key);
+    if (!batch) return;
+
+    pendingStockBatches.delete(key);
+
+    if (!batch.totalChange) return;
+
+    try {
+        const { error } = await supabase.rpc('secure_update_stock', {
+            p_user: state.currentUser.username,
+            p_pass: state.currentUser.password,
+            p_id: productId,
+            p_new_qty: batch.pendingQty
+        });
+
+        if (error) throw error;
+
+        await recordMovement(
+            productId,
+            batch.totalChange,
+            batch.totalChange > 0 ? 'Correção de Lote (+)' : 'Consumo / Saída',
+            batch.costPrice,
+            null,
+            batch.salesProcess,
+            null,
+            batch.totalChange > 0 ? 'IN' : 'OUT'
+        );
+
+        loadInventory({ skipRefetch: true });
+    } catch (err) {
+        showToast('Erro ao atualizar stock: ' + err.message, 'error');
+        await loadInventory();
+    }
+}
+
 // Global Handlers
 export function toggleSearchConfig() {
     const modal = document.getElementById('search-config-modal');
@@ -330,25 +370,38 @@ export async function updateStock(id, change) {
     const product = state.products.find(p => p.id == id);
     if (!product) return;
 
-    const newQty = Math.max(0, product.quantity + change);
+    const key = String(id);
+    let batch = pendingStockBatches.get(key);
 
-    try {
-        const { error } = await supabase.rpc('secure_update_stock', {
-            p_user: state.currentUser.username,
-            p_pass: state.currentUser.password,
-            p_id: id,
-            p_new_qty: newQty
-        });
-
-        if (error) throw error;
-
-        await recordMovement(id, change, change > 0 ? 'Correção de Lote (+)' : 'Consumo / Saída', product.cost_price, null, product.sales_process, null, change > 0 ? 'IN' : 'OUT');
-        product.quantity = newQty;
-        loadInventory({ skipRefetch: true });
-
-    } catch (err) {
-        showToast('Erro ao atualizar stock: ' + err.message, 'error');
+    if (!batch) {
+        batch = {
+            totalChange: 0,
+            pendingQty: Number(product.quantity || 0),
+            costPrice: product.cost_price,
+            salesProcess: product.sales_process,
+            timer: null
+        };
+        pendingStockBatches.set(key, batch);
     }
+
+    const nextQty = Math.max(0, batch.pendingQty + Number(change || 0));
+    const appliedChange = nextQty - batch.pendingQty;
+    if (!appliedChange) return;
+
+    batch.pendingQty = nextQty;
+    batch.totalChange += appliedChange;
+
+    // Optimistic UI update while batching consecutive clicks
+    product.quantity = nextQty;
+    const dashboardProduct = state.dashboardProducts?.find(p => p.id == id);
+    if (dashboardProduct) dashboardProduct.quantity = nextQty;
+    const stockValueEl = document.getElementById(`stock-val-${id}`);
+    if (stockValueEl) stockValueEl.textContent = String(nextQty);
+
+    if (batch.timer) clearTimeout(batch.timer);
+    batch.timer = setTimeout(() => {
+        flushStockBatch(id);
+    }, QUICK_STOCK_BATCH_MS);
 }
 
 export async function deleteProduct(id, name) {

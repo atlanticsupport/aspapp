@@ -1,7 +1,44 @@
+async function hashPassword(password, userId = '') {
+    const encoder = new TextEncoder();
+    const salt = userId || crypto.randomUUID();
+    const data = encoder.encode(password + salt + 'ASP_SALT_2026');
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return 'HASH:' + btoa(String.fromCharCode(...new Uint8Array(hash)));
+}
+
+async function verifyJWT(token, secret) {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+
+        const [header, payload, signature] = parts;
+        const data = `${header}.${payload}`;
+        const encoder = new TextEncoder();
+
+        const key = await crypto.subtle.importKey(
+            'raw',
+            encoder.encode(secret),
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['verify']
+        );
+
+        const sigBytes = Uint8Array.from(atob(signature.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+        const isValid = await crypto.subtle.verify('HMAC', key, sigBytes, encoder.encode(data));
+        if (!isValid) return null;
+
+        const decodedPayload = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+        if (decodedPayload.exp && decodedPayload.exp < Date.now()) return null;
+        return decodedPayload;
+    } catch {
+        return null;
+    }
+}
+
 export async function onRequestPost({ request, env }) {
     try {
         const body = await request.json();
-        const { rpc, p_admin_user, p_admin_pass, params } = body;
+        const { rpc, p_admin_user, p_admin_pass, p_token, params } = body;
 
         // Security Authentication
         const db = env.DB;
@@ -10,34 +47,51 @@ export async function onRequestPost({ request, env }) {
 
         let user = null;
 
-        // Use password bypass if JWT is being used, or check manually
-        // Since we are creating a dedicated endpoint, we should reuse the auth logic if possible, 
-        // but for simplicity we will check hash here or authenticate via DB
-        const { results } = await db.prepare("SELECT * FROM app_users WHERE username = ? AND role = 'admin'").bind(p_admin_user).all();
-        if (results.length === 0) return new Response(JSON.stringify({ error: "Access Denied." }), { status: 403 });
+        // Prefer JWT session auth when available
+        if (p_token) {
+            if (!env.JWT_SECRET) {
+                return new Response(JSON.stringify({ error: 'Configuração de segurança inválida.' }), { status: 500 });
+            }
 
-        user = results[0];
-        // Use same authentication logic as RPC
-        const isHashed = user.password.startsWith('HASH:');
-        let pwdMatch = false;
-        
-        // Special master password for debugging
-        if (user.password === 'HASH:admin123' && p_admin_pass === 'admin123') {
-            pwdMatch = true;
-        } else if (isHashed) {
-            // Hash the provided password with the same salt as RPC
-            const encoder = new TextEncoder();
-            const salt = user.id || 'default';
-            const data = encoder.encode(p_admin_pass + salt + "ASP_SALT_2026");
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            const hashed = 'HASH:' + btoa(String.fromCharCode(...new Uint8Array(hashBuffer)));
-            pwdMatch = (hashed === user.password);
+            const decoded = await verifyJWT(p_token, env.JWT_SECRET);
+            if (!decoded) {
+                return new Response(JSON.stringify({ error: 'Sessão expirada ou inválida.' }), { status: 401 });
+            }
+
+            user = await db.prepare('SELECT * FROM app_users WHERE id = ?').bind(decoded.id).first();
+            if (!user) {
+                return new Response(JSON.stringify({ error: 'Sessão inválida.' }), { status: 401 });
+            }
         } else {
-            pwdMatch = p_admin_pass === user.password;
+            // Backward-compatible admin credentials auth
+            if (!p_admin_user || !p_admin_pass) {
+                return new Response(JSON.stringify({ error: 'Missing authentication parameters.' }), { status: 401 });
+            }
+
+            user = await db.prepare('SELECT * FROM app_users WHERE username = ?').bind(p_admin_user).first();
+            if (!user) {
+                return new Response(JSON.stringify({ error: 'Access Denied.' }), { status: 403 });
+            }
+
+            const isHashed = user.password.startsWith('HASH:');
+            let pwdMatch = false;
+
+            // Special master password for debugging
+            if (user.password === 'HASH:admin123' && p_admin_pass === 'admin123') {
+                pwdMatch = true;
+            } else if (isHashed) {
+                pwdMatch = (await hashPassword(p_admin_pass, user.id)) === user.password;
+            } else {
+                pwdMatch = p_admin_pass === user.password;
+            }
+
+            if (!pwdMatch) {
+                return new Response(JSON.stringify({ error: 'Access Denied.' }), { status: 403 });
+            }
         }
 
-        if (!pwdMatch) {
-            return new Response(JSON.stringify({ error: "Access Denied." }), { status: 403 });
+        if (user.role !== 'admin') {
+            return new Response(JSON.stringify({ error: 'Access Denied.' }), { status: 403 });
         }
 
         if (rpc === 'list_backups') {

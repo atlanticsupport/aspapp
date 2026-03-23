@@ -53,6 +53,7 @@ export async function loadBackupsView() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             rpc: 'trigger_backup',
+                            p_token: state.currentUser.token,
                             p_admin_user: state.currentUser.username,
                             p_admin_pass: state.currentUser.password
                         })
@@ -87,6 +88,7 @@ async function fetchAndRenderBackups() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 rpc: 'list_backups',
+                p_token: state.currentUser.token,
                 p_admin_user: state.currentUser.username,
                 p_admin_pass: state.currentUser.password
             })
@@ -156,6 +158,7 @@ window.downloadBackup = async (key) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 rpc: 'download_backup',
+                p_token: state.currentUser.token,
                 p_admin_user: state.currentUser.username,
                 p_admin_pass: state.currentUser.password,
                 params: { key: key }
@@ -202,6 +205,7 @@ window.deleteBackup = async (key) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 rpc: 'delete_backup',
+                p_token: state.currentUser.token,
                 p_admin_user: state.currentUser.username,
                 p_admin_pass: state.currentUser.password,
                 params: { key: key }
