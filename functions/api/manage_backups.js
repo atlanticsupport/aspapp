@@ -116,7 +116,9 @@ export async function onRequestPost({ request, env }) {
             const data = await resp.json();
             return new Response(JSON.stringify({ data: data }), { status: 200, headers: { 'Content-Type': 'application/json' } });
         } else if (rpc === 'download_backup') {
-            const file = await bucket.get(params.key);
+            const key = params.key;
+            if (!key || !key.startsWith('db-backups/')) throw new Error('Invalid key');
+            const file = await bucket.get(key);
             if (!file) {
                 return new Response(JSON.stringify({ error: "Ficheiro não encontrado no R2" }), { status: 404 });
             }

@@ -22,35 +22,45 @@ export async function onRequestGet({ request, env }) {
         const dateStr = now.toISOString().split('T')[0];
         const fileName = `db-backups/aspstock_backup_${dateStr}.json`;
 
-        // Extraimos todas as tabelas (sem phc, porque o phc sincroniza de fora, e é enorme)
-        // Apenas preservamos CORE STATE: Products, Users, Movements, Historico_Geral, Logistics, Attachments.
-        const tables = ['app_users', 'products', 'movements', 'historico_geral', 'logistics_items', 'attachments'];
-        let dump = { timestamp: now.toISOString(), tables: {} };
+        // Extraimos TODAS as tabelas dinamicamente (mais agressivo)
+        // Optimização de RAM: Construção da string JSON diretamente para evitar duplicação em memória
+        let jsonStr = `{"timestamp":"${now.toISOString()}","tables":{`;
+        
+        const { results: tableNames } = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'd1_%'").all();
+        const tablesToExport = tableNames.map(t => t.name);
 
-        for (const t of tables) {
-            const { results } = await db.prepare(`SELECT * FROM ${t}`).all();
-            dump.tables[t] = results;
+        let firstTable = true;
+        for (const t of tablesToExport) {
+            try {
+                const { results } = await db.prepare(`SELECT * FROM "${t}"`).all();
+                if (!firstTable) jsonStr += `,`;
+                jsonStr += `"${t}":${JSON.stringify(results)}`;
+                firstTable = false;
+            } catch (err) {
+                console.error(`Excepção na tabela ${t}:`, err);
+                if (!firstTable) jsonStr += `,`;
+                jsonStr += `"${t}":{"error":${JSON.stringify(err.message)}}`;
+                firstTable = false;
+            }
         }
+        jsonStr += `}}`;
 
-        const jsonData = JSON.stringify(dump);
-
-        // Compressão opcional e Conversão para Uint8Array
         const encoder = new TextEncoder();
-        const byteData = encoder.encode(jsonData);
+        const byteData = encoder.encode(jsonStr);
 
         // Grava no R2
         await bucket.put(fileName, byteData, {
             httpMetadata: { contentType: 'application/json' }
         });
 
-        // Loop de Gestão de Retenção a 30 Dias Programado Automaticamente
+        // Loop de Gestão de Retenção a 90 Dias Programado Automaticamente
         // Vai buscar lista de backups na pasta db-backups/
-        const thirtyDaysAgo = now.getTime() - (30 * 24 * 60 * 60 * 1000);
+        const olderThanDays = now.getTime() - (90 * 24 * 60 * 60 * 1000);
         let listed = await bucket.list({ prefix: 'db-backups/' });
 
         const deletedFiles = [];
         for (const file of listed.objects) {
-            if (file.uploaded.getTime() < thirtyDaysAgo) {
+            if (file.uploaded.getTime() < olderThanDays) {
                 await bucket.delete(file.key);
                 deletedFiles.push(file.key);
             }

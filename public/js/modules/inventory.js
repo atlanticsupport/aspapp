@@ -189,17 +189,17 @@ export function renderProducts(products, options = {}) {
         { id: 'photo', label: 'Img', width: '50px', render: p => renderImageCellHTML(p) },
         { id: 'id', label: 'ID', width: '60px', render: p => `<span style="font-size:0.75rem; color:var(--text-secondary); font-family:monospace;">#${p.id}</span>` },
         {
-            id: 'sales_process', label: 'Processo/PO', width: '12%', className: 'col-po', render: p => `
+            id: 'sales_process', label: 'Processo/PO', width: '150px', className: 'col-po', render: p => `
             <div style="font-size:0.8rem;">
                 <span class="badge-po" style="background:#eff6ff; color:#1d4ed8; padding:3px 8px; border-radius:4px; font-weight:600;">${p.sales_process || '-'}</span>
             </div>`
         },
-        { id: 'part_number', label: 'PN / Ref.', width: '150px', className: 'col-pn', render: p => `<span style="font-family: monospace; font-weight: 600; color: var(--text-primary);">${p.part_number || '-'}</span>` },
-        { id: 'name', label: 'Designação', width: '250px', render: p => `<div style="font-weight: 500; font-size: 0.9rem;">${p.name}</div>` },
+        { id: 'part_number', label: 'PN / Ref.', width: '160px', className: 'col-pn', render: p => `<span style="font-family: monospace; font-weight: 600; color: var(--text-primary);">${p.part_number || '-'}</span>` },
+        { id: 'name', label: 'Designação', width: 'auto', render: p => `<div style="font-weight: 500; font-size: 0.9rem;">${p.name}</div>`, className: 'col-desc' },
         { id: 'brand', label: 'Brand', width: '100px', render: p => `<span style="font-size:0.85rem;">${p.brand || '-'}</span>` },
         { id: 'maker', label: 'Maker', width: '100px', render: p => `<span style="font-size:0.85rem;">${p.maker || '-'}</span>` },
-        { id: 'category', label: 'Tipo', width: '100px', render: p => `<span style="font-size:0.8rem; background:#f1f5f9; padding:2px 6px; border-radius:4px;">${p.category || '-'}</span>` },
-        { id: 'location', label: 'Nave', width: '70px', render: p => `<span style="font-weight:600; color:#52525b; font-size:0.85rem;">${p.location || '-'}</span>` },
+        { id: 'category', label: 'Tipo', width: '110px', render: p => `<span style="font-size:0.8rem; background:#f1f5f9; padding:2px 6px; border-radius:4px;">${p.category || '-'}</span>`, className: 'col-category' },
+        { id: 'location', label: 'Nave', width: '70px', render: p => `<span style="font-weight:600; color:#52525b; font-size:0.85rem;">${p.location || '-'}</span>`, className: 'col-loc' },
         {
             id: 'pallet_box',
             label: 'Palete / Caixa',
@@ -219,9 +219,9 @@ export function renderProducts(products, options = {}) {
                 return hasSomething ? html : '-';
             }
         },
-        { id: 'cost_price', label: 'U.Price', width: '90px', render: p => `<span style="font-weight:600; color:#10b981; font-size:0.85rem;">${formatCurrency(p.cost_price)}</span>` },
+        { id: 'cost_price', label: 'U.Price', width: '100px', render: p => `<span style="font-weight:600; color:#10b981; font-size:0.85rem;">${formatCurrency(p.cost_price)}</span>`, className: 'col-price' },
         {
-            id: 'quantity', label: 'Qtd', width: '120px', align: 'center', render: p => (state.currentUser?.inventory_access === 'write' || state.currentUser?.inventory_access?.includes('U')) ? `
+            id: 'quantity', label: 'Qtd', width: '110px', align: 'center', className: 'col-stk', render: p => (state.currentUser?.inventory_access === 'write' || state.currentUser?.inventory_access?.includes('U')) ? `
             <div class="quick-stock-actions" onclick="event.stopPropagation()">
                 <button class="btn-stock-adjust minus" onclick="window.updateStock(${p.id}, -1)"><i class="fa-solid fa-minus"></i></button>
                 <span class="stock-value" id="stock-val-${p.id}">${p.quantity}</span>
@@ -229,7 +229,7 @@ export function renderProducts(products, options = {}) {
             </div>` : `<span style="font-weight:700;">${p.quantity}</span>`
         },
         {
-            id: 'actions', label: 'Ações', width: '100px', align: 'right', render: p => `
+            id: 'actions', label: 'Ações', width: '110px', align: 'right', className: 'col-actions', render: p => `
             <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
                 ${(state.currentUser?.inventory_access === 'write' || state.currentUser?.inventory_access?.includes('U')) ? `
                 <button class="btn btn-secondary" style="padding:4px 8px;" onclick="event.stopPropagation(); window.editProduct(${p.id})"><i class="fa-solid fa-pen-to-square"></i></button>

@@ -1352,8 +1352,16 @@ window.navigateTo = navigateTo;
 document.addEventListener('click', (e) => {
     if (e.target.closest('.trigger-phc-import')) {
         e.preventDefault();
-        if (window.initPhcImport) {
-            window.initPhcImport();
+        if (window.resetPhcImport) {
+            window.resetPhcImport();
+        }
+        const modal = document.getElementById('phc-import-modal');
+        if (modal) {
+            modal.classList.add('open');
+            setTimeout(() => {
+                const input = document.getElementById('phc-process-input');
+                if (input) input.focus();
+            }, 100);
         }
     }
 });

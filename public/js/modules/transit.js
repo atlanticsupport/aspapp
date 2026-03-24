@@ -319,63 +319,65 @@ function renderTransitTable(items) {
     ];
 
     return `
-    <table class="data-table">
-        <thead>
-            <tr>
-                ${headers.map(h => {
+    <div class="table-wrapper" style="overflow-x: auto; width: 100%;">
+        <table class="data-table" style="min-width: 1000px;">
+            <thead>
+                <tr>
+                    ${headers.map(h => {
         if (!h.sortable) return `<th style="width:${h.width}">${h.label}</th>`;
         const isSorted = sort.column === h.id;
         const icon = isSorted ? (sort.ascending ? ' <i class="fa-solid fa-sort-up"></i>' : ' <i class="fa-solid fa-sort-down"></i>') : '';
         return `<th style="width:${h.width}; cursor:pointer;" onclick="window.handleTransitSort('${h.id}')">
-                        ${h.label}${icon}
-                    </th>`;
+                            ${h.label}${icon}
+                        </th>`;
     }).join('')}
-            </tr>
-        </thead>
-        <tbody>
-            ${sorted.map(item => `
-                <tr class="${item.status === 'available' ? 'item-checked' : ''}">
-                    <td class="col-photo" style="padding: 1rem 0.5rem; text-align: center;">${renderImageCellHTML(item)}</td>
-                    <td class="font-mono" style="font-weight:600;">${item.part_number || '---'}</td>
-                    <td>
-                        <div style="font-weight:500;">${item.name || 'Sem nome'}</div>
-                        <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">
-                            <span><i class="fa-solid fa-location-dot" style="font-size:0.7rem;"></i> ${item.location || '-'} ${item.pallet ? ` • ${item.pallet}` : ''} ${item.box ? ` • ${item.box}` : ''}</span>
-                        </div>
-                    </td>
-                    <td style="font-size:0.85rem;">${item.maker || item.brand || '-'}</td>
-                    <td style="text-align:center; font-weight:700;">${item.quantity}</td>
-                    <td style="font-size:0.8rem; font-weight:500; color:var(--primary-color);">${item.delivery_time || '-'}</td>
-                    <td>
-                         <div style="font-weight:500; font-size:0.85rem;">${item.order_to || item.supplier || '-'}</div>
-                         <div style="font-size:0.7rem; color:var(--text-secondary);">${item.sales_process || ''}</div>
-                    </td>
-                    <td style="text-align:right;">
-                        <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
-                            ${item.status === 'available' ? `
-                                <div class="check-info" style="display:flex; flex-direction:column; align-items:flex-end;">
-                                    <span class="check-user" style="color:#166534;"><i class="fa-solid fa-check"></i> Recebido</span>
-                                    <span class="check-date">${item.updated_at ? new Date(item.updated_at).toLocaleDateString() : '-'} • ${item.author || '---'}</span>
-                                    ${(state.currentUser?.transit_access === 'write' || state.currentUser?.transit_access?.includes('U')) ? `
-                                    <button class="btn-icon" onclick="window.undoTransitArrival(${item.id})" title="Reverter Receção" style="color:#d97706; background:#fff7ed; border:none; padding:2px 6px; border-radius:4px; font-size:0.65rem; font-weight:600; margin-top:4px;">
-                                        <i class="fa-solid fa-rotate-left"></i> Reverter
-                                    </button>` : ''}
-                                </div>
-                            ` : ((state.currentUser?.transit_access === 'write' || state.currentUser?.transit_access?.includes('U')) ? `
-                                <button class="btn-check-custom" onclick="window.confirmArrival(${item.id})" title="Confirmar Receção">
-                                    <i class="fa-solid fa-check"></i>
-                                </button>
-                                ${(state.currentUser?.transit_access?.includes('D')) ? `
-                                <button class="btn-icon" onclick="window.deleteTransitItem(${item.id})" title="Eliminar" style="color:#dc2626;">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>` : ''}
-                            ` : '<span class="badge badge-warning">A aguardar...</span>')}
-                        </div>
-                    </td>
                 </tr>
-            `).join('')}
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                ${sorted.map(item => `
+                    <tr class="${item.status === 'available' ? 'item-checked' : ''}">
+                        <td class="col-photo" style="padding: 1rem 0.5rem; text-align: center;">${renderImageCellHTML(item)}</td>
+                        <td class="font-mono" style="font-weight:600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.part_number || '---'}</td>
+                        <td>
+                            <div style="font-weight:500;">${item.name || 'Sem nome'}</div>
+                            <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">
+                                <span><i class="fa-solid fa-location-dot" style="font-size:0.7rem;"></i> ${item.location || '-'} ${item.pallet ? ` • ${item.pallet}` : ''} ${item.box ? ` • ${item.box}` : ''}</span>
+                            </div>
+                        </td>
+                        <td style="font-size:0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.maker || item.brand || '-'}</td>
+                        <td style="text-align:center; font-weight:700;">${item.quantity}</td>
+                        <td style="font-size:0.8rem; font-weight:500; color:var(--primary-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.delivery_time || '-'}</td>
+                        <td>
+                             <div style="font-weight:500; font-size:0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.order_to || item.supplier || '-'}</div>
+                             <div style="font-size:0.7rem; color:var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.sales_process || ''}</div>
+                        </td>
+                        <td style="text-align:right;">
+                            <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                                ${item.status === 'available' ? `
+                                    <div class="check-info" style="display:flex; flex-direction:column; align-items:flex-end;">
+                                        <span class="check-user" style="color:#166534;"><i class="fa-solid fa-check"></i> Recebido</span>
+                                        <span class="check-date">${item.updated_at ? new Date(item.updated_at).toLocaleDateString() : '-'} • ${item.author || '---'}</span>
+                                        ${(state.currentUser?.transit_access === 'write' || state.currentUser?.transit_access?.includes('U')) ? `
+                                        <button class="btn-icon" onclick="window.undoTransitArrival(${item.id})" title="Reverter Receção" style="color:#d97706; background:#fff7ed; border:none; padding:2px 6px; border-radius:4px; font-size:0.65rem; font-weight:600; margin-top:4px;">
+                                            <i class="fa-solid fa-rotate-left"></i> Reverter
+                                        </button>` : ''}
+                                    </div>
+                                ` : ((state.currentUser?.transit_access === 'write' || state.currentUser?.transit_access?.includes('U')) ? `
+                                    <button class="btn-check-custom" onclick="window.confirmArrival(${item.id})" title="Confirmar Receção">
+                                        <i class="fa-solid fa-check"></i>
+                                    </button>
+                                    ${(state.currentUser?.transit_access?.includes('D')) ? `
+                                    <button class="btn-icon" onclick="window.deleteTransitItem(${item.id})" title="Eliminar" style="color:#dc2626;">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>` : ''}
+                                ` : '<span class="badge badge-warning">A aguardar...</span>')}
+                            </div>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
     `;
 }
 

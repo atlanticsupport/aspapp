@@ -1,8 +1,14 @@
 // Helper to get stylized label HTML
 function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
     const settings = JSON.parse(localStorage.getItem('labelSettings')) || { width: 5, height: 3 };
-    const w = settings.width;
-    const h = settings.height;
+    const w = parseFloat(settings.width) || 15;
+    const h = parseFloat(settings.height) || 10;
+    
+    // Adaptive sizing logic directly in JS (safe for 0x0 hidden iframe printing viewports)
+    const titleSize = type === 'item' ? (w < 8 ? '10pt' : '16pt') : (w < 8 ? '12pt' : '20pt');
+    const footerSize = w < 8 ? '8pt' : '11pt';
+    const logoHeight = h < 6 ? '6mm' : '12mm';
+    const padding = w < 8 ? '1.5mm' : '3mm';
 
     return `
         <!DOCTYPE html>
@@ -10,7 +16,7 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
             <head>
                 <link rel="preconnect" href="https://fonts.googleapis.com">
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;800&display=swap" rel="stylesheet">
                 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
                 <style>
                     @page { size: ${w}cm ${h}cm; margin: 0; }
@@ -21,76 +27,86 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
                         height: ${h}cm;
                         overflow: hidden;
                         background: #fff;
-                        color: #1e293b;
+                        color: #000;
+                        padding: ${padding};
                     }
                     .label-wrapper {
                         width: 100%;
                         height: 100%;
-                        padding: 1.5mm 2mm;
                         display: flex;
                         flex-direction: column;
                         align-items: center;
                         justify-content: space-between;
-                        position: relative;
                         background: #fff;
+                    }
+                    .header-section {
+                        width: 100%;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        margin-bottom: 2mm;
                     }
                     .logo-header {
                         width: 100%;
                         display: flex;
                         justify-content: center;
-                        margin-bottom: 2mm;
+                        margin-bottom: 1.5mm;
                     }
                     .logo-header img {
-                        height: 5.5mm;
-                        width: auto;
+                        height: ${logoHeight};
+                        max-width: 80%;
                         object-fit: contain;
+                        filter: grayscale(100%) contrast(1.2);
                     }
                     .main-title {
-                        font-size: ${type === 'item' ? '8.5pt' : '11.pt'};
-                        font-weight: 500;
+                        font-size: ${titleSize};
+                        font-weight: 800;
                         text-align: center;
-                        line-height: 1.1;
+                        line-height: 1.25;
                         width: 100%;
-                        color: #0f172a;
-                        margin-bottom: 0.5mm;
+                        color: #000;
+                        overflow: hidden;
+                        display: -webkit-box;
+                        -webkit-line-clamp: 2; /* Garante que títulos gigantes não invadem o barcode */
+                        -webkit-box-orient: vertical;
                     }
                     .barcode-area {
-                        flex: 1;
+                        flex: 1; /* Domina todo o espaço vertical livre */
                         width: 100%;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        min-height: 0;
-                        padding: 0.5mm 0;
+                        min-height: 0; /* Vital para o flex shrink impedir colapsos */
+                        padding: 1.5mm 0;
                     }
                     .barcode-svg {
-                        width: auto;
-                        max-width: 95%;
-                        height: auto;
-                        max-height: 100%;
+                        width: 100%;
+                        height: 100%;
+                        max-width: 95%; /* Impede que toque fisicamente nas margens da impressão */
+                        object-fit: contain; /* Estica responsivamente e preserva o Aspect Ratio */
                     }
                     .footer-info {
                         width: 100%;
-                        font-size: 5.5pt;
-                        font-weight: 500;
+                        font-size: ${footerSize};
+                        font-weight: 600;
                         text-align: center;
-                        color: #64748b;
+                        color: #444;
                         white-space: nowrap;
                         overflow: hidden;
                         text-overflow: ellipsis;
-                        border-top: 0.1mm solid #f1f5f9;
+                        border-top: 0.1mm dashed #ccc;
                         padding-top: 1mm;
-                        margin-top: 0.5mm;
                     }
                 </style>
             </head>
             <body>
                 <div class="label-wrapper">
-                    <div class="logo-header">
-                        <img src="logo.svg" onerror="this.style.display='none'">
+                    <div class="header-section">
+                        <div class="logo-header">
+                            <img src="logo.svg" onerror="this.style.display='none'">
+                        </div>
+                        <div class="main-title">${title}</div>
                     </div>
-                    
-                    <div class="main-title">${title}</div>
                     
                     <div class="barcode-area">
                         <svg class="barcode-svg" id="barcode"></svg>
@@ -101,12 +117,13 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
                     <script>
                         JsBarcode("#barcode", "${barcodeValue}", {
                             format: "CODE128",
-                            height: 35,
-                            width: 2.0,
+                            height: 140, /* Resolução Interna Esticada do Barcode */
+                            width: 3.5,  /* Barras internas generosamente visíveis */
                             displayValue: true,
-                            fontSize: 10,
+                            fontSize: 22,
                             font: "Inter",
-                            textMargin: 0,
+                            fontOptions: "bold",
+                            textMargin: 6,
                             margin: 0,
                             background: "transparent",
                             lineColor: "#000"

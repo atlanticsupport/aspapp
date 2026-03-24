@@ -142,20 +142,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             // TRIGGER INITIAL VIEW
-            const firstTab = document.querySelector('.nav-item');
+            // Array.from to filter out hidden tabs based on computed permissions
+            const visibleTabs = Array.from(document.querySelectorAll('.nav-item')).filter(el => {
+                // If the item itself is hidden by permissions
+                if (el.style.display === 'none') return false;
+                // If it belongs to a folder that was hidden by permissions
+                const folder = el.closest('.nav-folder');
+                if (folder && folder.style.display === 'none') return false;
+                return true;
+            });
+            
+            const firstTab = visibleTabs.length > 0 ? visibleTabs[0] : null;
             const tView = performance.now();
 
             // Wait for both the initial view data AND the basic setup logic
             if (firstTab) {
+                const pageId = firstTab.dataset.page;
                 await Promise.all([
-                    window.navigateTo(firstTab.dataset.page),
+                    window.navigateTo(pageId),
                     setupPromise
                 ]);
             } else {
-                await Promise.all([
-                    loadDashboard(),
-                    setupPromise
-                ]);
+                // If absolutely no tabs are visible (should not happen, but safe fallback)
+                await setupPromise;
             }
             console.log(`Initial View Load: ${(performance.now() - tView).toFixed(1)} ms`);
 

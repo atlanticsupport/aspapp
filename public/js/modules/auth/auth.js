@@ -25,15 +25,7 @@ export async function checkAuth() {
     try {
         const user = JSON.parse(saved);
 
-        // Check if this is an old session without permissions
-        if (!user.transit_access && !user.stock_out_access && !user.logistics_access) {
-            localStorage.removeItem('aspapp_session');
-            const loginOverlay = document.getElementById('login-overlay');
-            if (loginOverlay) {
-                loginOverlay.classList.add('open');
-            }
-            return;
-        }
+
 
         // Validate session using new system
         if (!validateUserSession(user)) {
@@ -124,7 +116,8 @@ export async function login(username, password) {
     }
 
     showToast('Sessão iniciada!', 'success');
-    // Removed auto-reload to preserve console logs for debugging
+    // Reload to properly initialize the application state and event listeners
+    setTimeout(() => { location.reload(); }, 300);
     return true;
 }
 

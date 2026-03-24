@@ -134,6 +134,11 @@
     border: 1px solid var(--border-color);
     cursor: pointer;
     user-select: none;
+    min-width: 0;
+}
+
+.filter-group i:not(.filter-dot) {
+    flex-shrink: 0;
 }
 
 .filter-group.active-filter {
@@ -161,6 +166,9 @@
     font-size: 0.9rem;
     color: var(--text-primary);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
 }
 
 #btn-print-pallet {
@@ -269,6 +277,7 @@
 
 .data-table {
     width: 100%;
+    min-width: 1200px; /* Garante scroll horizontal quando a compressão for excessiva */
     border-collapse: collapse;
     font-size: 0.85rem;
     table-layout: fixed;
@@ -293,19 +302,34 @@
     vertical-align: middle;
 }
 
+/* Width Definitions to Prevent Squash */
+.col-po { width: 140px; }
+.col-pn { width: 150px; }
+.col-price { width: 100px; }
+.col-stk { width: 85px; }
+.col-loc { width: 70px; }
+.col-category { width: 110px; }
+.col-status { width: 110px; }
+.col-actions { width: 110px; }
+
 /* Specific Column Protection */
 .col-po,
 .col-pn,
 .col-price,
 .col-stk,
 .col-status,
-.col-actions {
+.col-actions,
+.col-category,
+.col-loc {
     white-space: nowrap;
-    /* Critical: prevent these from squashing/wrapping */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* Critical: prevent these from squashing/wrapping and overlapping text */
 }
 
 .col-desc {
-    min-width: 200px;
+    min-width: 250px;
+    width: auto;
     /* Give description space to breathe but allow it to wrap if needed */
 }
 
