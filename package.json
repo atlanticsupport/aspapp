@@ -5,13 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler pages dev public --d1 DB=aspstock-db",
-    "deploy": "wrangler pages deploy public",
+    "deploy": "npm run deploy:prod",
+    "deploy:prod": "wrangler pages deploy public",
+    "deploy:staging": "wrangler pages deploy public --env staging",
+    "setup:staging": "powershell -ExecutionPolicy Bypass -File setup-staging.ps1",
     "lint": "eslint public/js --fix",
     "format": "prettier --write 'public/js/**/*.js' 'functions/**/*.js'",
     "lint:check": "eslint public/js",
     "format:check": "prettier --check 'public/js/**/*.js' 'functions/**/*.js'",
     "db:export": "wrangler d1 export aspstock-db --remote --output database-backup-$(date +%s).sql",
+    "db:export:staging": "wrangler d1 export aspstock-staging --remote --output database-backup-staging-$(date +%s).sql",
     "db:migrate": "wrangler d1 execute aspstock-db --file migrations/001_add_indexes.sql --remote",
+    "db:migrate:staging": "wrangler d1 execute aspstock-staging --file migrations/001_add_indexes.sql --remote",
     "db:list": "wrangler d1 list"
   },
   "keywords": [
