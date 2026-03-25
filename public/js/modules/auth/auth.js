@@ -91,12 +91,9 @@ export async function login(username, password) {
         return false;
     }
 
-    // Store plain password for RPC authentication (server removes it from response)
-    data[0].password = password;
-
     state.currentUser = data[0];
 
-    // Save COMPLETE user object with all permissions and password
+    // Save user session — token is used for all subsequent requests
     localStorage.setItem('aspapp_session', JSON.stringify(data[0]));
 
     // Apply permissions using new system

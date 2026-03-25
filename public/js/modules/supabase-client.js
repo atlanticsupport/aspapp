@@ -33,45 +33,12 @@ export async function initSupabase() {
                 });
                 const result = await res.json();
 
-                // Check for expired token
-                if (res.status === 401 && result.error && result.error.includes('expirada')) {
-                    // Try to refresh using stored credentials
-                    const saved = localStorage.getItem('aspapp_session');
-                    if (saved) {
-                        const user = JSON.parse(saved);
-                        if (user.username && user.password) {
-                            // Re-login to get new token
-                            const refreshRes = await fetch('/api/rpc', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    rpc: 'rpc_login',
-                                    params: {
-                                        p_username: user.username,
-                                        p_password: user.password
-                                    }
-                                })
-                            });
-                            const refreshResult = await refreshRes.json();
-                            if (refreshRes.ok && refreshResult.data && refreshResult.data[0]) {
-                                // Update stored session
-                                const updatedUser = refreshResult.data[0];
-                                localStorage.setItem('aspapp_session', JSON.stringify(updatedUser));
-                                state.currentUser = updatedUser;
-
-                                // Retry original request with new token
-                                reqBody.token = updatedUser.token;
-                                const retryRes = await fetch('/api/rpc', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(reqBody)
-                                });
-                                const retryResult = await retryRes.json();
-                                if (!retryRes.ok) throw new Error(retryResult.error || 'Server RPC falhou');
-                                return { data: retryResult.data, error: null };
-                            }
-                        }
-                    }
+                // Check for expired/invalid token — redirect to login
+                if (res.status === 401) {
+                    localStorage.removeItem('aspapp_session');
+                    state.currentUser = null;
+                    location.reload();
+                    return { data: null, error: new Error('Sessão expirada. Por favor faça login novamente.') };
                 }
 
                 if (!res.ok) throw new Error(result.error || 'Server RPC falhou');
