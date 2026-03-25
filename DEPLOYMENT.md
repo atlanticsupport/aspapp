@@ -1,273 +1,284 @@
-# Deployment & Environment Guide
+# Deployment & Development Guide
 
 ## Overview
 
-A aplicação ASP Stock Management tem **2 ambientes isolados**:
+A aplicação ASP Stock Management tem **2 ambientes isolados** gerenciados através de Git branches:
 
-| Ambiente | URL | Banco de Dados | R2 Bucket | Propósito |
-|----------|-----|---|-------|---------|
-| **Production** | `https://asp-app.pages.dev` | `aspstock-db` | `asp-stock-backups-30d` | Produção em tempo real |
-| **Staging** | `https://staging.asp-app.pages.dev` | `aspstock-staging` | `asp-stock-backups-staging` | Testes e desenvolvimento |
+| Ambiente | Git Branch | URL | Banco de Dados | Auto-deploy |
+|----------|-----------|-----|---|---------|
+| **Production** | `main` | https://asp-app.pages.dev | `aspstock-db` | ✅ Sim |
+| **Staging** | `staging` | https://staging.asp-app.pages.dev | `aspstock-staging` | ✅ Sim |
 
-Qualquer mudança pode ser **testada em staging** antes de ir para produção, com dados e storage **completamente isolados**.
-
----
-
-## 1. Development Workflow
-
-### Local Development (com BD de produção):
-
-```bash
-npm run dev
-```
-
-Isto inicia um servidor local que liga-se **à BD de produção** (útil para pequenos testes). Abre `http://localhost:8787`.
-
-### Desenvolver em Staging (isolado):
-
-Para trabalhar com dados de teste isolados, **cria uma BD local com migrations**:
-
-```bash
-# 1. Criar BD local para staging
-wrangler d1 create aspstock-staging-local
-
-# 2. Migrar schema (executar migrations)
-wrangler d1 execute aspstock-staging-local --file migrations/001_add_indexes.sql
-wrangler d1 execute aspstock-staging-local --file migrations/002_add_constraints.sql
-# ... etc
-
-# 3. Desenvolver localmente contra esta BD
-wrangler pages dev public --d1 DB=aspstock-staging-local
-```
-
-Agora tens um servidor local (`http://localhost:8787`) com:
-- Código mais recente
-- BD isolada para testes
-- Sem afetar produção
+Cada push a uma branch é automaticamente deployado pelo Cloudflare Pages no seu respetivo ambiente.
 
 ---
 
-## 2. Deployment Commands
+## Quick Start
 
-### Deploy para **Staging** (recomendado antes de produção):
-
-```bash
-npm run deploy:staging
-```
-
-Isto:
-- ✅ Compila Workers (`functions/api/*`)
-- ✅ Faz upload de `public/` para staging.asp-app.pages.dev
-- ✅ Usa BD `aspstock-staging` isolada (dados de teste)
-- ✅ Usa R2 bucket `asp-stock-backups-staging` isolado
-
-### Deploy para **Production**:
+### 1️⃣ Crear branch staging localmente:
 
 ```bash
-npm run deploy:prod
+git checkout main
+git pull origin main
+git checkout -b staging
+git push -u origin staging
 ```
 
-Ou simplesmente:
+Pronto! Agora tens:
+- `main` → produção (asp-app.pages.dev)
+- `staging` → teste (staging.asp-app.pages.dev)
+
+### 2️⃣ Trabalhar em staging:
 
 ```bash
-npm run deploy
+git checkout staging
+# Faz mudanças...
+git add -A
+git commit -m "feature: ..."
+git push origin staging
+
+# Cloudflare redeploy automático em ~1-2 min
+# → Testa em https://staging.asp-app.pages.dev
 ```
 
-Isto:
-- ✅ Compila Workers
-- ✅ Faz upload de `public/` para asp-app.pages.dev
-- ✅ Usa BD `aspstock-db` real (dados de produção)
-- ✅ Usa R2 bucket `asp-stock-backups-30d` real
+### 3️⃣ Levar para produção:
 
----
+```bash
+git checkout main
+git merge staging
+git push origin main
 
-## 3. Recommended Deployment Workflow
-
-### ✅ Fluxo seguro (recomendado):
-
-```
-1. Desenvolver localmente
-   └─ npm run dev (ou com BD local isolada)
-   
-2. Testes funcionais localmente
-   └─ Verificar que tudo funciona
-   
-3. Commit ao Git
-   └─ git add -A && git commit -m "feature: ..."
-   
-4. Deploy para Staging
-   └─ npm run deploy:staging
-   
-5. Testes em Staging
-   └─ Acede https://staging.asp-app.pages.dev
-   └─ Testa com dados de teste
-   
-6. Após validação, deploy para Produção
-   └─ npm run deploy:prod
-   
-7. Verificar em Produção
-   └─ https://asp-app.pages.dev
-   └─ Confirmar que está funcional
+# Cloudflare redeploy automático
+# → Produção atualizada em https://asp-app.pages.dev
 ```
 
 ---
 
-## 4. Database Management
+## Development Workflow Recomendado
 
-### Migrar schema para **Staging**:
-
-Quando tens mudanças que precisam de schema novo (migrations), primeiro aplica em staging:
-
-```bash
-# Aplicar migration específica a staging
-wrangler d1 execute aspstock-staging --file migrations/002_add_constraints.sql --remote
-
-# Ou via npm script
-npm run db:migrate:staging
 ```
-
-### Depois aplicar em **Production** (com cuidado):
-
-```bash
-npm run db:migrate
-```
-
-### Backup/Export de dados:
-
-```bash
-# Backup da BD de production
-npm run db:export
-
-# Backup da BD de staging
-npm run db:export:staging
-```
-
-Os ficheiros são guardados como `database-backup-*.sql` na raiz do projeto.
-
----
-
-## 5. Environment Variables & Secrets
-
-Variáveis de ambiente são **separadas por ambiente** na Cloudflare Dashboard:
-
-### Para adicionar uma variável a **Production**:
-
-1. Vai a [Cloudflare Pages Dashboard](https://dash.cloudflare.com/?to=/:account/pages)
-2. Seleciona `asp-app-prod`
-3. Settings → Environment variables → Add
-4. Adiciona a variável
-
-### Para adicionar a **Staging**:
-
-1. Cloudflare Pages Dashboard
-2. Seleciona `asp-app-staging` (ou com `--env staging`)
-3. Settings → Environment variables → Add
-
-### Variáveis importantes agora:
-
-- `JWT_SECRET` — chave para assinar tokens JWT (deve ser diferente em staging/prod para segurança)
-- `BACKUP_TOKEN` — token para triggers de backup automático
-- `PHC_API_KEY` — chave para sync PHC
-
-Estes devem estar configurados em Cloudflare Dashboard.
-
----
-
-## 6. Revert Rápido
-
-Se algo correr mal em **Production**, tens várias opções:
-
-### Opção 1: Revert directo no Cloudflare Pages
-
-1. Vai a Cloudflare Pages Dashboard → asp-app-prod
-2. Deployments -> click no deploy anterior
-3. Rollback
-
-### Opção 2: Revert localmente e redeploy:
-
-```bash
-git log --oneline                    # Ver commits
-git revert <commit-id>               # Desfazer o commit
-npm run deploy:prod                  # Redeploy versão anterior
-```
-
-### Opção 3: Hotfix em staging primeiro:
-
-```bash
-npm run deploy:staging               # Testa staging primeiro
-# ... validar ...
-npm run deploy:prod                  # Só depois vai para prod
+┌─────────────────────────────────────────────────────────┐
+│ 1. Cria feature branch a partir do staging              │
+│    git checkout staging && git pull                     │
+│    git checkout -b feature/my-feature                   │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│ 2. Desenvolve localmente                                │
+│    npm run dev                                          │
+│    git add/commit conforme avança                       │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│ 3. Push para feature branch                             │
+│    git push origin feature/my-feature                   │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│ 4. Pull Request no GitHub (feature → staging)           │
+│    Permite code review                                  │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│ 5. Merge para staging branch                            │
+│    Cloudflare auto-deploy para staging.asp-app...      │
+│    https://staging.asp-app.pages.dev                    │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│ 6. EQA/QA testa em staging                              │
+│    Valida funcionalidade, dados, performance           │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│ 7. Merge para main branch                               │
+│    git checkout main && git merge staging               │
+│    git push origin main                                 │
+└─────────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────────┐
+│ 8. Cloudflare auto-deploy para produção                 │
+│    https://asp-app.pages.dev (VIVO!)                    │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 7. Monitoring & Debugging
+## Branch Naming Convention
 
-### Ver logs do Worker em **Production**:
-
-```bash
-wrangler tail
+```
+main              ← Production (protegida, merge only de staging)
+  ↓ stable
+staging           ← Staging/QA (mergea para main quando pronto)
+  ↓ development
+feature/*         ← Feature development
+  ↓ development
+hotfix/*          ← Emergency fixes para production
+  ↓ direto para main
 ```
 
-### Ver logs de **Staging**:
-
-```bash
-wrangler tail --env staging
-```
-
-Isto mostra todos os `console.log` e erros em tempo real.
+**Exemplos de feature branches:**
+- `feature/inventory-dashboard`
+- `feature/phc-import-system`
+- `bugfix/password-reset`
+- `hotfix/critical-db-query`
 
 ---
 
-## 8. Quick Reference
+## Commands Reference
 
-| Tarefa | Comando |
-|--------|---------|
-| Dev local (prod BD) | `npm run dev` |
-| Dev local (staging BD) | `wrangler pages dev public --d1 DB=aspstock-staging-local` |
-| Deploy staging | `npm run deploy:staging` |
-| Deploy prod | `npm run deploy:prod` |
-| Backup staging | `npm run db:export:staging` |
-| Backup prod | `npm run db:export` |
-| Migrate staging | `npm run db:migrate:staging` |
-| Migrate prod | `npm run db:migrate` |
-| Ver logs | `wrangler tail [--env staging]` |
-| Lista BDs | `npm run db:list` |
+### Development
+
+```bash
+npm run dev              # Local dev (porta 8787, BD produção)
+npm run lint             # ESLint fix
+npm run format          # Prettier format
+npm run lint:check      # ESLint check
+```
+
+### Database Management
+
+```bash
+npm run db:list                    # Lista ambas as BDs
+npm run db:export                  # Backup produção
+npm run db:export:staging          # Backup staging
+npm run db:migrate                 # Migrar schema produção
+npm run db:migrate:staging         # Migrar schema staging
+```
+
+### Git Operations
+
+```bash
+git checkout staging                           # Ir para staging
+git pull origin staging                        # Atualizar staging
+git checkout -b feature/my-feature             # Criar feature branch
+git add -A && git commit -m "message"          # Commit
+git push origin feature/my-feature             # Push
+git pull request                               # Criar PR (GitHub)
+git checkout main && git merge staging         # Merge para main
+git push origin main                           # Deploy produção
+```
 
 ---
 
-## 9. Best Practices
+## Environment Database Setup
 
-✅ **DO's:**
-- Sempre testa em staging antes de prod
-- Faz commits pequenos e focados
-- Usa `npm run lint` antes de commit
-- Cria backups regularmente
-- Documenta mudanças na BD (`migrations/`)
+As duas BDs estão prontas:
+- **Production:** `aspstock-db` (id: 8c0bd9de-e51a-46a2-8ba3-112ce6034e86)
+- **Staging:** `aspstock-staging` (id: 39db27e3-c119-4545-b6f4-a7a6eeb2cce4)
 
-❌ **DON'Ts:**
-- Não faças deploy directo para prod without testing
-- Não mudes BD schema sem migration scripts
-- Não pushas API tokens para Git (estão em Cloudflare, não em código)
-- Não apagues BDs sem backup recente
+Ambas podem rodar migrations independentemente:
+
+```bash
+# Aplica migration 001 a staging
+wrangler d1 execute aspstock-staging --file migrations/001_add_indexes.sql --remote
+
+# Aplica migration 001 a produção
+wrangler d1 execute aspstock-db --file migrations/001_add_indexes.sql --remote
+```
+
+---
+
+## R2 Buckets (Storage)
+
+Cria manualmente em [Cloudflare R2 Dashboard](https://dash.cloudflare.com):
+
+1. **Production:** `asp-stock-backups-30d` (já existe)
+2. **Staging:** `asp-stock-backups-staging` (criar)
+
+Localização em `wrangler.toml`:
+```toml
+[[r2_buckets]]
+binding = "BACKUP_BUCKET"
+bucket_name = "asp-stock-backups-30d"
+
+[[env.staging.r2_buckets]]
+binding = "BACKUP_BUCKET"
+bucket_name = "asp-stock-backups-staging"
+```
+
+---
+
+## Environment Variables (Secrets)
+
+Configura em Cloudflare Pages Dashboard:
+
+**Para Production:**
+1. Cloudflare Dashboard → Pages → asp-app-prod
+2. Settings → Environment variables
+
+**Para Staging:**
+1. Cloudflare Dashboard → Pages → asp-app-staging
+2. Settings → Environment variables
+
+**Variáveis importantes:**
+- `JWT_SECRET` (use different secrets para segurança)
+- `BACKUP_TOKEN`
+- `PHC_API_KEY`
+
+---
+
+## Revert / Rollback
+
+### Revert rápido (via Git):
+
+```bash
+git log --oneline -5          # Ver últimos commits
+git revert <commit-hash>      # Desfaz um commit
+git push origin main           # Redeploy produção
+```
+
+### Rollback via Cloudflare Pages:
+
+1. Cloudflare Dashboard → Pages → (asp-app-prod ou asp-app-staging)
+2. Deployments tab
+3. Click deployment anterior
+4. "Rollback to this deployment"
 
 ---
 
 ## Troubleshooting
 
-### "Database not found" error:
-- Verifica se o `database_id` em wrangler.toml está correto
-- Verifica em Cloudflare Dashboard que a BD existe
+### "Branch não encontrado"
+```bash
+git fetch origin           # Download all branches
+git branch -a             # List all branches
+```
 
-### "Permission denied" error:
-- Verifica se `wrangler login` está autenticado: `npx wrangler whoami`
-- Verifica se a conta tem permissão D1 (deve ter)
+### Staging não atualiza após push
+- Cloudflare demora 1-3 min a compilar
+- Check Deployments tab em Cloudflare Pages para status
 
-### Deploy falha com "Pages function timeout":
-- Aumenta timeout em Cloudflare Dashboard (max 30 segundos)
-- Otimiza queries da BD
-- Reduz tamanho de ficheiros upload
+### BD staging não existe
+```bash
+npm run db:list                                  # Verifica
+wrangler d1 create aspstock-staging              # Cria se necessário
+npm run db:migrate:staging                       # Aplica migrations
+```
+
+### Erro "database not found"
+- Verifica `database_id` em `wrangler.toml`
+- Confirma que a BD existe em Cloudflare Dashboard
 
 ---
 
-**Perguntas?** Consulta esta doc ou contacta o dev team.
+## Best Practices
+
+✅ **DO:**
+- Sempre testa em staging antes de main
+- Usa branches feature para isolação
+- Faz commits pequenos e descritivos
+- Cria backups (git + DB backups)
+- Código review antes de merge para main
+
+❌ **DON'T:**
+- Diretos commits para main (sem teste staging)
+- Force push a main/staging
+- Mude secrets em Git (estão em Cloudflare)
+- Apague BDs/buckets sem backup
+- Use credenciais em código
+
+---
+
+**Última atualização:** 2026-03-25
+**Dúvidas?** Contacta o dev team.
