@@ -2,7 +2,7 @@ name = "asp-app"
 compatibility_date = "2024-03-04"
 pages_build_output_dir = "public"
 
-# Default environment (production)
+# Default bindings (production)
 [[d1_databases]]
 binding = "DB"
 database_name = "aspstock-db"
@@ -12,44 +12,9 @@ database_id = "8c0bd9de-e51a-46a2-8ba3-112ce6034e86"
 binding = "BACKUP_BUCKET"
 bucket_name = "asp-stock-backups-30d"
 
-# ============================================
-# ENVIRONMENT CONFIGURATIONS
-# ============================================
-
-# Production environment
-[env.production]
-name = "asp-app-prod"
-routes = [
-  { pattern = "asp-app.pages.dev", zone_name = "pages.dev" }
-]
-
-[[env.production.d1_databases]]
-binding = "DB"
-database_name = "aspstock-db"
-database_id = "8c0bd9de-e51a-46a2-8ba3-112ce6034e86"
-
-[[env.production.r2_buckets]]
-binding = "BACKUP_BUCKET"
-bucket_name = "asp-stock-backups-30d"
-
-# [env.production.vars]
-# For non-secret env vars only. Secrets go in Cloudflare dashboard
-
-# Staging environment (development/testing)
-[env.staging]
-name = "asp-app-staging"
-routes = [
-  { pattern = "staging.asp-app.pages.dev", zone_name = "pages.dev" }
-]
-
-[[env.staging.d1_databases]]
-binding = "DB"
-database_name = "aspstock-staging"
-database_id = "39db27e3-c119-4545-b6f4-a7a6eeb2cce4"
-
-[[env.staging.r2_buckets]]
-binding = "BACKUP_BUCKET"
-bucket_name = "asp-stock-backups-staging"
-
-# [env.staging.vars]
-# For non-secret env vars only. Secrets go in Cloudflare dashboard
+# Note: Cloudflare Pages uses Git branches for environments, not named configs
+# - main branch → production
+# - staging branch → staging (when created in Cloudflare Pages)
+# To use different DB locally per branch, use command-line flags:
+#   wrangler pages dev public --d1 DB=aspstock-db        (production)
+#   wrangler pages dev public --d1 DB=aspstock-staging    (staging)
