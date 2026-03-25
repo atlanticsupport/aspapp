@@ -778,7 +778,6 @@ export async function saveProduct() {
     const canWrite = access === 'write' || (isEditing ? access.includes('U') : access.includes('C'));
 
     if (!canWrite) {
-        console.warn('DEBUG: No write permission for this module');
         return showToast('Sem permissão para gravar.', 'error');
     }
 
@@ -819,7 +818,6 @@ export async function saveProduct() {
         });
 
         if (upsertErr) {
-            console.error('DEBUG: Upsert error:', upsertErr);
             throw upsertErr;
         }
         const finalId = productData.id || savedId;

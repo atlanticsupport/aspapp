@@ -37,23 +37,6 @@ export async function checkAuth() {
             return;
         }
 
-        // Skip session validation for now - assume token is valid if it exists
-        // TODO: Implement proper session validation when rpc_test_session is available
-        if (false) {
-            localStorage.removeItem('aspapp_session');
-            const loginOverlay = document.getElementById('login-overlay');
-            if (loginOverlay) {
-                loginOverlay.classList.add('open');
-                // Force visibility - override all styles
-                loginOverlay.style.setProperty('display', 'flex', 'important');
-                loginOverlay.style.setProperty('opacity', '1', 'important');
-                loginOverlay.style.setProperty('pointer-events', 'auto', 'important');
-                loginOverlay.style.setProperty('visibility', 'visible', 'important');
-            } else {
-            }
-            return;
-        }
-
         state.currentUser = user;
 
         // Apply permissions using new system

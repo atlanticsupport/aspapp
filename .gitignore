@@ -28,6 +28,12 @@ desktop.ini
 # IDE
 .vscode/
 .idea/
+
+# Database backups (never commit)
+database-backup-*.sql
+*.sql.backup
+*.sql.dump
+backups/
 *.swp
 *.swo
 *~

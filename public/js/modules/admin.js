@@ -279,8 +279,6 @@ export function setupAdminEvents() {
             });
             userData[accessKey] = isAdmin ? 'RCUD' : (accessStr || 'none');
 
-            console.log(`DEBUG PERMS: ${page} -> view: ${viewChecked}, access: ${userData[accessKey]}`);
-
             // Sync global bits for legacy compatibility if possible
             if (page === 'inventory') {
                 userData.can_read = accessStr.includes('R');
@@ -291,21 +289,13 @@ export function setupAdminEvents() {
         });
 
         if (passwordRaw) {
-            console.log('DEBUG: Sending password to server (will be hashed server-side)');
             userData.password = passwordRaw;
         }
-
-        console.log('DEBUG: Final userData to send:', userData);
 
         saveBtn.disabled = true;
         saveBtn.textContent = 'A processar...';
 
         try {
-            console.log('DEBUG: Calling rpc_manage_user with action:', id ? 'update' : 'create');
-            console.log('DEBUG: state.currentUser.username:', state.currentUser.username);
-            console.log('DEBUG: state.currentUser.password:', state.currentUser.password);
-            console.log('DEBUG: userData:', JSON.stringify(userData, null, 2));
-
             const { error, data } = await supabase.rpc('rpc_manage_user', {
                 p_admin_user: state.currentUser.username,
                 p_admin_pass: state.currentUser.password,
@@ -313,15 +303,9 @@ export function setupAdminEvents() {
                 p_user_data: userData
             });
 
-            console.log('DEBUG: RPC response - error:', error);
-            console.log('DEBUG: RPC response - data:', data);
-
             if (error) {
-                console.error('DEBUG: rpc_manage_user ERROR:', error);
                 throw error;
             }
-
-            console.log('DEBUG: rpc_manage_user SUCCESS, data:', data);
 
             showToast(id ? 'Utilizador atualizado com sucesso!' : 'Novo utilizador criado!', 'success');
             document.getElementById('user-modal').classList.remove('open');
