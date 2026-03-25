@@ -2,19 +2,9 @@ name = "asp-app"
 compatibility_date = "2024-03-04"
 pages_build_output_dir = "public"
 
-# Default bindings (production)
-[[d1_databases]]
-binding = "DB"
-database_name = "aspstock-db"
-database_id = "8c0bd9de-e51a-46a2-8ba3-112ce6034e86"
+# Bindings are managed per Pages project (asp-app and asp-app-staging)
+# directly in Cloudflare deployment configs to keep environments isolated.
 
-[[r2_buckets]]
-binding = "BACKUP_BUCKET"
-bucket_name = "asp-stock-backups-30d"
-
-# Note: Cloudflare Pages uses Git branches for environments, not named configs
-# - main branch → production
-# - staging branch → staging (when created in Cloudflare Pages)
-# To use different DB locally per branch, use command-line flags:
-#   wrangler pages dev public --d1 DB=aspstock-db        (production)
-#   wrangler pages dev public --d1 DB=aspstock-staging    (staging)
+# Local development examples:
+#   Production DB: wrangler pages dev public --d1 DB=aspstock-db
+#   Staging DB:    wrangler pages dev public --d1 DB=aspstock-staging
