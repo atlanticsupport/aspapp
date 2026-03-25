@@ -1,0 +1,12 @@
+name = "asp-app-staging"
+compatibility_date = "2024-03-04"
+pages_build_output_dir = "public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "aspstock-staging"
+database_id = "39db27e3-c119-4545-b6f4-a7a6eeb2cce4"
+
+[[r2_buckets]]
+binding = "BACKUP_BUCKET"
+bucket_name = "asp-stock-backups-staging"

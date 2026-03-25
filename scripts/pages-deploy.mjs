@@ -1,0 +1,75 @@
+import { copyFile, readFile, unlink, writeFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import path from 'node:path';
+
+const environment = process.argv[2];
+
+const environments = {
+    production: {
+        template: 'wrangler.production.toml',
+        projectName: 'asp-app',
+        branch: 'main'
+    },
+    staging: {
+        template: 'wrangler.staging.toml',
+        projectName: 'asp-app-staging',
+        branch: 'staging'
+    }
+};
+
+if (!environment || !environments[environment]) {
+    console.error('Usage: node scripts/pages-deploy.mjs <production|staging>');
+    process.exit(1);
+}
+
+const rootDir = process.cwd();
+const wranglerPath = path.join(rootDir, 'wrangler.toml');
+const backupPath = path.join(rootDir, 'wrangler.toml.bak');
+const templatePath = path.join(rootDir, environments[environment].template);
+
+const originalConfig = await readFile(wranglerPath, 'utf8');
+
+try {
+    await copyFile(wranglerPath, backupPath);
+    await copyFile(templatePath, wranglerPath);
+
+    const args = [
+        'wrangler',
+        'pages',
+        'deploy',
+        'public',
+        '--project-name',
+        environments[environment].projectName,
+        '--branch',
+        environments[environment].branch
+    ];
+
+    if (process.env.GITHUB_SHA) {
+        args.push('--commit-hash', process.env.GITHUB_SHA);
+    }
+
+    const commitMessage = process.env.GITHUB_HEAD_COMMIT_MESSAGE || process.env.GITHUB_SHA;
+    if (commitMessage) {
+        args.push('--commit-message', commitMessage);
+    }
+
+    const command = process.platform === 'win32'
+        ? { file: 'cmd.exe', args: ['/d', '/s', '/c', 'npx', ...args] }
+        : { file: 'npx', args };
+
+    const child = spawn(command.file, command.args, {
+        stdio: 'inherit',
+        env: process.env
+    });
+
+    const exitCode = await new Promise((resolve) => {
+        child.on('exit', resolve);
+    });
+
+    if (exitCode !== 0) {
+        process.exit(exitCode ?? 1);
+    }
+} finally {
+    await writeFile(wranglerPath, originalConfig, 'utf8');
+    await unlink(backupPath).catch(() => {});
+}

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "wrangler pages dev public --d1 DB=aspstock-db",
     "deploy": "npm run deploy:prod",
-    "deploy:prod": "wrangler pages deploy public --branch main",
+    "deploy:prod": "node scripts/pages-deploy.mjs production",
+    "deploy:staging": "node scripts/pages-deploy.mjs staging",
     "lint": "eslint public/js --fix",
     "format": "prettier --write 'public/js/**/*.js' 'functions/**/*.js'",
     "lint:check": "eslint public/js",
