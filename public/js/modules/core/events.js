@@ -1188,7 +1188,7 @@ async function importFromExcel() {
                         excelColumns.push({ name: cell.text, index: colNumber });
                     });
 
-                    showMappingModal(sheet, excelColumns);
+                    showMappingModal(sheet, excelColumns, file);
                 } catch (innerErr) {
                     console.error('ExcelJS Load Error:', innerErr);
                     showToast('Erro ao processar conteúdo do Excel: ' + innerErr.message, 'error');
@@ -1204,7 +1204,7 @@ async function importFromExcel() {
     input.click();
 }
 
-async function showMappingModal(sheet, excelColumns) {
+async function showMappingModal(sheet, excelColumns, file) {
     const modal = document.getElementById('modal-excel-import');
     const mappingList = document.getElementById('excel-mapping-list');
     if (!modal || !mappingList) return;
