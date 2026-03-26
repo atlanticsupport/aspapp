@@ -1144,7 +1144,19 @@ async function importFromExcel() {
 
                 let password = null;
                 if (headerMagic.startsWith('d0cf11e0')) {
-                    const { dialog } = await import('./dialogs.js');
+                    let dialogModule;
+                    try {
+                        dialogModule = await import('../dialogs.js');
+                    } catch (impErr) {
+                        console.warn('Falha ao importar dialogs.js dinamicamente, a usar fallback prompt. Erro:', impErr);
+                    }
+
+                    // Resolve dialog object (module may re-export)
+                    const dialog = (dialogModule && (dialogModule.dialog || dialogModule.default || dialogModule)) || {
+                        // Fallback lightweight dialog that uses window.prompt
+                        prompt: (opts) => Promise.resolve(window.prompt(typeof opts === 'string' ? opts : (opts.message || opts)))
+                    };
+
                     password = await dialog.prompt({
                         title: 'Ficheiro Protegido',
                         message: 'Este ficheiro parece estar encriptado ou protegido por password. Introduza a password para tentar abrir:',
