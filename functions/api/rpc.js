@@ -51,7 +51,16 @@ const rateLimits = new Map();
 export async function onRequestPost({ request, env }) {
     try {
         const body = await request.json();
-        const { rpc, params } = body;
+        // Support two request shapes for compatibility:
+        // 1) { rpc: 'secure_chunked_import', params: { ... } }
+        // 2) { rpc: 'rpc', params: { rpc: 'secure_chunked_import', ... } }
+        let { rpc, params } = body;
+        if (rpc === 'rpc' && params && params.rpc) {
+            // unwrap nested rpc call
+            rpc = params.rpc;
+            // keep full params object for downstream handlers
+            // (some callers nest the actual rpc in params)
+        }
 
         const db = env.DB;
         if (!db) throw new Error("Database binding 'DB' not found.");
