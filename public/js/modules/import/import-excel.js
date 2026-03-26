@@ -7,7 +7,7 @@ import { dialog } from '../ui/dialogs-original.js';
 class ExcelImporter {
     constructor() {
         this.currentImport = null;
-        this.chunkSize = 1000; // Items per chunk
+        this.chunkSize = 200; // Items per chunk (reduced to avoid payload limits)
         this.maxRetries = 3;
     }
 
@@ -131,8 +131,29 @@ class ExcelImporter {
                 const result = await this.processChunk(chunk, i, totalChunks, tableName);
 
                 processedChunks++;
-                totalInserted += result.inserted || 0;
-                totalFailed += result.failed || 0;
+                const insertedNow = result.inserted || 0;
+                const failedNow = result.failed || 0;
+                totalInserted += insertedNow;
+                totalFailed += failedNow;
+
+                // Detect partial processing (server inserted less than chunk length)
+                if ((insertedNow + failedNow) < chunk.length) {
+                    console.warn(`Chunk ${i} processed partially: expected ${chunk.length}, got ${insertedNow + failedNow}. Will retry missing items.`);
+                    // Attempt a simple retry for missing items (send the chunk again up to maxRetries)
+                    let attempts = 0;
+                    while ((insertedNow + failedNow) < chunk.length && attempts < this.maxRetries) {
+                        attempts++;
+                        const retryResult = await this.processChunk(chunk, i, totalChunks, tableName);
+                        const retryInserted = retryResult.inserted || 0;
+                        const retryFailed = retryResult.failed || 0;
+                        // Update totals based on new attempt (only add the delta)
+                        const deltaInserted = Math.max(0, retryInserted - insertedNow);
+                        const deltaFailed = Math.max(0, retryFailed - failedNow);
+                        totalInserted += deltaInserted;
+                        totalFailed += deltaFailed;
+                        if ((retryInserted + retryFailed) >= chunk.length) break;
+                    }
+                }
 
                 // Update progress
                 this.updateProgress(processedChunks, totalChunks, totalInserted, totalFailed);
