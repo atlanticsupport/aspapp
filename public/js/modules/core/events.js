@@ -1324,26 +1324,62 @@ async function showMappingModal(sheet, excelColumns, file) {
 
             if (items.length === 0) throw new Error('Não foram encontrados dados para importar.');
 
-            const { data: count, error } = await supabase.rpc('secure_batch_import', {
-                p_user: state.currentUser.username,
-                p_pass: state.currentUser.password,
-                p_target: 'products',
-                p_items: items,
-                p_label: 'Importação Excel (Manual)',
-                p_summary: `${items.length} itens importados via Excel manual para Inventario`,
-                p_details: {
-                    source: 'excel_manual',
-                    source_label: 'Excel Manual',
-                    destination: 'inventory',
-                    destination_label: 'Inventario',
-                    file_name: file.name,
-                    table: 'products'
-                }
+            // Use chunked import to avoid Cloudflare D1 statement limits
+            const importId = crypto.randomUUID();
+            const CHUNK_SIZE = 200;
+            const totalChunks = Math.ceil(items.length / CHUNK_SIZE);
+
+            // Create import history record
+            await supabase.rpc('rpc', {
+                rpc: 'create_import_history',
+                p_import_id: importId,
+                p_table_name: 'products',
+                p_file_name: file.name,
+                p_file_size: file.size
             });
 
-            if (error) throw error;
+            let totalInserted = 0;
+            let totalFailed = 0;
 
-            showToast(`${count} itens importados com sucesso!`, 'success');
+            for (let ci = 0; ci < totalChunks; ci++) {
+                const start = ci * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, items.length);
+                const chunk = items.slice(start, end);
+
+                const params = {
+                    rpc: 'secure_chunked_import',
+                    p_import_id: importId,
+                    p_chunk_index: ci,
+                    p_chunk_data: chunk,
+                    p_total_chunks: totalChunks,
+                    p_table_name: 'products',
+                    p_file_name: file.name,
+                    p_file_size: file.size
+                };
+
+                const { data: chunkRes, error: chunkErr } = await supabase.rpc('rpc', params);
+                if (chunkErr) {
+                    console.error(`Chunk ${ci} import error:`, chunkErr);
+                    totalFailed += chunk.length;
+                } else {
+                    totalInserted += chunkRes.inserted || 0;
+                    totalFailed += chunkRes.failed || 0;
+                }
+
+                // Update user-visible progress
+                showToast(`Importados: ${totalInserted} | Falhados: ${totalFailed}`, 'info');
+            }
+
+            // Finalize import
+            await supabase.rpc('rpc', {
+                rpc: 'finalize_import',
+                p_import_id: importId,
+                p_total_inserted: totalInserted,
+                p_total_failed: totalFailed,
+                p_status: totalFailed > 0 ? 'completed_with_errors' : 'completed'
+            });
+
+            showToast(`${totalInserted} itens importados com sucesso! (${totalFailed} falhados)`, 'success');
             loadInventory();
 
         } catch (err) {
