@@ -1144,7 +1144,7 @@ async function importFromExcel() {
 
                 let password = null;
                 if (headerMagic.startsWith('d0cf11e0')) {
-                    const { dialog } = await import('./dialogs.js');
+                    const { dialog } = await import('../dialogs.js');
                     password = await dialog.prompt({
                         title: 'Ficheiro Protegido',
                         message: 'Este ficheiro parece estar encriptado ou protegido por password. Introduza a password para tentar abrir:',
