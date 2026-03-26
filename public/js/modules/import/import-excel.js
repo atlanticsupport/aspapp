@@ -166,12 +166,24 @@ class ExcelImporter {
             p_file_size: this.currentImport.fileSize
         };
 
-        const { data, error } = await supabase.rpc('rpc', params);
-
+        let response;
+        try {
+            response = await supabase.rpc('rpc', params);
+        } catch (err) {
+            // Se a resposta for HTML, mostrar erro claro
+            if (err && err.message && err.message.includes('<')) {
+                throw new Error('Erro inesperado: resposta HTML recebida. Verifique a ligação ao servidor ou permissões.');
+            }
+            throw err;
+        }
+        const { data, error } = response;
+        // Detetar resposta HTML inesperada
+        if (typeof data === 'string' && data.trim().startsWith('<')) {
+            throw new Error('Erro inesperado: resposta HTML recebida. O endpoint pode estar indisponível ou mal configurado.');
+        }
         if (error) {
             throw new Error(error.message || 'Erro no processamento do chunk');
         }
-
         return data;
     }
 
