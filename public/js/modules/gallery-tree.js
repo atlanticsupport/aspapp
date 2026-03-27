@@ -188,10 +188,9 @@ export async function loadGalleryView() {
                 }
                 const grid = document.createElement('div');
                 grid.className = `gallery-grid cols-${cols}`;
-                // compute rows so the grid cells evenly divide the preview height
-                const rows = Math.max(1, Math.ceil(fileIds.length / cols));
+                // set columns only; cell height will be controlled by CSS (square cells based on width)
                 grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-                grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+                grid.style.gridAutoRows = '0';
                 for (const fid of fileIds) {
                     const nnode = tree.get_node(fid);
                     const fkey = (nnode.li_attr && nnode.li_attr['data-key']) || (nnode.original && nnode.original.li_attr && nnode.original.li_attr['data-key']);
