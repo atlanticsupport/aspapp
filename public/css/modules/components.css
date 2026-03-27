@@ -398,6 +398,48 @@
     display: flex;
     background: #f1f5f9;
     padding: 4px;
+
+/* Gallery specific styles */
+#gallery-tree-container {
+    max-height: calc(100vh - 140px);
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+#gallery-preview {
+    max-height: calc(100vh - 140px);
+    overflow: auto;
+}
+
+.jstree-thumb {
+    width: 36px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+/* Thin, minimal scrollbar matching app style */
+#gallery-tree-container::-webkit-scrollbar,
+#gallery-preview::-webkit-scrollbar {
+    width: 8px;
+}
+#gallery-tree-container::-webkit-scrollbar-thumb,
+#gallery-preview::-webkit-scrollbar-thumb {
+    background: rgba(100,100,100,0.12);
+    border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+    /* Mobile: preview above, tree below, full width */
+    .view-gallery > div {
+        flex-direction: column;
+    }
+    #gallery-preview { order: 1; width: 100%; }
+    #gallery-tree-container { order: 2; width: 100%; margin-top: 12px; }
+}
     border-radius: 8px;
     gap: 4px;
 }
