@@ -9,7 +9,7 @@ export async function loadGalleryView() {
 
     views.gallery.innerHTML = `
         <div class="view-gallery" style="display:flex; gap:16px; align-items:flex-start;">
-            <div id="gallery-tree-container" style="width:360px; max-height:80vh; overflow:auto; border:1px solid var(--border-color); border-radius:8px; padding:12px; background:var(--bg-color);"></div>
+            <div id="gallery-tree-container" style="width:360px; border:1px solid var(--border-color); border-radius:8px; padding:12px; background:var(--bg-color);"></div>
             <div id="gallery-preview" style="flex:1; min-height:400px; border:1px solid var(--border-color); border-radius:8px; padding:12px; background:var(--bg-color); display:flex; flex-direction:column; gap:8px;">
                 <div id="gallery-preview-toolbar" style="display:flex; justify-content:space-between; align-items:center;">
                     <div style="font-weight:700;">Preview</div>

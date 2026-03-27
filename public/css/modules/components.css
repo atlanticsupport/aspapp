@@ -434,14 +434,12 @@
 
 @media (max-width: 768px) {
     /* Mobile: preview above, tree below, full width */
-    .view-gallery > div {
-        flex-direction: column;
+    .view-gallery {
+        flex-direction: column !important;
+        gap: 12px !important;
     }
-    #gallery-preview { order: 1; width: 100%; }
-    #gallery-tree-container { order: 2; width: 100%; margin-top: 12px; }
-}
-    border-radius: 8px;
-    gap: 4px;
+    #gallery-preview { order: 1; width: 100% !important; }
+    #gallery-tree-container { order: 2; width: 100% !important; margin-top: 12px; }
 }
 
 .pill {
