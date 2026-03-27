@@ -37,6 +37,10 @@
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <!-- jQuery + jsTree for gallery file-tree -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@zurmokeeper/exceljs@4.4.1/dist/exceljs.min.js"></script>
@@ -142,6 +146,10 @@
                         <a href="#" class="nav-item" data-page="settings" draggable="true">
                             <i class="fa-solid fa-gear"></i>
                             <span>Definições</span>
+                        </a>
+                        <a href="#" class="nav-item" id="nav-item-gallery" data-page="gallery" draggable="true">
+                            <i class="fa-solid fa-image"></i>
+                            <span>Galeria de Imagens</span>
                         </a>
                     </div>
                 </div>
@@ -298,6 +306,8 @@
 
             <!-- View: Usage -->
             <div id="view-usage" class="view-section" style="padding: 2rem;"></div>
+            <!-- View: Gallery -->
+            <div id="view-gallery" class="view-section" style="padding: 1rem; display:none;"></div>
 
             <!-- View: Backups -->
             <div id="view-backups" class="view-section"></div>
