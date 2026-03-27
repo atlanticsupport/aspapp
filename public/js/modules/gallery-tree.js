@@ -48,16 +48,18 @@ export async function loadGalleryView() {
 
     // Group files by sales_process -> displayFolder
     const grouped = new Map();
-    function formatFolderLabel(base, m) {
+    function formatFolderLabel(base, m, obj) {
+        // prefer explicit display label
         if (m && m.displayLabel) return m.displayLabel;
+        // prefer object-enriched product_name/part_number
+        if (obj && (obj.product_name || obj.part_number)) return `${obj.product_name || ''}${obj.part_number ? ' / ' + obj.part_number : ''}`.trim();
         if (m && m.product_name) return `${m.product_name}${m.part_number ? ' / ' + m.part_number : ''}`.trim();
-        if (/^product-(\d+)/.test(base)) {
-            const id = base.match(/^product-(\d+)/)[1];
-            return `Produto #${id}`;
-        }
-        // fallback: make readable and truncate
+        // if base contains product-<id>-... show friendly Produto #id
+        const mProd = base.match(/^product-(\d+)/);
+        if (mProd) return `Produto #${mProd[1]}`;
+        // fallback: use readable path segment or cleaned base
         const cleaned = base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
-        return cleaned.length > 40 ? cleaned.substring(0, 37) + '...' : cleaned || 'Unknown Item';
+        return cleaned.length > 40 ? cleaned.substring(0, 37) + '...' : (cleaned || 'Unknown Item');
     }
 
     for (const obj of list) {
@@ -67,8 +69,9 @@ export async function loadGalleryView() {
         const mByUrl = meta.byUrl && meta.byUrl[key];
         const mByBase = meta.byBase && meta.byBase[base];
         const m = mByUrl || mByBase || {};
-        const salesProcess = m.sales_process || 'Unknown Process';
-        const displayFolder = formatFolderLabel(base, m);
+        // sales process: prefer metadata, then obj, then key path first segment
+        const salesProcess = m.sales_process || obj.sales_process || (key.includes('/') ? key.split('/')[0] : 'Unknown Process');
+        const displayFolder = formatFolderLabel(base, m, obj);
 
         if (!grouped.has(salesProcess)) grouped.set(salesProcess, new Map());
         const procMap = grouped.get(salesProcess);
@@ -134,6 +137,9 @@ export async function loadGalleryView() {
                     img.style.width = 'auto';
                     img.src = `/api/r2_thumbnail?key=${encodeURIComponent(key)}&w=72&h=72&q=60`;
                     a.insertBefore(img, a.firstChild);
+                    // remove any leftover jsTree icon elements inside the anchor to ensure only the thumbnail remains
+                    const leftoverIcons = a.querySelectorAll('.jstree-icon, .jstree-themeicon, .jstree-themeicon-custom');
+                    leftoverIcons.forEach(el => el.remove());
                 } catch (e) { /* ignore per-item errors */ }
             });
         }
