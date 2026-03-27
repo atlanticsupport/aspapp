@@ -1,3 +1,11 @@
+/* Alinhar verticalmente ao topo o conteúdo da gallery-preview-content */
+#gallery-preview-content {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    height: 100%;
+}
 /* Buttons */
 .btn {
     display: inline-flex;
@@ -625,9 +633,11 @@
     overflow: hidden;
     transition: box-shadow 0.15s;
     display: flex;
-    align-items: flex-start; /* garantir alinhamento ao topo */
+    align-items: flex-start;
     justify-content: center;
-    padding: 12px; /* padding interno para espaçamento da imagem */
+    margin: 8px;
+    border: 2px solid #b6b6b6;
+    padding: 16px;
 }
 .gallery-grid-cell:hover {
     box-shadow: 0 2px 8px 0 #38bdf833;
