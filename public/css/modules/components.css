@@ -431,10 +431,13 @@
     display: none !important;
 }
 .view-gallery .jstree-anchor { 
+    display: flex;
     align-items: center; 
-    display: inline-flex; 
     gap: 8px;
-    align-items: center;
+    min-height: 32px;
+    padding: 4px 6px;
+    box-sizing: border-box;
+    vertical-align: middle;
 }
 .view-gallery .jstree-anchor .jstree-wholerow { display: flex; align-items: center; }
 /* Hide all variants of jsTree icons inside gallery and collapse their box to avoid spacing */
