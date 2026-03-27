@@ -1312,6 +1312,7 @@ async function showMappingModal(sheet, excelColumns) {
 
             if (items.length === 0) throw new Error('Não foram encontrados dados para importar.');
 
+<<<<<<< HEAD
             const { data: count, error } = await supabase.rpc('secure_batch_import', {
                 p_user: state.currentUser.username,
                 p_pass: state.currentUser.password,
@@ -1327,6 +1328,65 @@ async function showMappingModal(sheet, excelColumns) {
                     file_name: file.name,
                     table: 'products'
                 }
+=======
+            // Use chunked import to avoid Cloudflare D1 statement limits
+            const importId = crypto.randomUUID();
+            const CHUNK_SIZE = 200;
+            const totalChunks = Math.ceil(items.length / CHUNK_SIZE);
+
+            // Create import history record
+            await supabase.rpc('rpc', {
+                rpc: 'create_import_history',
+                p_import_id: importId,
+                p_table_name: 'products',
+                p_file_name: file.name,
+                p_file_size: file.size
+            });
+
+            let totalInserted = 0;
+            let totalFailed = 0;
+
+            for (let ci = 0; ci < totalChunks; ci++) {
+                const start = ci * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, items.length);
+                const chunk = items.slice(start, end);
+
+                const params = {
+                    rpc: 'secure_chunked_import',
+                    p_import_id: importId,
+                    p_chunk_index: ci,
+                    p_chunk_data: chunk,
+                    p_total_chunks: totalChunks,
+                    p_table_name: 'products',
+                    p_file_name: file.name,
+                    p_file_size: file.size,
+                    p_user: state.currentUser?.username,
+                    p_pass: state.currentUser?.password
+                };
+
+                const { data: chunkRes, error: chunkErr } = await supabase.rpc('rpc', params);
+                if (chunkErr) {
+                    console.error(`Chunk ${ci} import error:`, chunkErr);
+                    totalFailed += chunk.length;
+                } else {
+                    totalInserted += chunkRes.inserted || 0;
+                    totalFailed += chunkRes.failed || 0;
+                }
+
+                // Update user-visible progress
+                showToast(`Importados: ${totalInserted} | Falhados: ${totalFailed}`, 'info');
+            }
+
+            // Finalize import
+            await supabase.rpc('rpc', {
+                rpc: 'finalize_import',
+                p_import_id: importId,
+                p_total_inserted: totalInserted,
+                p_total_failed: totalFailed,
+                p_status: totalFailed > 0 ? 'completed_with_errors' : 'completed',
+                p_user: state.currentUser?.username,
+                p_pass: state.currentUser?.password
+>>>>>>> 3ea5bf4 (staging: commit events and PHC fallback changes for usage view)
             });
 
             if (error) throw error;

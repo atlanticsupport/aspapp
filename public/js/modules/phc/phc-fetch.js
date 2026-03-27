@@ -29,6 +29,43 @@ export async function handlePhcFetch(processId) {
         if (error) throw error;
 
         if (!data || data.length === 0) {
+            // Fallback: maybe the process was already imported into products
+            const { data: existingFallback, error: existErr } = await supabase.rpc('secure_fetch_inventory', {
+                p_user: state.currentUser.username,
+                p_pass: state.currentUser.password,
+                p_search: processId
+            });
+
+            if (existErr) {
+                console.error('PHC search fallback error', existErr);
+                showToast('Processo não encontrado no PHC (Supabase).', 'warning');
+                return;
+            }
+
+            if (existingFallback && existingFallback.length > 0) {
+                showToast('Processo não encontrado no PHC, mas existe no Inventário (já importado).', 'info');
+                // Optionally open the existing item
+                const existingItem = existingFallback[0];
+                const modal = document.getElementById('product-modal');
+                if (modal) {
+                    document.getElementById('prod-id').value = existingItem.id;
+                    document.getElementById('prod-name').value = existingItem.name || '';
+                    document.getElementById('prod-part-number').value = existingItem.part_number || '';
+                    document.getElementById('prod-qty').value = existingItem.quantity || 0;
+                    document.getElementById('prod-location').value = existingItem.location || '';
+                    document.getElementById('prod-pallet').value = existingItem.pallet || '';
+                    document.getElementById('prod-box').value = existingItem.box || '';
+                    document.getElementById('prod-brand').value = existingItem.brand || '';
+                    document.getElementById('prod-category').value = existingItem.category || '';
+                    document.getElementById('prod-cost-price').value = existingItem.cost_price || 0;
+                    document.getElementById('prod-desc').value = existingItem.description || '';
+                    document.getElementById('prod-process').value = existingItem.sales_process || '';
+
+                    modal.classList.add('open');
+                }
+                return;
+            }
+
             showToast('Processo não encontrado no PHC (Supabase).', 'warning');
             return;
         }
