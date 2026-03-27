@@ -8,16 +8,16 @@ export async function loadGalleryView() {
     if (!views.gallery) return;
 
     views.gallery.innerHTML = `
-        <div class="view-gallery" style="display:flex; gap:16px; align-items:flex-start;">
-            <div id="gallery-tree-container" style="width:360px; padding:12px; background:var(--bg-color);"></div>
-            <div id="gallery-preview" style="flex:1; min-height:400px; padding:12px; background:var(--bg-color); display:flex; flex-direction:column; gap:8px;">
-                <div id="gallery-preview-toolbar" style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="view-gallery">
+            <div id="gallery-tree-container"></div>
+            <div id="gallery-preview">
+                <div id="gallery-preview-toolbar">
                     <div style="font-weight:700;">Preview</div>
                     <div>
                         <button id="gallery-download-btn" class="btn btn-primary" style="display:none;"><i class="fa-solid fa-download"></i> Descarregar</button>
                     </div>
                 </div>
-                <div id="gallery-preview-content" style="flex:1; display:flex; align-items:center; justify-content:center; overflow:auto;"></div>
+                <div id="gallery-preview-content"></div>
             </div>
         </div>
     `;

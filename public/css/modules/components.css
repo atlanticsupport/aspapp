@@ -1,11 +1,16 @@
-/* Alinhar verticalmente ao topo o conteúdo da gallery-preview-content */
+/* Gallery preview content: simples, sempre alinhado ao topo, sem flexbox desnecessário */
 #gallery-preview-content {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-    height: 100%;
-    /* Alinhar ao topo quando pasta está selecionada */
+    width: 100%;
+    min-height: 200px;
+    max-height: 100%;
+    background: #fff;
+    box-sizing: border-box;
+    padding: 16px 8px 8px 8px;
+    overflow-y: auto;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 0;
+    text-align: left;
 }
 /* Buttons */
 .btn {
