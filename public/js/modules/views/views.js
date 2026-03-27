@@ -60,7 +60,7 @@ export async function navigateTo(page) {
             const { loadUsageView } = await import('../usage.js');
             await loadUsageView();
         } else if (page === 'gallery') {
-            const { loadGalleryView } = await import('../../gallery-tree.js');
+            const { loadGalleryView } = await import('../gallery-tree.js');
             await loadGalleryView();
         } else if (page === 'backups') {
             const { loadBackupsView } = await import('../backups.js');
