@@ -48,6 +48,18 @@ export async function loadGalleryView() {
 
     // Group files by sales_process -> displayFolder
     const grouped = new Map();
+    function formatFolderLabel(base, m) {
+        if (m && m.displayLabel) return m.displayLabel;
+        if (m && m.product_name) return `${m.product_name}${m.part_number ? ' / ' + m.part_number : ''}`.trim();
+        if (/^product-(\d+)/.test(base)) {
+            const id = base.match(/^product-(\d+)/)[1];
+            return `Produto #${id}`;
+        }
+        // fallback: make readable and truncate
+        const cleaned = base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+        return cleaned.length > 40 ? cleaned.substring(0, 37) + '...' : cleaned || 'Unknown Item';
+    }
+
     for (const obj of list) {
         const key = obj.key || obj.name || '';
         const filename = key.split('/').pop() || key;
@@ -56,7 +68,7 @@ export async function loadGalleryView() {
         const mByBase = meta.byBase && meta.byBase[base];
         const m = mByUrl || mByBase || {};
         const salesProcess = m.sales_process || 'Unknown Process';
-        const displayFolder = m.displayLabel || (m.product_name ? `${m.product_name} / ${m.part_number || ''}`.trim() : base) || 'Unknown Item';
+        const displayFolder = formatFolderLabel(base, m);
 
         if (!grouped.has(salesProcess)) grouped.set(salesProcess, new Map());
         const procMap = grouped.get(salesProcess);
@@ -94,7 +106,8 @@ export async function loadGalleryView() {
                 const ext = extMatch ? extMatch[1] : '';
                 const fname = `${idx+1}${ext}`;
                 const leafId = escapeId(proc + '|' + itemLabel + '|' + fname);
-                const leaf = pushNode(leafId, itemId, fname, { 'data-key': it.obj.key }, 'fa fa-file-image');
+                // Do not set an icon for file leaves; thumbnails will be shown instead
+                const leaf = pushNode(leafId, itemId, fname, { 'data-key': it.obj.key }, null);
                 if (leaf) leaf.li_attr = { 'data-url': `/api/r2_object?key=${encodeURIComponent(it.obj.key)}`, 'data-key': it.obj.key };
             });
         });

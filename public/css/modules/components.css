@@ -433,7 +433,11 @@
 .view-gallery .jstree-anchor { 
     align-items: center; 
     display: inline-flex; 
+    gap: 8px;
+    align-items: center;
 }
+.view-gallery .jstree-anchor .jstree-wholerow { display: flex; align-items: center; }
+.view-gallery .jstree-anchor .jstree-themeicon, .view-gallery .jstree-anchor .jstree-icon { display: none !important; }
 .view-gallery .jstree-anchor .jstree-thumb { 
     border-radius: 4px; 
 }
