@@ -455,6 +455,15 @@
     border-radius: 4px; 
 }
 
+/* numbering before thumbnail */
+.view-gallery .jstree-anchor .jstree-index {
+    display: inline-block;
+    width: 36px;
+    text-align: right;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
 /* Thin, minimal scrollbar matching app style */
 #gallery-tree-container::-webkit-scrollbar,
 #gallery-preview::-webkit-scrollbar {

@@ -115,7 +115,7 @@ export async function loadGalleryView() {
                 const leafId = escapeId(proc + '|' + itemLabel + '|' + fname);
                 // Do not set an icon for file leaves; thumbnails will be shown instead
                 const leaf = pushNode(leafId, itemId, fname, { 'data-key': it.obj.key }, null);
-                if (leaf) leaf.li_attr = { 'data-url': `/api/r2_object?key=${encodeURIComponent(it.obj.key)}`, 'data-key': it.obj.key };
+                if (leaf) leaf.li_attr = { 'data-url': `/api/r2_object?key=${encodeURIComponent(it.obj.key)}`, 'data-key': it.obj.key, 'data-index': String(idx+1) };
             });
         });
     });
@@ -134,13 +134,26 @@ export async function loadGalleryView() {
                     const a = li.querySelector('.jstree-anchor');
                     if (!a) return;
                     if (a.querySelector('.jstree-thumb')) return; // already rendered
+                    // insert numbering element
+                    if (!a.querySelector('.jstree-index')) {
+                        const idxAttr = li.getAttribute('data-index') || li.dataset.index || '';
+                        const span = document.createElement('span');
+                        span.className = 'jstree-index';
+                        span.textContent = idxAttr ? `${idxAttr} - ` : '';
+                        span.style.fontWeight = '600';
+                        span.style.marginRight = '6px';
+                        a.insertBefore(span, a.firstChild);
+                    }
+
                     const img = document.createElement('img');
                     img.className = 'jstree-thumb';
                     img.loading = 'lazy';
                     img.height = 24;
                     img.style.width = 'auto';
                     img.src = `/api/r2_thumbnail?key=${encodeURIComponent(key)}&w=72&h=72&q=60`;
-                    a.insertBefore(img, a.firstChild);
+                    // insert thumbnail after index (if present) so order is: index, thumb
+                    const firstChild = a.querySelector('.jstree-index');
+                    if (firstChild) a.insertBefore(img, firstChild.nextSibling); else a.insertBefore(img, a.firstChild);
                     // remove any leftover jsTree icon elements inside the anchor to ensure only the thumbnail remains
                     const leftoverIcons = a.querySelectorAll('.jstree-icon, .jstree-themeicon, .jstree-themeicon-custom');
                     leftoverIcons.forEach(el => el.remove());
