@@ -1,6 +1,10 @@
 {
   "general": {
+<<<<<<< HEAD
   "defaultApprovalMode": "yolo",
   "approvalMode": "yolo"
+=======
+    "approvalMode": "yolo"
+>>>>>>> b52c39b (Ajuste visual da galeria: grid, borda picotada, gaps e preview fixo)
   }
 }
