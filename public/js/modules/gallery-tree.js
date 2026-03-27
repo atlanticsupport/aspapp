@@ -8,16 +8,16 @@ export async function loadGalleryView() {
     if (!views.gallery) return;
 
     views.gallery.innerHTML = `
-        <div class="view-gallery" style="display:flex; gap:16px; align-items:flex-start;">
-            <div id="gallery-tree-container" style="width:360px; padding:12px; background:var(--bg-color);"></div>
-            <div id="gallery-preview" style="flex:1; min-height:400px; padding:12px; background:var(--bg-color); display:flex; flex-direction:column; gap:8px;">
-                <div id="gallery-preview-toolbar" style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="view-gallery">
+            <div id="gallery-tree-container"></div>
+            <div id="gallery-preview">
+                <div id="gallery-preview-toolbar">
                     <div style="font-weight:700;">Preview</div>
                     <div>
                         <button id="gallery-download-btn" class="btn btn-primary" style="display:none;"><i class="fa-solid fa-download"></i> Descarregar</button>
                     </div>
                 </div>
-                <div id="gallery-preview-content" style="flex:1; display:flex; align-items:center; justify-content:center; overflow:auto;"></div>
+                <div id="gallery-preview-content"></div>
             </div>
         </div>
     `;
@@ -204,17 +204,13 @@ export async function loadGalleryView() {
                     const img = document.createElement('img');
                     img.className = 'gallery-grid-thumb';
                     img.loading = 'lazy';
-                    img.src = `/api/r2_thumbnail?key=${encodeURIComponent(fkey)}&w=800&h=800&q=70`;
-                    // enforce inline styles so layout works even if CSS not applied
-                    img.style.position = 'absolute';
-                    img.style.top = '0';
-                    img.style.left = '0';
-                    img.style.width = '100%';
-                    img.style.height = '100%';
-                    img.style.objectFit = 'cover';
-                    img.style.borderRadius = '6px';
+                    img.src = `/api/r2_thumbnail?key=${encodeURIComponent(fkey)}&w=400&h=400&q=70`;
                     img.alt = nnode.text || fkey.split('/').pop();
                     img.dataset.key = fkey;
+                    img.width = 0;
+                    img.height = 0;
+                    img.style.width = '100%';
+                    img.style.height = '100%';
                     img.onclick = () => {
                         preview.innerHTML = '';
                         const wrapper = document.createElement('div');
@@ -238,12 +234,6 @@ export async function loadGalleryView() {
                     };
                     const cell = document.createElement('div');
                     cell.className = 'gallery-grid-cell';
-                    // enforce square cell sizing via explicit width/height so it doesn't depend on external CSS
-                    cell.style.position = 'relative';
-                    cell.style.paddingTop = '0';
-                    cell.style.boxSizing = 'border-box';
-                    cell.style.width = `${cellSize}px`;
-                    cell.style.height = `${cellSize}px`;
                     cell.appendChild(img);
                     grid.appendChild(cell);
                 }

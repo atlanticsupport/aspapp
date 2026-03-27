@@ -1,10 +1,16 @@
-/* Alinhar verticalmente ao topo o conteúdo da gallery-preview-content */
+/* Gallery preview content: simples, sempre alinhado ao topo, sem flexbox desnecessário */
 #gallery-preview-content {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-    height: 100%;
+    width: 100%;
+    min-height: 200px;
+    max-height: 100%;
+    background: transparent;
+    box-sizing: border-box;
+    padding: 12px 4px 4px 4px;
+    overflow-y: auto;
+    border-radius: 10px;
+    border: none;
+    margin-bottom: 0;
+    text-align: left;
 }
 /* Buttons */
 .btn {
@@ -442,7 +448,7 @@
     min-height: 32px;
     padding: 4px 6px;
     box-sizing: border-box;
-    vertical-align: middle;
+    /* vertical-align removido pois display: flex já alinha */
 }
 .view-gallery .jstree-anchor .jstree-wholerow { display: flex; align-items: center; }
 /* Hide theme icons but keep the open/close control (.jstree-ocl) visible */
@@ -624,36 +630,40 @@
 .gallery-grid.cols-5 { grid-template-columns: repeat(5, 1fr); }
 .gallery-grid.cols-1 { grid-template-columns: 1fr; }
 .gallery-grid-cell {
+    aspect-ratio: 1 / 1;
     width: 100%;
     position: relative;
-    padding-top: 100%;
-    background: #fff;
+    background: transparent;
     border-radius: 10px;
     box-shadow: 0 1px 4px 0 #0001;
     overflow: hidden;
     transition: box-shadow 0.15s;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    margin: 8px;
-    border: 2px solid #b6b6b6;
-    padding: 16px;
+    margin: 12px;
+    border: 2.5px dashed #444; /* border picotada visível */
+    box-shadow: 0 1px 4px 0 #0001, 0 0 0 2px #fff inset;
+    padding: 8px;
 }
+
 .gallery-grid-cell:hover {
     box-shadow: 0 2px 8px 0 #38bdf833;
 }
 .gallery-grid-cell .gallery-grid-thumb {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    width: 90%;
+    height: 90%;
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
     border-radius: 8px;
-    border: 2px dashed #b6b6b6; /* border picotada */
+    border: none;
     cursor: pointer;
     display: block;
-    background: #f8fafc;
+    background: transparent;
     box-sizing: border-box;
     transition: box-shadow 0.15s;
-    padding: 8px; /* padding interno na imagem */
+    padding: 0;
 }
 .gallery-grid-cell .gallery-grid-thumb:hover {
     box-shadow: 0 0 0 2px #38bdf833;
