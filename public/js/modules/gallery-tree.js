@@ -14,7 +14,7 @@ export async function loadGalleryView() {
                 <div id="gallery-preview-toolbar" style="display:flex; justify-content:space-between; align-items:center;">
                     <div style="font-weight:700;">Preview</div>
                     <div>
-                        <button id="gallery-delete-btn" class="btn btn-danger" style="display:none;"><i class="fa-solid fa-trash"></i> Apagar</button>
+                        <button id="gallery-download-btn" class="btn btn-primary" style="display:none;"><i class="fa-solid fa-download"></i> Descarregar</button>
                     </div>
                 </div>
                 <div id="gallery-preview-content" style="flex:1; display:flex; align-items:center; justify-content:center; overflow:auto;"></div>
@@ -24,7 +24,7 @@ export async function loadGalleryView() {
 
     const container = document.getElementById('gallery-tree-container');
     const preview = document.getElementById('gallery-preview-content');
-    const deleteBtn = document.getElementById('gallery-delete-btn');
+    const downloadBtn = document.getElementById('gallery-download-btn');
 
     // Fetch file list and metadata from server
     let list = [];
@@ -174,28 +174,90 @@ export async function loadGalleryView() {
             const fileKey = liAttr['data-key'];
             if (fileUrl) {
                 preview.innerHTML = `<img src="${fileUrl}" style="max-width:100%; max-height:80vh; object-fit:contain; border-radius:6px;" />`;
-                deleteBtn.style.display = 'inline-flex';
-                deleteBtn.dataset.key = fileKey;
+                downloadBtn.style.display = 'inline-flex';
+                downloadBtn.dataset.key = fileKey;
+                downloadBtn.dataset.node = node.id;
             } else {
                 try { $(container).jstree(true).toggle_node(node.id); } catch (e) { }
                 preview.innerHTML = `<div style="color:var(--text-secondary);">Pasta selecionada</div>`;
-                deleteBtn.style.display = 'none';
-                deleteBtn.dataset.key = '';
+                downloadBtn.style.display = 'inline-flex';
+                downloadBtn.dataset.key = '';
+                downloadBtn.dataset.node = node.id;
             }
         });
-
-        deleteBtn.onclick = async () => {
-            const key = deleteBtn.dataset.key;
-            if (!key) return;
-            const ok = confirm('Apagar ficheiro ' + key + ' ?');
-            if (!ok) return;
+        downloadBtn.onclick = async () => {
+            const key = downloadBtn.dataset.key;
+            const nodeId = downloadBtn.dataset.node;
+            downloadBtn.disabled = true;
+            const origText = downloadBtn.innerText;
+            downloadBtn.innerText = 'A descarregar...';
             try {
-                const resp = await fetch('/api/delete_image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) });
-                const j = await resp.json();
-                if (!resp.ok) throw new Error(j.error || 'Falha ao apagar');
-                loadGalleryView();
+                const tree = $(container).jstree(true);
+                if (key) {
+                    // Single file download
+                    const resp = await fetch(`/api/r2_object?key=${encodeURIComponent(key)}`);
+                    if (!resp.ok) throw new Error('Falha ao obter ficheiro');
+                    const blob = await resp.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = key.split('/').pop();
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                } else if (nodeId) {
+                    // Folder/process download: collect descendant file keys and zip client-side
+                    // Ensure JSZip is loaded
+                    if (!window.JSZip) {
+                        await new Promise((res, rej) => {
+                            const s = document.createElement('script');
+                            s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+                            s.onload = res; s.onerror = rej; document.head.appendChild(s);
+                        });
+                    }
+                    const instance = tree;
+                    const nodeObj = instance.get_node(nodeId);
+                    const descendants = nodeObj.children_d || [];
+                    // collect file leaf ids (those with data-key)
+                    const fileIds = descendants.filter(id => {
+                        const n = document.getElementById(id);
+                        return n && (n.getAttribute('data-key') || n.dataset.key);
+                    });
+                    if (fileIds.length === 0) throw new Error('Nenhum ficheiro na pasta selecionada');
+                    const zip = new window.JSZip();
+                    for (const fid of fileIds) {
+                        const li = document.getElementById(fid);
+                        const fkey = li.getAttribute('data-key') || li.dataset.key;
+                        // build path relative to selected node
+                        const pathSegments = instance.get_path(fid, '/', false);
+                        // remove root if includes selected node text at start
+                        const selPath = instance.get_path(nodeId, '/', false);
+                        // compute relative path
+                        let relParts = pathSegments.slice(selPath.length);
+                        if (relParts.length === 0) relParts = [li.querySelector('.jstree-anchor')?.innerText || fkey.split('/').pop()];
+                        const filePath = relParts.join('/');
+                        const resp = await fetch(`/api/r2_object?key=${encodeURIComponent(fkey)}`);
+                        if (!resp.ok) continue;
+                        const buf = await resp.arrayBuffer();
+                        zip.file(filePath, buf);
+                    }
+                    const blob = await zip.generateAsync({ type: 'blob' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const nodeText = nodeObj.text.replace(/\s+/g,'_');
+                    a.download = `${nodeText}.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                }
             } catch (err) {
-                alert('Erro ao apagar: ' + err.message);
+                alert('Erro ao descarregar: ' + (err.message || err));
+            } finally {
+                downloadBtn.disabled = false;
+                downloadBtn.innerText = origText;
             }
         };
     } catch (err) {
