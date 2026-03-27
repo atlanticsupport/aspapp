@@ -172,17 +172,79 @@ export async function loadGalleryView() {
             const liAttr = node.li_attr || {};
             const fileUrl = liAttr['data-url'];
             const fileKey = liAttr['data-key'];
+            const tree = $(container).jstree(true);
+
+            function renderGridForNode(nodeId, cols) {
+                const nodeObj = tree.get_node(nodeId);
+                const descendants = nodeObj.children_d || [];
+                const fileIds = descendants.filter(id => {
+                    const nnode = tree.get_node(id);
+                    const fkey = (nnode && nnode.li_attr && nnode.li_attr['data-key']) || (nnode && nnode.original && nnode.original.li_attr && nnode.original.li_attr['data-key']);
+                    return !!fkey;
+                });
+                if (fileIds.length === 0) {
+                    preview.innerHTML = `<div style="color:var(--text-secondary);">Nenhum ficheiro na seleção</div>`;
+                    return;
+                }
+                const grid = document.createElement('div');
+                grid.className = `gallery-grid cols-${cols}`;
+                for (const fid of fileIds) {
+                    const nnode = tree.get_node(fid);
+                    const fkey = (nnode.li_attr && nnode.li_attr['data-key']) || (nnode.original && nnode.original.li_attr && nnode.original.li_attr['data-key']);
+                    const img = document.createElement('img');
+                    img.className = 'gallery-grid-thumb';
+                    img.loading = 'lazy';
+                    img.src = `/api/r2_thumbnail?key=${encodeURIComponent(fkey)}&w=800&h=800&q=70`;
+                    img.alt = nnode.text || fkey.split('/').pop();
+                    img.dataset.key = fkey;
+                    img.onclick = () => {
+                        preview.innerHTML = '';
+                        const wrapper = document.createElement('div');
+                        wrapper.style.display = 'flex';
+                        wrapper.style.alignItems = 'center';
+                        wrapper.style.justifyContent = 'center';
+                        wrapper.style.height = '100%';
+                        const big = document.createElement('img');
+                        big.src = `/api/r2_object?key=${encodeURIComponent(fkey)}`;
+                        big.style.maxWidth = '100%';
+                        big.style.maxHeight = '80vh';
+                        big.style.objectFit = 'contain';
+                        big.style.borderRadius = '6px';
+                        wrapper.appendChild(big);
+                        preview.appendChild(wrapper);
+                        downloadBtn.dataset.key = fkey;
+                        downloadBtn.dataset.node = node.id;
+                    };
+                    const cell = document.createElement('div');
+                    cell.className = 'gallery-grid-cell';
+                    cell.appendChild(img);
+                    grid.appendChild(cell);
+                }
+                preview.innerHTML = '';
+                preview.appendChild(grid);
+                // ensure download button is set to operate on node (folder/process)
+                downloadBtn.style.display = 'inline-flex';
+                downloadBtn.dataset.key = '';
+                downloadBtn.dataset.node = node.id;
+            }
+
             if (fileUrl) {
-                preview.innerHTML = `<img src="${fileUrl}" style="max-width:100%; max-height:80vh; object-fit:contain; border-radius:6px;" />`;
+                // single-file: show a centered, large image inside a fixed-size preview container
+                preview.innerHTML = `<div class="gallery-single"><img src="${fileUrl}" alt="preview" /></div>`;
                 downloadBtn.style.display = 'inline-flex';
                 downloadBtn.dataset.key = fileKey;
                 downloadBtn.dataset.node = node.id;
             } else {
-                // Do not toggle node on click; selecting a folder only selects it.
-                preview.innerHTML = `<div style="color:var(--text-secondary);">Pasta selecionada</div>`;
-                downloadBtn.style.display = 'inline-flex';
-                downloadBtn.dataset.key = '';
-                downloadBtn.dataset.node = node.id;
+                // Determine path depth using tree paths; root-level (process) => cols=5, product-folder => cols=3
+                const pathArr = tree.get_path(node.id, null, false) || [];
+                const depth = Array.isArray(pathArr) ? pathArr.length : 0;
+                if (depth <= 1) {
+                    // process level (top-level): 5 columns
+                    renderGridForNode(node.id, 5);
+                } else {
+                    // product/item folder: 3 columns
+                    renderGridForNode(node.id, 3);
+                }
             }
         });
         downloadBtn.onclick = async () => {

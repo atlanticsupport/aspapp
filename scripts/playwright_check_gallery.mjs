@@ -8,9 +8,10 @@ const STAGING = process.env.STAGING_URL || 'https://bb8b327a.asp-app-staging.pag
     console.log('Navigating to', STAGING);
     await page.goto(STAGING, { waitUntil: 'load', timeout: 30000 });
 
-    // Attempt to invoke gallery view loader if available
+    // Navigate to gallery view using the app navigation API if exposed
     try {
       await page.evaluate(() => {
+        if (window.navigateTo) return window.navigateTo('gallery');
         if (window.loadGalleryView) return window.loadGalleryView();
         return null;
       });
@@ -18,9 +19,17 @@ const STAGING = process.env.STAGING_URL || 'https://bb8b327a.asp-app-staging.pag
       // ignore
     }
 
-    // Wait for gallery container
+    // Wait for gallery container and expand top-level nodes to reveal product folders
     try {
       await page.waitForSelector('#gallery-tree-container li', { timeout: 8000 });
+      // expand first-level nodes (click anchors) to load children
+      const topAnchors = await page.$$('#gallery-tree-container > .jstree-container-ul > li > .jstree-anchor');
+      for (let i = 0; i < Math.min(topAnchors.length, 6); i++) {
+        try {
+          await topAnchors[i].click();
+          await page.waitForTimeout(250);
+        } catch (e) { }
+      }
     } catch (e) {
       // fallback: short wait for any anchor inside gallery container
       await page.waitForTimeout(1500);
