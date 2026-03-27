@@ -188,6 +188,10 @@ export async function loadGalleryView() {
                 }
                 const grid = document.createElement('div');
                 grid.className = `gallery-grid cols-${cols}`;
+                // compute rows so the grid cells evenly divide the preview height
+                const rows = Math.max(1, Math.ceil(fileIds.length / cols));
+                grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+                grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
                 for (const fid of fileIds) {
                     const nnode = tree.get_node(fid);
                     const fkey = (nnode.li_attr && nnode.li_attr['data-key']) || (nnode.original && nnode.original.li_attr && nnode.original.li_attr['data-key']);
@@ -204,10 +208,13 @@ export async function loadGalleryView() {
                         wrapper.style.alignItems = 'center';
                         wrapper.style.justifyContent = 'center';
                         wrapper.style.height = '100%';
+                        wrapper.style.width = '100%';
+                        wrapper.style.overflow = 'hidden';
                         const big = document.createElement('img');
                         big.src = `/api/r2_object?key=${encodeURIComponent(fkey)}`;
                         big.style.maxWidth = '100%';
-                        big.style.maxHeight = '80vh';
+                        big.style.maxHeight = '100%';
+                        big.style.width = 'auto';
                         big.style.objectFit = 'contain';
                         big.style.borderRadius = '6px';
                         wrapper.appendChild(big);
