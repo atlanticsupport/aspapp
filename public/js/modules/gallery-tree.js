@@ -219,23 +219,23 @@ export async function loadGalleryView() {
                     const instance = tree;
                     const nodeObj = instance.get_node(nodeId);
                     const descendants = nodeObj.children_d || [];
-                    // collect file leaf ids (those with data-key)
+                    // collect file leaf ids using the tree model (works even when collapsed)
                     const fileIds = descendants.filter(id => {
-                        const n = document.getElementById(id);
-                        return n && (n.getAttribute('data-key') || n.dataset.key);
+                        const nnode = instance.get_node(id);
+                        const fkey = (nnode && (nnode.li_attr && nnode.li_attr['data-key'])) || (nnode && nnode.original && nnode.original.li_attr && nnode.original.li_attr['data-key']) || (nnode && nnode.a_attr && nnode.a_attr['data-key']);
+                        return !!fkey;
                     });
                     if (fileIds.length === 0) throw new Error('Nenhum ficheiro na pasta selecionada');
                     const zip = new window.JSZip();
                     for (const fid of fileIds) {
-                        const li = document.getElementById(fid);
-                        const fkey = li.getAttribute('data-key') || li.dataset.key;
-                        // build path relative to selected node
-                        const pathSegments = instance.get_path(fid, '/', false);
-                        // remove root if includes selected node text at start
-                        const selPath = instance.get_path(nodeId, '/', false);
-                        // compute relative path
-                        let relParts = pathSegments.slice(selPath.length);
-                        if (relParts.length === 0) relParts = [li.querySelector('.jstree-anchor')?.innerText || fkey.split('/').pop()];
+                        const nnode = instance.get_node(fid);
+                        const fkey = (nnode.li_attr && nnode.li_attr['data-key']) || (nnode.original && nnode.original.li_attr && nnode.original.li_attr['data-key']) || (nnode.a_attr && nnode.a_attr['data-key']);
+                        if (!fkey) continue;
+                        // build path relative to selected node using tree paths (arrays)
+                        const pathSegments = instance.get_path(fid, null, false) || [];
+                        const selPath = instance.get_path(nodeId, null, false) || [];
+                        let relParts = Array.isArray(pathSegments) ? pathSegments.slice(selPath.length) : [];
+                        if (!relParts || relParts.length === 0) relParts = [nnode && nnode.text ? nnode.text : (fkey.split('/').pop())];
                         const filePath = relParts.join('/');
                         const resp = await fetch(`/api/r2_object?key=${encodeURIComponent(fkey)}`);
                         if (!resp.ok) continue;
