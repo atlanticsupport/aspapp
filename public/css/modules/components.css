@@ -457,11 +457,23 @@
 
 /* numbering before thumbnail */
 .view-gallery .jstree-anchor .jstree-index {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
     width: 36px;
-    text-align: right;
+    height: 24px;
+    line-height: 24px;
     font-size: 0.9rem;
     color: var(--text-primary);
+    box-sizing: border-box;
+}
+
+/* ensure thumbnail and index align vertically */
+.view-gallery .jstree-anchor .jstree-thumb {
+    height: 24px;
+    width: auto;
+    display: block;
+    vertical-align: middle;
 }
 
 /* Thin, minimal scrollbar matching app style */
