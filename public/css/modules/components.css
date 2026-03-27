@@ -642,7 +642,8 @@
     align-items: center;
     justify-content: center;
     margin: 12px;
-    border: 2px dashed #b6b6b6; /* border picotada */
+    border: 2.5px dashed #444; /* border picotada visível */
+    box-shadow: 0 1px 4px 0 #0001, 0 0 0 2px #fff inset;
     padding: 8px;
 }
 
