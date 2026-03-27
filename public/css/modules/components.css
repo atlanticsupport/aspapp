@@ -426,9 +426,34 @@
     display: inline-block;
 }
 
-/* Hide default jsTree icon inside gallery and ensure anchor spacing */
-.view-gallery .jstree-icon {
+.view-gallery .jstree-anchor { 
+    display: flex;
+    align-items: center; 
+    gap: 8px;
+    min-height: 32px;
+    padding: 4px 6px;
+    box-sizing: border-box;
+    vertical-align: middle;
+}
+.view-gallery .jstree-anchor .jstree-wholerow { display: flex; align-items: center; }
+/* Hide theme icons but keep the open/close control (.jstree-ocl) visible */
+.view-gallery .jstree-icon:not(.jstree-ocl),
+.view-gallery .jstree-themeicon,
+.view-gallery .jstree-themeicon-custom,
+.view-gallery i.jstree-icon:not(.jstree-ocl) {
     display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+/* increase clickable area of the open/close button without changing visual style */
+.view-gallery .jstree-ocl {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 6px !important;
+    margin: -6px !important;
 }
 .view-gallery .jstree-anchor { 
     display: flex;

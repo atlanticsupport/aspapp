@@ -178,7 +178,7 @@ export async function loadGalleryView() {
                 downloadBtn.dataset.key = fileKey;
                 downloadBtn.dataset.node = node.id;
             } else {
-                try { $(container).jstree(true).toggle_node(node.id); } catch (e) { }
+                // Do not toggle node on click; selecting a folder only selects it.
                 preview.innerHTML = `<div style="color:var(--text-secondary);">Pasta selecionada</div>`;
                 downloadBtn.style.display = 'inline-flex';
                 downloadBtn.dataset.key = '';
