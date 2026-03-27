@@ -205,14 +205,6 @@ export async function loadGalleryView() {
                     img.className = 'gallery-grid-thumb';
                     img.loading = 'lazy';
                     img.src = `/api/r2_thumbnail?key=${encodeURIComponent(fkey)}&w=800&h=800&q=70`;
-                    // enforce inline styles so layout works even if CSS not applied
-                    img.style.position = 'absolute';
-                    img.style.top = '0';
-                    img.style.left = '0';
-                    img.style.width = '100%';
-                    img.style.height = '100%';
-                    img.style.objectFit = 'cover';
-                    img.style.borderRadius = '6px';
                     img.alt = nnode.text || fkey.split('/').pop();
                     img.dataset.key = fkey;
                     img.onclick = () => {
@@ -238,12 +230,6 @@ export async function loadGalleryView() {
                     };
                     const cell = document.createElement('div');
                     cell.className = 'gallery-grid-cell';
-                    // enforce square cell sizing via explicit width/height so it doesn't depend on external CSS
-                    cell.style.position = 'relative';
-                    cell.style.paddingTop = '0';
-                    cell.style.boxSizing = 'border-box';
-                    cell.style.width = `${cellSize}px`;
-                    cell.style.height = `${cellSize}px`;
                     cell.appendChild(img);
                     grid.appendChild(cell);
                 }

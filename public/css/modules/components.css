@@ -5,6 +5,7 @@
     align-items: stretch;
     justify-content: flex-start;
     height: 100%;
+    /* Alinhar ao topo quando pasta está selecionada */
 }
 /* Buttons */
 .btn {
@@ -442,7 +443,7 @@
     min-height: 32px;
     padding: 4px 6px;
     box-sizing: border-box;
-    vertical-align: middle;
+    /* vertical-align removido pois display: flex já alinha */
 }
 .view-gallery .jstree-anchor .jstree-wholerow { display: flex; align-items: center; }
 /* Hide theme icons but keep the open/close control (.jstree-ocl) visible */
@@ -635,10 +636,11 @@
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    margin: 8px;
-    border: 2px solid #b6b6b6;
-    padding: 16px;
+    margin: 16px; /* margem aumentada */
+    border: 2px solid #38bdf8; /* cor azul clara para destaque */
+    padding: 24px; /* padding maior para espaçamento interno */
 }
+
 .gallery-grid-cell:hover {
     box-shadow: 0 2px 8px 0 #38bdf833;
 }
