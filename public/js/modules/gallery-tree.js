@@ -188,9 +188,12 @@ export async function loadGalleryView() {
                 }
                 const grid = document.createElement('div');
                 grid.className = `gallery-grid cols-${cols}`;
-                // set columns only; cell height will be controlled by CSS (square cells based on width)
-                grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-                grid.style.gridAutoRows = '0';
+                // compute cell size from preview width and set fixed column widths so thumbnails are constrained
+                const available = (preview.clientWidth || preview.offsetWidth) || 600;
+                const gap = 8; // grid gap
+                const cellSize = Math.max(60, Math.floor((available - (cols - 1) * gap) / cols));
+                grid.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
+                grid.style.gridAutoRows = `${cellSize}px`;
                 for (const fid of fileIds) {
                     const nnode = tree.get_node(fid);
                     const fkey = (nnode.li_attr && nnode.li_attr['data-key']) || (nnode.original && nnode.original.li_attr && nnode.original.li_attr['data-key']);
@@ -231,11 +234,12 @@ export async function loadGalleryView() {
                     };
                     const cell = document.createElement('div');
                     cell.className = 'gallery-grid-cell';
-                    // enforce square cell via inline styles (padding-top trick)
+                    // enforce square cell sizing via explicit width/height so it doesn't depend on external CSS
                     cell.style.position = 'relative';
-                    cell.style.paddingTop = '100%';
-                    cell.style.width = '100%';
+                    cell.style.paddingTop = '0';
                     cell.style.boxSizing = 'border-box';
+                    cell.style.width = `${cellSize}px`;
+                    cell.style.height = `${cellSize}px`;
                     cell.appendChild(img);
                     grid.appendChild(cell);
                 }
