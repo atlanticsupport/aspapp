@@ -51,16 +51,25 @@ export async function loadGalleryView() {
     // Prefer structured grouping when server provided metadata
     // Grouping: sales_process -> "Descrição / Part-Number" -> images numbered by sort_order
     const grouped = new Map();
+            // Fetch file list and metadata from server
+            let list = [];
+            let meta = { byBase: {}, byUrl: {} };
+            try {
+                const [resList, resMeta] = await Promise.all([
+                    fetch('/api/list_images'),
+                    fetch('/api/gallery_meta').catch(() => new Response(JSON.stringify({})))
+                ]);
 
-    list.forEach(obj => {
-        const filename = obj.key.split('/').pop();
-        const salesProcess = obj.sales_process || 'Unknown Process';
-        const productName = obj.product_name || null;
-        const partNumber = obj.part_number || null;
-        const productId = obj.product_id || null;
-        const displayFolder = productName && partNumber ? `${productName} / ${partNumber}` : (partNumber || productName || 'Unknown Item');
+                if (!resList.ok) throw new Error('Erro ao listar imagens');
+                list = await resList.json();
 
-        const procMap = grouped.get(salesProcess) || new Map();
+                if (resMeta && resMeta.ok) {
+                    try { meta = await resMeta.json(); } catch (e) { meta = { byBase: {}, byUrl: {} }; }
+                }
+            } catch (e) {
+                container.innerHTML = `<div style="padding:1rem; color:var(--text-secondary);">Falha ao listar imagens: ${e.message}</div>`;
+                return;
+            }
         const itemList = procMap.get(displayFolder) || [];
         itemList.push({ obj, filename, productId });
         procMap.set(displayFolder, itemList);
