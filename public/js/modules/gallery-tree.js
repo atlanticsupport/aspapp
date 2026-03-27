@@ -117,8 +117,9 @@ export async function loadGalleryView() {
                     const img = document.createElement('img');
                     img.className = 'jstree-thumb';
                     img.loading = 'lazy';
-                    img.width = 16; img.height = 16;
-                    img.src = `/api/r2_thumbnail?key=${encodeURIComponent(key)}&w=32&h=32&q=60`;
+                    img.height = 24;
+                    img.style.width = 'auto';
+                    img.src = `/api/r2_thumbnail?key=${encodeURIComponent(key)}&w=72&h=72&q=60`;
                     a.insertBefore(img, a.firstChild);
                 } catch (e) { /* ignore per-item errors */ }
             });
