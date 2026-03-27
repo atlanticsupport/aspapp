@@ -9,8 +9,8 @@ export async function loadGalleryView() {
 
     views.gallery.innerHTML = `
         <div class="view-gallery" style="display:flex; gap:16px; align-items:flex-start;">
-            <div id="gallery-tree-container" style="width:360px; border:1px solid var(--border-color); border-radius:8px; padding:12px; background:var(--bg-color);"></div>
-            <div id="gallery-preview" style="flex:1; min-height:400px; border:1px solid var(--border-color); border-radius:8px; padding:12px; background:var(--bg-color); display:flex; flex-direction:column; gap:8px;">
+            <div id="gallery-tree-container" style="width:360px; padding:12px; background:var(--bg-color);"></div>
+            <div id="gallery-preview" style="flex:1; min-height:400px; padding:12px; background:var(--bg-color); display:flex; flex-direction:column; gap:8px;">
                 <div id="gallery-preview-toolbar" style="display:flex; justify-content:space-between; align-items:center;">
                     <div style="font-weight:700;">Preview</div>
                     <div>
@@ -49,11 +49,14 @@ export async function loadGalleryView() {
     // Group files by sales_process -> displayFolder
     const grouped = new Map();
     function formatFolderLabel(base, m, obj) {
-        // prefer explicit display label
+        // Show only part_number for product folders when available
+        if (obj && obj.part_number) return String(obj.part_number).trim();
+        if (m && m.part_number) return String(m.part_number).trim();
+        // prefer explicit display label if no part_number
         if (m && m.displayLabel) return m.displayLabel;
-        // prefer object-enriched product_name/part_number
-        if (obj && (obj.product_name || obj.part_number)) return `${obj.product_name || ''}${obj.part_number ? ' / ' + obj.part_number : ''}`.trim();
-        if (m && m.product_name) return `${m.product_name}${m.part_number ? ' / ' + m.part_number : ''}`.trim();
+        // prefer product_name as fallback
+        if (obj && obj.product_name) return obj.product_name;
+        if (m && m.product_name) return m.product_name;
         // if base contains product-<id>-... show friendly Produto #id
         const mProd = base.match(/^product-(\d+)/);
         if (mProd) return `Produto #${mProd[1]}`;
@@ -141,6 +144,10 @@ export async function loadGalleryView() {
                     // remove any leftover jsTree icon elements inside the anchor to ensure only the thumbnail remains
                     const leftoverIcons = a.querySelectorAll('.jstree-icon, .jstree-themeicon, .jstree-themeicon-custom');
                     leftoverIcons.forEach(el => el.remove());
+                    // remove plain text nodes inside anchor for file leaves so only thumbnail is visible
+                    Array.from(a.childNodes).forEach(n => {
+                        if (n.nodeType === Node.TEXT_NODE) n.remove();
+                    });
                 } catch (e) { /* ignore per-item errors */ }
             });
         }
