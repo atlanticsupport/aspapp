@@ -25,6 +25,8 @@ export async function onRequestGet({ env }) {
             }
             // fallback: if still looks like file?name=..., try to remove prefix
             if (base.startsWith('file?name=')) base = base.replace(/^file\?name=/, '');
+            // strip file extension so keys match frontend base (filename without extension)
+            base = base.replace(/\.[^/.]+$/, '');
             if (base) {
                 byBase[base] = byBase[base] || [];
                 byBase[base].push({ attachment_id: a.attachment_id, product_id: a.product_id, product_name: a.product_name, part_number: a.part_number, sales_process: a.sales_process, sort_order: a.sort_order, url: a.url, file_type: a.file_type });
