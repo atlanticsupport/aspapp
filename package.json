@@ -8,6 +8,7 @@
     "deploy": "npm run deploy:prod",
     "deploy:prod": "node scripts/pages-deploy.mjs production",
     "deploy:staging": "node scripts/pages-deploy.mjs staging",
+    "deploy:verify-gallery": "node scripts/autodeploy_verify_gallery.js",
     "lint": "eslint public/js --fix",
     "format": "prettier --write 'public/js/**/*.js' 'functions/**/*.js'",
     "lint:check": "eslint public/js",
