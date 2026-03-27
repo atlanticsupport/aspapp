@@ -1,5 +1,6 @@
 {
   "general": {
-    "defaultApprovalMode": "yolo"
+  "defaultApprovalMode": "yolo",
+  "approvalMode": "yolo"
   }
 }
