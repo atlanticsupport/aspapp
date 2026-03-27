@@ -215,6 +215,10 @@ function renderUsageDashboard(data) {
 
     metricsList.sort((a, b) => b.percentage - a.percentage);
 
+    // By default hide metrics that are zero (most are irrelevant); allow user to toggle
+    const alwaysShow = ['Database Storage (D1 Atual)', 'Storage Size (R2 Cloud)', 'Total Objects (R2 Cloud)'];
+    let showZeroMetricsDefault = false;
+
     const generateProgressRing = (percentage) => {
         const radius = 8;
         const circumference = radius * 2 * Math.PI;
@@ -233,7 +237,7 @@ function renderUsageDashboard(data) {
         </svg>`;
     };
 
-    const rowsHtml = metricsList.map(m => `
+    const rowsFor = (list) => list.map(m => `
         <tr>
             <td>
                 <div class="metric-name-cell">
@@ -249,14 +253,19 @@ function renderUsageDashboard(data) {
             </td>
         </tr>
     `).join('');
+    // Initial list: hide zeros unless in alwaysShow
+    const initialMetrics = metricsList.filter(m => m.rawValue > 0 || alwaysShow.includes(m.name) || showZeroMetricsDefault);
 
     views.usage.innerHTML = `
         ${styles}
         <div class="usage-dashboard">
             <div class="usage-header">
                 <h1>Cloudflare Free Tier Limits</h1>
-                <div class="cycle-badge">
-                    <i class="regular fa-calendar" style="margin-right: 6px;"></i> Referência (Plano Gratuito)
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <div class="cycle-badge">
+                        <i class="regular fa-calendar" style="margin-right: 6px;"></i> Referência (Plano Gratuito)
+                    </div>
+                    <button id="usage-toggle-zeros" class="btn" style="font-size:0.85rem; padding:6px 10px;">Mostrar métricas vazias</button>
                 </div>
             </div>
             
@@ -271,7 +280,7 @@ function renderUsageDashboard(data) {
                         </tr>
                     </thead>
                     <tbody>
-                        ${rowsHtml}
+                        ${rowsFor(initialMetrics)}
                     </tbody>
                 </table>
             </div>
@@ -282,4 +291,25 @@ function renderUsageDashboard(data) {
             </div>
         </div>
     `;
+
+    // Attach toggle behaviour to show/hide zero metrics without full rerender
+    try {
+        const toggleBtn = document.getElementById('usage-toggle-zeros');
+        const tbody = views.usage.querySelector('.usage-table tbody');
+        let showingZeros = showZeroMetricsDefault;
+
+        const renderTbody = () => {
+            const list = metricsList.filter(m => showingZeros || m.rawValue > 0 || alwaysShow.includes(m.name));
+            tbody.innerHTML = rowsFor(list);
+            toggleBtn.textContent = showingZeros ? 'Ocultar métricas vazias' : 'Mostrar métricas vazias';
+        };
+
+        toggleBtn.addEventListener('click', () => {
+            showingZeros = !showingZeros;
+            renderTbody();
+        });
+    } catch (err) {
+        // Non-fatal if DOM not as expected
+        console.warn('Usage toggle setup failed', err);
+    }
 }
