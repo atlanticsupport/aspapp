@@ -204,9 +204,13 @@ export async function loadGalleryView() {
                     const img = document.createElement('img');
                     img.className = 'gallery-grid-thumb';
                     img.loading = 'lazy';
-                    img.src = `/api/r2_thumbnail?key=${encodeURIComponent(fkey)}&w=800&h=800&q=70`;
+                    img.src = `/api/r2_thumbnail?key=${encodeURIComponent(fkey)}&w=400&h=400&q=70`;
                     img.alt = nnode.text || fkey.split('/').pop();
                     img.dataset.key = fkey;
+                    img.width = 0;
+                    img.height = 0;
+                    img.style.width = '100%';
+                    img.style.height = '100%';
                     img.onclick = () => {
                         preview.innerHTML = '';
                         const wrapper = document.createElement('div');
