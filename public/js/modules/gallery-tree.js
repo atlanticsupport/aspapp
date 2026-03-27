@@ -68,7 +68,8 @@ export async function loadGalleryView() {
         const base = filename.replace(/\.[^/.]+$/, '');
         const mByUrl = meta.byUrl && meta.byUrl[key];
         const mByBase = meta.byBase && meta.byBase[base];
-        const m = mByUrl || mByBase || {};
+        const mBaseItem = Array.isArray(mByBase) ? mByBase[0] : mByBase;
+        const m = mByUrl || mBaseItem || {};
         // sales process: prefer metadata, then obj, then key path first segment
         const salesProcess = m.sales_process || obj.sales_process || (key.includes('/') ? key.split('/')[0] : 'Unknown Process');
         const displayFolder = formatFolderLabel(base, m, obj);
