@@ -437,7 +437,17 @@
     align-items: center;
 }
 .view-gallery .jstree-anchor .jstree-wholerow { display: flex; align-items: center; }
-.view-gallery .jstree-anchor .jstree-themeicon, .view-gallery .jstree-anchor .jstree-icon { display: none !important; }
+/* Hide all variants of jsTree icons inside gallery and collapse their box to avoid spacing */
+.view-gallery .jstree-icon,
+.view-gallery .jstree-themeicon,
+.view-gallery .jstree-themeicon-custom,
+.view-gallery i.jstree-icon {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
 .view-gallery .jstree-anchor .jstree-thumb { 
     border-radius: 4px; 
 }
