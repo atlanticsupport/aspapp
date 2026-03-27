@@ -192,8 +192,12 @@ export async function loadGalleryView() {
                 const available = (preview.clientWidth || preview.offsetWidth) || 600;
                 const gap = 8; // grid gap
                 const cellSize = Math.max(60, Math.floor((available - (cols - 1) * gap) / cols));
+                grid.style.display = 'grid';
                 grid.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
                 grid.style.gridAutoRows = `${cellSize}px`;
+                grid.style.gridAutoFlow = 'row';
+                grid.style.justifyContent = 'start';
+                grid.style.alignItems = 'start';
                 for (const fid of fileIds) {
                     const nnode = tree.get_node(fid);
                     const fkey = (nnode.li_attr && nnode.li_attr['data-key']) || (nnode.original && nnode.original.li_attr && nnode.original.li_attr['data-key']);
