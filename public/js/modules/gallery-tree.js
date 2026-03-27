@@ -48,40 +48,53 @@ export async function loadGalleryView() {
         return node;
     }
 
-    list.forEach((obj) => {
-        let parts = obj.key.split('/').filter(Boolean);
-        // Heuristic: keys like product-<id>-...ext -> group as product/<id>/filename
-        if (parts.length === 1) {
-            const m = parts[0].match(/^product-(\d+)-.*$/i);
-            if (m) {
-                const pid = m[1];
-                const filename = parts[0];
-                parts = ['product', pid, filename];
-            } else {
-                // fallback grouping under 'Other'
-                parts = ['Other', parts[0]];
-            }
-        }
+    // Prefer structured grouping when server provided metadata
+    // Grouping: sales_process -> "Descrição / Part-Number" -> images numbered by sort_order
+    const grouped = new Map();
 
-        let parent = '#';
-        let pathSoFar = '';
-        parts.forEach((part, i) => {
-            pathSoFar = pathSoFar ? pathSoFar + '/' + part : part;
-            const id = `n-${pathSoFar.replace(/[^a-zA-Z0-9_-]/g,'_')}`;
-            const isFile = i === parts.length - 1 && part.match(/\.(jpe?g|png|webp|gif|bmp|svg)$/i);
-            const iconClass = isFile ? 'fa fa-file-image' : 'fa fa-folder';
-            pushNode(id, parent === '#' ? '#' : parent, part, { 'data-key': pathSoFar }, iconClass);
-            parent = id;
+    list.forEach(obj => {
+        const filename = obj.key.split('/').pop();
+        const salesProcess = obj.sales_process || 'Unknown Process';
+        const productName = obj.product_name || null;
+        const partNumber = obj.part_number || null;
+        const productId = obj.product_id || null;
+        const displayFolder = productName && partNumber ? `${productName} / ${partNumber}` : (partNumber || productName || 'Unknown Item');
+
+        const procMap = grouped.get(salesProcess) || new Map();
+        const itemList = procMap.get(displayFolder) || [];
+        itemList.push({ obj, filename, productId });
+        procMap.set(displayFolder, itemList);
+        grouped.set(salesProcess, procMap);
+    });
+
+    // Build nodes from grouped map
+    grouped.forEach((procMap, proc) => {
+        const procId = `n-${proc.replace(/[^a-zA-Z0-9_-]/g,'_')}`;
+        pushNode(procId, '#', proc, {}, 'fa fa-folder');
+        procMap.forEach((items, itemLabel) => {
+            const itemId = `${procId}-${itemLabel.replace(/[^a-zA-Z0-9_-]/g,'_')}`;
+            pushNode(itemId, procId, itemLabel, {}, 'fa fa-folder');
+            // sort images by sort_order then uploaded
+            items.sort((a,b) => {
+                const sa = a.obj.sort_order ?? 0;
+                const sb = b.obj.sort_order ?? 0;
+                if (sa !== sb) return sa - sb;
+                return new Date(a.obj.uploaded || 0) - new Date(b.obj.uploaded || 0);
+            });
+            items.forEach((it, idx) => {
+                const fname = `${idx+1}${it.filename.includes('.') ? it.filename.substring(it.filename.lastIndexOf('.')) : ''}`;
+                const leafPath = `${proc}/${itemLabel}/${fname}`;
+                const leafId = `n-${leafPath.replace(/[^a-zA-Z0-9_-]/g,'_')}`;
+                const leaf = pushNode(leafId, itemId, fname, { 'data-key': it.obj.key }, 'fa fa-file-image');
+                if (leaf) leaf.li_attr = { 'data-url': `/api/r2_object?key=${encodeURIComponent(it.obj.key)}`, 'data-key': it.obj.key };
+            });
         });
-
-        const leafId = `n-${parts.join('/').replace(/[^a-zA-Z0-9_-]/g,'_')}`;
-        const leaf = nodes.find(n => n.id === leafId);
-        if (leaf) leaf.li_attr = { 'data-url': `/api/r2_object?key=${encodeURIComponent(obj.key)}`, 'data-key': obj.key };
     });
 
     // Render jsTree
     try {
-        $(container).jstree({ core: { data: nodes, themes: { icons: true } } });
+        // Use wholerow so the entire row is clickable
+        $(container).jstree({ core: { data: nodes, themes: { icons: true } }, plugins: ['wholerow'] });
 
         $(container).on('select_node.jstree', function (e, data) {
             const node = data.node;
@@ -94,6 +107,10 @@ export async function loadGalleryView() {
                 deleteBtn.style.display = 'inline-flex';
                 deleteBtn.dataset.key = fileKey;
             } else {
+                // Toggle folder open/close when clicking the row
+                try {
+                    $(container).jstree(true).toggle_node(node.id);
+                } catch (e) { }
                 preview.innerHTML = `<div style="color:var(--text-secondary);">Pasta selecionada</div>`;
                 deleteBtn.style.display = 'none';
                 deleteBtn.dataset.key = '';
