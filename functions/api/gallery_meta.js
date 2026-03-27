@@ -12,7 +12,19 @@ export async function onRequestGet({ env }) {
         const byUrl = {};
         attachments.forEach(a => {
             const url = a.url || '';
-            const base = url.split('/').pop();
+            // Normalize base name: if URL uses a query like ?name=product-..., extract the name param
+            let base = url.split('/').pop() || '';
+            const nameIdx = base.indexOf('name=');
+            if (nameIdx !== -1) {
+                base = base.substring(nameIdx + 5);
+            }
+            // Also handle cases where entire path contains '?name=' earlier
+            if (!base && url.includes('?name=')) {
+                const parts = url.split('?name=');
+                base = parts.length > 1 ? parts[1].split('&')[0] : '';
+            }
+            // fallback: if still looks like file?name=..., try to remove prefix
+            if (base.startsWith('file?name=')) base = base.replace(/^file\?name=/, '');
             if (base) {
                 byBase[base] = byBase[base] || [];
                 byBase[base].push({ attachment_id: a.attachment_id, product_id: a.product_id, product_name: a.product_name, part_number: a.part_number, sales_process: a.sales_process, sort_order: a.sort_order, url: a.url, file_type: a.file_type });
