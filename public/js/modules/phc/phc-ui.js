@@ -5,36 +5,36 @@ import { getDetectedPhcItems } from './phc-core.js';
 const VIEW_COLUMNS = {
     // Inventory: Items already in stock with full location details
     inventory: [
-        { id: 'part_number', label: 'Referência', width: '16%' },
-        { id: 'name', label: 'Designação', width: '34%' },
+        { id: 'part_number', label: 'Part-Number', width: '16%' },
+        { id: 'name', label: 'Descrição', width: '34%' },
         { id: 'quantity', label: 'Quantidade', width: '12%' },
         { id: 'pallet', label: 'Palete', width: '10%' },
         { id: 'box', label: 'Caixa', width: '10%' },
-        { id: 'brand', label: 'Fabricante', width: '10%' },
+        { id: 'brand', label: 'Marca', width: '10%' },
         { id: 'category', label: 'Type', width: '18%' }
     ],
     // Transit/Chegadas: Items arriving, no location yet (not stored)
     transit: [
-        { id: 'part_number', label: 'Referência', width: '18%' },
-        { id: 'name', label: 'Designação', width: '35%' },
+        { id: 'part_number', label: 'Part-Number', width: '18%' },
+        { id: 'name', label: 'Descrição', width: '35%' },
         { id: 'quantity', label: 'Quantidade', width: '12%' },
-        { id: 'brand', label: 'Fabricante', width: '15%' },
+        { id: 'brand', label: 'Marca', width: '15%' },
         { id: 'category', label: 'Type', width: '20%' }
     ],
     // Stock Out: Items being picked from inventory (location chosen during picking)
     stock_out: [
-        { id: 'part_number', label: 'Referência', width: '18%' },
-        { id: 'name', label: 'Designação', width: '35%' },
+        { id: 'part_number', label: 'Part-Number', width: '18%' },
+        { id: 'name', label: 'Descrição', width: '35%' },
         { id: 'quantity', label: 'Quantidade', width: '12%' },
-        { id: 'brand', label: 'Fabricante', width: '15%' },
+        { id: 'brand', label: 'Marca', width: '15%' },
         { id: 'category', label: 'Type', width: '20%' }
     ],
     // Logistics: Items in transit to client (no internal location needed)
     logistics: [
-        { id: 'part_number', label: 'Referência', width: '16%' },
-        { id: 'name', label: 'Designação', width: '32%' },
+        { id: 'part_number', label: 'Part-Number', width: '16%' },
+        { id: 'name', label: 'Descrição', width: '32%' },
         { id: 'quantity', label: 'Quantidade', width: '12%' },
-        { id: 'brand', label: 'Fabricante', width: '15%' },
+        { id: 'brand', label: 'Marca', width: '15%' },
         { id: 'category', label: 'Type', width: '25%' }
     ]
 };

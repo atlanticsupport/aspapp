@@ -348,6 +348,28 @@
         </div>
     </div>
 
+    <!-- Print Choice Modal -->
+    <div id="print-choice-modal" class="modal">
+        <div class="modal-content" style="width:380px; text-align:left;">
+            <div class="modal-header">
+                <h2 id="print-choice-title">Imprimir</h2>
+                <button class="close-modal" id="print-choice-close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <p id="print-choice-name" style="font-weight:600;"></p>
+
+                <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px;">
+                    <label><input type="radio" name="print-choice" id="print-choice-single" checked> Imprimir etiqueta da caixa/palete (única)</label>
+                    <label><input type="radio" name="print-choice" id="print-choice-bulk"> Imprimir etiquetas dos produtos dentro (bulk)</label>
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+                <button class="btn btn-secondary" id="print-choice-cancel">Cancelar</button>
+                <button class="btn btn-primary" id="print-choice-confirm">Imprimir</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Image Viewer Overlay -->
     <div id="image-viewer" class="image-viewer-overlay">
         <button id="btn-close-viewer-top" class="viewer-close-btn">&times;</button>
@@ -425,12 +447,12 @@
                     <!-- Main Identification (Now at Top) -->
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="prod-name">Designação</label>
+                            <label for="prod-name">Descrição</label>
                             <input type="text" autocomplete="off" id="prod-name" required
                                 placeholder="Ex: CYLINDER LINER O-RING" autocomplete="off">
                         </div>
                         <div class="form-group" style="position:relative;">
-                            <label for="prod-part-number">PN (Referência)</label>
+                            <label for="prod-part-number">Part-Number</label>
                             <input type="text" autocomplete="off" id="prod-part-number" required
                                 placeholder="Ex: 319740" autocomplete="off">
                             <div id="part-number-suggestions" class="autocomplete-suggestions"></div>
@@ -467,7 +489,7 @@
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="prod-brand">Maker / Brand</label>
+                            <label for="prod-brand">Fornecedor / Marca</label>
                             <input type="text" autocomplete="off" id="prod-brand" required
                                 placeholder="Ex: G.E., Waukesha" autocomplete="off">
                             <!-- Hidden input for specific maker if needed distinct from brand -->
@@ -741,7 +763,7 @@
                     <table class="data-table" id="manifest-table">
                         <thead>
                             <tr>
-                                <th>PN / Ref.</th>
+                                <th>Part-Number</th>
                                 <th>Descrição</th>
                                 <th>Marca</th>
                                 <th style="text-align:center;">Stock</th>
@@ -801,7 +823,7 @@
                             <input type="text" autocomplete="off" id="phc-meta-po" class="meta-input">
                         </div>
                         <div>
-                            <label class="meta-label">Fabricante</label>
+                            <label class="meta-label">Fornecedor</label>
                             <input type="text" autocomplete="off" id="phc-meta-maker" class="meta-input">
                         </div>
                         <div>
@@ -873,7 +895,7 @@
                 <div style="margin-bottom: 1.5rem; display: flex; gap: 0.75rem;">
                     <div class="search-container" style="flex:1;">
                         <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="text" id="sop-manual-search" placeholder="Procurar manualmente outra referência..."
+                        <input type="text" id="sop-manual-search" placeholder="Procurar manualmente outro Part-Number..."
                             style="width:100%; border:1px solid var(--border-color); border-radius:10px; padding:0.6rem 1rem 0.6rem 2.5rem; height:auto;">
                     </div>
                     <button id="sop-btn-search" class="btn btn-primary" style="padding: 0 1.25rem;"><i
@@ -903,7 +925,7 @@
                     style="display:none; text-align:center; padding: 2rem; color: var(--text-secondary);">
                     <i class="fa-solid fa-circle-exclamation"
                         style="font-size: 2rem; margin-bottom: 1rem; color: #ef4444;"></i>
-                    <p>Nenhum item físico disponível em stock para esta referência.</p>
+                    <p>Nenhum item físico disponível em stock para este Part-Number.</p>
                 </div>
             </div>
         </div>

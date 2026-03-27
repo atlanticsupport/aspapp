@@ -1,0 +1,17 @@
+const fs = require('fs');
+const p = 'public/js/modules/core/events.js';
+let s = fs.readFileSync(p, 'utf8');
+const startMarker = '<<<<<<< HEAD';
+const endMarkerPrefix = '>>>>>>> 3ea5bf4';
+const si = s.indexOf(startMarker);
+const ei = s.indexOf(endMarkerPrefix, si);
+if (si === -1 || ei === -1) {
+  console.error('Could not find conflict markers.');
+  process.exit(2);
+}
+const before = s.slice(0, si);
+const after = s.slice(ei + endMarkerPrefix.length);
+const replacement = '            if (items.length === 0) throw new Error(\'Não foram encontrados dados para importar.\');\\n\\n            // Use chunked import to avoid Cloudflare D1 statement limits\\n            const importId = crypto.randomUUID();\\n            const CHUNK_SIZE = 200;\\n            const totalChunks = Math.ceil(items.length / CHUNK_SIZE);\\n\\n            // Create import history record\\n            await supabase.rpc(\\'rpc\\', {\\n                rpc: \\\'create_import_history\\\',\\n                p_import_id: importId,\\n                p_table_name: \\\'products\\\',\\n                p_file_name: file.name,\\n                p_file_size: file.size\\n            });\\n\\n            let totalInserted = 0;\\n            let totalFailed = 0;\\n\\n            for (let ci = 0; ci < totalChunks; ci++) {\\n                const start = ci * CHUNK_SIZE;\\n                const end = Math.min(start + CHUNK_SIZE, items.length);\\n                const chunk = items.slice(start, end);\\n\\n                const params = {\\n                    rpc: \\\'secure_chunked_import\\\',\\n                    p_import_id: importId,\\n                    p_chunk_index: ci,\\n                    p_chunk_data: chunk,\\n                    p_total_chunks: totalChunks,\\n                    p_table_name: \\\'products\\\',\\n                    p_file_name: file.name,\\n                    p_file_size: file.size,\\n                    p_user: state.currentUser?.username,\\n                    p_pass: state.currentUser?.password\\n                };\\n\\n                const { data: chunkRes, error: chunkErr } = await supabase.rpc(\\'rpc\\', params);\\n                if (chunkErr) {\\n                    console.error(\\'Chunk \\\' + ci + \\\' import error:\\', chunkErr);\\n                    totalFailed += chunk.length;\\n                } else {\\n                    totalInserted += chunkRes.inserted || 0;\\n                    totalFailed += chunkRes.failed || 0;\\n                }\\n\\n                // Update user-visible progress\\n                showToast(\\'Importados: \\\' + totalInserted + \\\' | Falhados: \\\' + totalFailed, \\\'info\\\');\\n            }\\n\\n            // Finalize import\\n            await supabase.rpc(\\'rpc\\', {\\n                rpc: \\\'finalize_import\\\',\\n                p_import_id: importId,\\n                p_total_inserted: totalInserted,\\n                p_total_failed: totalFailed,\\n                p_status: totalFailed > 0 ? \\\'completed_with_errors\\\' : \\\'completed\\\',\\n                p_user: state.currentUser?.username,\\n                p_pass: state.currentUser?.password\\n            });\\n\\n            showToast(totalInserted + \\\' itens importados com sucesso! (\\\' + totalFailed + \\\' falharam)\\\', \\\'success\\\');\\n            loadInventory();\\n';
+const out = before + replacement + after;
+fs.writeFileSync(p, out, 'utf8');
+console.log('resolved');

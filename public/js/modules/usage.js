@@ -263,7 +263,7 @@ function renderUsageDashboard(data) {
                 <h1>Cloudflare Free Tier Limits</h1>
                 <div style="display:flex; gap:8px; align-items:center;">
                     <div class="cycle-badge">
-                        <i class="regular fa-calendar" style="margin-right: 6px;"></i> Referência (Plano Gratuito)
+                        <i class="regular fa-calendar" style="margin-right: 6px;"></i> Part-Number (Plano Gratuito)
                     </div>
                     <button id="usage-toggle-zeros" class="btn" style="font-size:0.85rem; padding:6px 10px;">Mostrar métricas vazias</button>
                 </div>

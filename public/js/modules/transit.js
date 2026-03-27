@@ -309,9 +309,9 @@ function renderTransitTable(items) {
 
     const headers = [
         { id: 'photo', label: 'Img', width: '50px', sortable: false },
-        { id: 'part_number', label: 'Referência', width: '12%', sortable: true },
-        { id: 'name', label: 'Designação / Detalhes', width: '30%', sortable: true },
-        { id: 'maker', label: 'Maker', width: '10%', sortable: true },
+        { id: 'part_number', label: 'Part-Number', width: '12%', sortable: true },
+        { id: 'name', label: 'Descrição / Detalhes', width: '30%', sortable: true },
+        { id: 'maker', label: 'Fornecedor', width: '10%', sortable: true },
         { id: 'quantity', label: 'Qtd', width: '6%', sortable: true },
         { id: 'delivery_time', label: 'Del. Time', width: '10%', sortable: true },
         { id: 'order_to', label: 'Fornecedor / Proc.', width: '15%', sortable: true },

@@ -140,7 +140,7 @@ export function renderBatchDetailsTable(items, options = {}) {
             <thead>
                 <tr style="text-align:left; color:#64748b;">
                     <th style="padding:0 0 8px;">Tabela</th>
-                    <th style="padding:0 0 8px;">Designacao</th>
+                    <th style="padding:0 0 8px;">Descrição</th>
                     <th style="padding:0 0 8px;">Referencia</th>
                     <th style="padding:0 0 8px; text-align:center;">Qtd</th>
                     <th style="padding:0 0 8px;">Estado</th>
@@ -150,7 +150,7 @@ export function renderBatchDetailsTable(items, options = {}) {
                 ${items.map(item => `
                     <tr>
                         <td style="padding:6px 0; border-top:1px solid #e2e8f0;">${escapeHtml(item.table_label || item.table_name || '-')}</td>
-                        <td style="padding:6px 0; border-top:1px solid #e2e8f0; font-weight:600;">${escapeHtml(item.name || item.description || 'Sem designacao')}</td>
+                        <td style="padding:6px 0; border-top:1px solid #e2e8f0; font-weight:600;">${escapeHtml(item.name || item.description || 'Sem descrição')}</td>
                         <td style="padding:6px 0; border-top:1px solid #e2e8f0; font-family:monospace;">${escapeHtml(item.part_number || '-')}</td>
                         <td style="padding:6px 0; border-top:1px solid #e2e8f0; text-align:center;">${escapeHtml(item.quantity ?? '-')}</td>
                         <td style="padding:6px 0; border-top:1px solid #e2e8f0;">${escapeHtml(item.status || '-')}</td>

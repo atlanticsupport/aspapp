@@ -89,14 +89,14 @@ export function loadSettings() {
                     <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1.5rem;">Selecione quais as colunas que deseja visualizar na tabela de inventário.</p>
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem;">
                         ${Object.keys(state.columnSettings).map(col => {
-        const labels = {
+            const labels = {
             photo: 'Foto do Produto',
-            part_number: 'Referência (PN)',
-            name: 'Designação',
+            part_number: 'Part-Number',
+            name: 'Descrição',
             location: 'Nave',
             box: 'Caixa',
             pallet: 'Palete',
-            category: 'Tipo (Category)',
+            category: 'Type (Category)',
             sales_process: 'Processo/STK',
             cost_price: 'Preço de Custo',
             quantity: 'Quantidade',
@@ -104,11 +104,11 @@ export function loadSettings() {
             actions: 'Ações de Tabela',
             id: 'ID Sistema',
             created_at: 'Data Criação',
-            brand: 'Marca (Brand)',
+            brand: 'Marca',
             min_quantity: 'Stock Mínimo',
             description: 'Comentários',
             image_url: 'URL Imagem',
-            maker: 'Fabricante (Maker)',
+            maker: 'Fornecedor',
             equipment: 'Equipamento',
             updated_at: 'Última Edição',
             is_deleted: 'Estado Removido',

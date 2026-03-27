@@ -382,7 +382,7 @@ export function renderDashboard() {
                     <div class="dash-table-wrap">
                         <table class="dash-table compact">
                             <thead>
-                                <tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd</th></tr>
+                                <tr><th>Data</th><th>Produto</th><th>Type</th><th>Qtd</th></tr>
                             </thead>
                             <tbody>
                                 ${movements.slice(0, 8).map((movement) => {

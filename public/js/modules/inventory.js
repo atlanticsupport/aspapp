@@ -55,9 +55,9 @@ export function toggleSearchConfig() {
     const list = document.getElementById('search-fields-list');
     const fields = {
         id: 'ID Sistema',
-        part_number: 'PN / Ref.',
-        name: 'Designação',
-        maker: 'Fabricante',
+        part_number: 'Part-Number',
+        name: 'Descrição',
+        maker: 'Fornecedor',
         brand: 'Marca',
         sales_process: 'Processo/PO',
         location: 'Nave',
@@ -194,11 +194,11 @@ export function renderProducts(products, options = {}) {
                 <span class="badge-po" style="background:#eff6ff; color:#1d4ed8; padding:3px 8px; border-radius:4px; font-weight:600;">${p.sales_process || '-'}</span>
             </div>`
         },
-        { id: 'part_number', label: 'PN / Ref.', width: '160px', className: 'col-pn', render: p => `<span style="font-family: monospace; font-weight: 600; color: var(--text-primary);">${p.part_number || '-'}</span>` },
-        { id: 'name', label: 'Designação', width: 'auto', render: p => `<div style="font-weight: 500; font-size: 0.9rem;">${p.name}</div>`, className: 'col-desc' },
-        { id: 'brand', label: 'Brand', width: '100px', render: p => `<span style="font-size:0.85rem;">${p.brand || '-'}</span>` },
-        { id: 'maker', label: 'Maker', width: '100px', render: p => `<span style="font-size:0.85rem;">${p.maker || '-'}</span>` },
-        { id: 'category', label: 'Tipo', width: '110px', render: p => `<span style="font-size:0.8rem; background:#f1f5f9; padding:2px 6px; border-radius:4px;">${p.category || '-'}</span>`, className: 'col-category' },
+        { id: 'part_number', label: 'Part-Number', width: '160px', className: 'col-pn', render: p => `<span style="font-family: monospace; font-weight: 600; color: var(--text-primary);">${p.part_number || '-'}</span>` },
+        { id: 'name', label: 'Descrição', width: 'auto', render: p => `<div style="font-weight: 500; font-size: 0.9rem;">${p.name}</div>`, className: 'col-desc' },
+        { id: 'brand', label: 'Marca', width: '100px', render: p => `<span style="font-size:0.85rem;">${p.brand || '-'}</span>` },
+        { id: 'maker', label: 'Fornecedor', width: '100px', render: p => `<span style="font-size:0.85rem;">${p.maker || '-'}</span>` },
+        { id: 'category', label: 'Type', width: '110px', render: p => `<span style="font-size:0.8rem; background:#f1f5f9; padding:2px 6px; border-radius:4px;">${p.category || '-'}</span>`, className: 'col-category' },
         { id: 'location', label: 'Nave', width: '70px', render: p => `<span style="font-weight:600; color:#52525b; font-size:0.85rem;">${p.location || '-'}</span>`, className: 'col-loc' },
         {
             id: 'pallet_box',
@@ -221,12 +221,11 @@ export function renderProducts(products, options = {}) {
         },
         { id: 'cost_price', label: 'U.Price', width: '100px', render: p => `<span style="font-weight:600; color:#10b981; font-size:0.85rem;">${formatCurrency(p.cost_price)}</span>`, className: 'col-price' },
         {
-            id: 'quantity', label: 'Qtd', width: '110px', align: 'center', className: 'col-stk', render: p => (state.currentUser?.inventory_access === 'write' || state.currentUser?.inventory_access?.includes('U')) ? `
-            <div class="quick-stock-actions" onclick="event.stopPropagation()">
-                <button class="btn-stock-adjust minus" onclick="window.updateStock(${p.id}, -1)"><i class="fa-solid fa-minus"></i></button>
-                <span class="stock-value" id="stock-val-${p.id}">${p.quantity}</span>
-                <button class="btn-stock-adjust plus" onclick="window.updateStock(${p.id}, 1)"><i class="fa-solid fa-plus"></i></button>
-            </div>` : `<span style="font-weight:700;">${p.quantity}</span>`
+            id: 'quantity', label: 'Qtd', width: '110px', align: 'center', className: 'col-stk', render: p => (state.currentUser?.inventory_access === 'write' || state.currentUser?.inventory_access?.includes('U')) ? (() => {
+                const qtyColor = (p.__cellColors && p.__cellColors.quantity) || p.qty_color || p.quantity_color || null;
+                const style = qtyColor ? `style="background:${qtyColor}; border-radius:6px; padding:2px;"` : '';
+                return `\n            <div class="quick-stock-actions" onclick="event.stopPropagation()" ${style}>\n                <button class="btn-stock-adjust minus" onclick="window.updateStock(${p.id}, -1)"><i class="fa-solid fa-minus"></i></button>\n                <span class="stock-value" id="stock-val-${p.id}">${p.quantity}</span>\n                <button class="btn-stock-adjust plus" onclick="window.updateStock(${p.id}, 1)"><i class="fa-solid fa-plus"></i></button>\n            </div>`;
+            })() : `<span style="font-weight:700;">${p.quantity}</span>`
         },
         {
             id: 'actions', label: 'Ações', width: '110px', align: 'right', className: 'col-actions', render: p => `

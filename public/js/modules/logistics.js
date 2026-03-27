@@ -543,9 +543,9 @@ function renderItemsTable(items, isShipped) {
     });
 
     const headers = [
-        { id: 'part_number', label: 'PN / Ref', width: '15%', sortable: true },
+        { id: 'part_number', label: 'Part-Number', width: '15%', sortable: true },
         { id: 'name', label: 'Descrição / Detalhes', width: '35%', sortable: true },
-        { id: 'maker', label: 'Maker', width: '10%', sortable: true },
+            { id: 'maker', label: 'Fornecedor', width: '10%', sortable: true },
         { id: 'equipment', label: 'Equip.', width: '10%', sortable: true },
         { id: 'quantity', label: 'Qtd', width: '8%', sortable: true, align: 'center' },
         { id: 'status', label: 'Conferência', width: '12%', sortable: true },

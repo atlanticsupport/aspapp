@@ -153,8 +153,8 @@ function renderHistory(movements) {
                         <tr>
                             <th style="width:140px;">Data / Hora</th>
                             <th style="width:120px;">Utilizador</th>
-                            <th style="width:100px;">Tipo</th>
-                            <th>Ação / Referência</th>
+                            <th style="width:100px;">Type</th>
+                            <th>Ação / Part-Number</th>
                             <th style="width:100px; text-align:center;">Qtd/Info</th>
                             <th>Detalhes do Evento</th>
                             <th style="text-align:right; width:120px;">Ações</th>

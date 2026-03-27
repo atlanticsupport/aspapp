@@ -292,8 +292,8 @@ export function toggleStockOutFolder(proc) {
 function renderStockOutTable(items) {
     const headers = [
         { id: 'photo', label: 'Img', width: '50px' },
-        { id: 'part_number', label: 'Referência', width: '12%' },
-        { id: 'name', label: 'Designação', width: '25%' },
+        { id: 'part_number', label: 'Part-Number', width: '12%' },
+        { id: 'name', label: 'Descrição', width: '25%' },
         { id: 'cost_price', label: 'Custo', width: '10%' },
         { id: 'order_to', label: 'Fornecedor', width: '15%' },
         { id: 'quantity', label: 'Qtd', width: '8%' },

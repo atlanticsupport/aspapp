@@ -60,47 +60,89 @@ class ExcelImporter {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
 
-            reader.onload = (e) => {
+            reader.onload = async (e) => {
                 try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
+                    const arrayBuffer = e.target.result;
 
-                    // Get first worksheet
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    // Prefer ExcelJS when available to extract styles (cell fills)
+                    if (typeof ExcelJS !== 'undefined' && ExcelJS && ExcelJS.Workbook) {
+                        const workbook = new ExcelJS.Workbook();
+                        await workbook.xlsx.load(arrayBuffer);
+                        const worksheet = workbook.worksheets[0];
+                        if (!worksheet) return resolve([]);
 
-                    // Convert to JSON with raw values
-                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {
-                        raw: true,
-                        defval: null,
-                        header: 1 // Get raw array first
-                    });
+                        // Read headers (first row)
+                        const headerRow = worksheet.getRow(1);
+                        const headers = [];
+                        headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+                            headers[colNumber - 1] = (cell.value || '').toString();
+                        });
 
-                    // Process headers and data
-                    if (jsonData.length < 2) {
-                        reject(new Error('O Excel precisa ter pelo menos uma linha de cabeçalho e uma de dados'));
-                        return;
-                    }
+                        if (!headers || headers.length === 0) return reject(new Error('O Excel precisa ter pelo menos uma linha de cabeçalho e uma de dados'));
 
-                    const headers = jsonData[0];
-                    const rows = jsonData.slice(1);
+                        const result = [];
+                        worksheet.eachRow((row, rowNumber) => {
+                            if (rowNumber === 1) return; // skip headers
+                            const obj = {};
+                            const cellColors = {};
 
-                    // Convert to objects
-                    const result = rows.map(row => {
-                        const obj = {};
-                        headers.forEach((header, index) => {
-                            if (header && typeof header === 'string') {
-                                // Clean header name
+                            headers.forEach((header, index) => {
+                                if (!header) return;
                                 const cleanHeader = header.toLowerCase()
                                     .replace(/[^a-z0-9_]/g, '_')
                                     .replace(/_+/g, '_')
                                     .replace(/^_|_$/g, '');
 
+                                const cell = row.getCell(index + 1);
+                                let val = cell && (cell.value !== undefined ? cell.value : null);
+                                if (val && typeof val === 'object' && val.richText) {
+                                    // RichText from exceljs
+                                    val = val.richText.map(t => t.text).join('');
+                                }
+
+                                obj[cleanHeader] = val;
+
+                                // Extract fill color if present (ARGB) and convert to hex
+                                try {
+                                    const fill = cell && cell.fill;
+                                    if (fill && fill.fgColor && (fill.fgColor.argb || fill.fgColor.rgb)) {
+                                        const argb = fill.fgColor.argb || fill.fgColor.rgb;
+                                        const hex = argbToHex(argb);
+                                        cellColors[cleanHeader] = hex;
+                                    }
+                                } catch (e) {
+                                    // ignore color parsing errors
+                                }
+                            });
+
+                            // attach cell color map for this row
+                            if (Object.keys(cellColors).length) obj.__cellColors = cellColors;
+                            // include only non-empty rows
+                            if (Object.keys(obj).length > 0) result.push(obj);
+                        });
+
+                        resolve(result);
+                        return;
+                    }
+
+                    // Fallback to SheetJS parsing (no styles)
+                    const data = new Uint8Array(arrayBuffer);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { raw: true, defval: null, header: 1 });
+                    if (jsonData.length < 2) return reject(new Error('O Excel precisa ter pelo menos uma linha de cabeçalho e uma de dados'));
+                    const headers = jsonData[0];
+                    const rows = jsonData.slice(1);
+                    const result = rows.map(row => {
+                        const obj = {};
+                        headers.forEach((header, index) => {
+                            if (header && typeof header === 'string') {
+                                const cleanHeader = header.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
                                 obj[cleanHeader] = row[index];
                             }
                         });
                         return obj;
                     }).filter(row => Object.keys(row).length > 0);
-
                     resolve(result);
                 } catch (error) {
                     reject(error);
@@ -111,6 +153,14 @@ class ExcelImporter {
             reader.readAsArrayBuffer(file);
         });
     }
+
+function argbToHex(argb) {
+    if (!argb) return null;
+    let s = String(argb).replace(/^0x/, '').replace(/^#/, '');
+    if (s.length === 8) s = s.slice(2);
+    if (s.length !== 6) return null;
+    return `#${s.toUpperCase()}`;
+}
 
     async processChunks(data, tableName) {
         const totalChunks = Math.ceil(data.length / this.chunkSize);

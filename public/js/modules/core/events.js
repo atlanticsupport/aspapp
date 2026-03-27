@@ -18,7 +18,7 @@ import {
 } from '../products.js';
 import { closeViewer, openViewer } from '../ag-grid-shim.js';
 import { login, logout } from '../auth.js';
-import { printPalletLabel, printBoxLabel } from '../printing.js';
+import { printPalletLabel, printBoxLabel, printSingleLabel } from '../printing.js';
 import { dialog } from '../ui/dialogs-original.js';
 import { openUserModal } from '../admin.js';
 import { openViewerGallery } from '../gallery.js';
@@ -315,29 +315,70 @@ export function setupEventListeners() {
     const btnHeaderPrint = document.getElementById('btn-header-print');
     if (btnHeaderPrint) btnHeaderPrint.onclick = () => printCurrentProduct();
 
-    const btnPrintPallet = document.getElementById('btn-print-pallet');
-    if (btnPrintPallet) {
-        btnPrintPallet.onclick = (e) => {
-            e.stopPropagation();
-            if (state.filterState.pallet && state.filterState.pallet !== 'all') {
-                printPalletLabel(state.filterState.pallet);
+    const printChoiceModal = document.getElementById('print-choice-modal');
+    const printChoiceName = document.getElementById('print-choice-name');
+    const printChoiceConfirm = document.getElementById('print-choice-confirm');
+    const printChoiceCancel = document.getElementById('print-choice-cancel');
+    const printChoiceClose = document.getElementById('print-choice-close');
+
+    function openPrintChoice(type) {
+        if (!printChoiceModal) return;
+        const name = (type === 'pallet') ? state.filterState.pallet : state.filterState.box;
+        if (!name || name === 'all') {
+            showToast(`Selecione uma ${type} no filtro para imprimir.`, 'info');
+            return;
+        }
+        printChoiceName.textContent = `${type === 'pallet' ? 'Palete' : 'Caixa'} selecionada: ${name}`;
+        printChoiceModal.classList.add('open');
+
+        // prepare confirm handler
+        const doPrint = async () => {
+            const bulk = document.getElementById('print-choice-bulk')?.checked;
+            printChoiceModal.classList.remove('open');
+            if (type === 'pallet') {
+                if (!bulk) {
+                    printPalletLabel(name);
+                    return;
+                }
+                // Bulk: print each product label in pallet
+                const products = (state.products || []).filter(p => p.pallet === name);
+                if (!products.length) return showToast('Nenhum produto encontrado nesta palete.', 'info');
+                products.forEach((prod, idx) => {
+                    setTimeout(() => printSingleLabel(prod), idx * 600);
+                });
+                return;
             } else {
-                showToast('Selecione uma palete no filtro para imprimir o conteúdo.', 'info');
+                if (!bulk) {
+                    printBoxLabel(name);
+                    return;
+                }
+                const products = (state.products || []).filter(p => p.box === name);
+                if (!products.length) return showToast('Nenhum produto encontrado nesta caixa.', 'info');
+                products.forEach((prod, idx) => {
+                    setTimeout(() => printSingleLabel(prod), idx * 600);
+                });
+                return;
             }
         };
+
+        const onConfirm = () => { doPrint(); cleanup(); };
+        const onCancel = () => { printChoiceModal.classList.remove('open'); cleanup(); };
+        const cleanup = () => {
+            printChoiceConfirm.removeEventListener('click', onConfirm);
+            printChoiceCancel.removeEventListener('click', onCancel);
+            printChoiceClose.removeEventListener('click', onCancel);
+        };
+
+        printChoiceConfirm.addEventListener('click', onConfirm);
+        printChoiceCancel.addEventListener('click', onCancel);
+        printChoiceClose.addEventListener('click', onCancel);
     }
 
+    const btnPrintPallet = document.getElementById('btn-print-pallet');
+    if (btnPrintPallet) btnPrintPallet.onclick = (e) => { e.stopPropagation(); openPrintChoice('pallet'); };
+
     const btnPrintBox = document.getElementById('btn-print-box');
-    if (btnPrintBox) {
-        btnPrintBox.onclick = (e) => {
-            e.stopPropagation();
-            if (state.filterState.box && state.filterState.box !== 'all') {
-                printBoxLabel(state.filterState.box);
-            } else {
-                showToast('Selecione uma caixa no filtro para imprimir a etiqueta.', 'info');
-            }
-        };
-    }
+    if (btnPrintBox) btnPrintBox.onclick = (e) => { e.stopPropagation(); openPrintChoice('box'); };
 
     // Column Settings
     document.addEventListener('change', (e) => {
@@ -796,25 +837,50 @@ function setupDragToScroll() {
 function startScanner() {
     scannerModal.classList.add('open');
     if (html5QrcodeScanner) return;
-
     try {
         const html5QrCode = new Html5Qrcode('reader');
         html5QrcodeScanner = html5QrCode;
 
         showToast('A iniciar câmara...', 'info');
-        // Mobile optimization: prefer environment camera
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-        html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess)
-            .catch(err => {
-                console.error('Error starting scanner', err);
-                showToast('Erro ao iniciar câmara: ' + err, 'error');
+        // Prefer enumerating cameras for better mobile compatibility
+        Html5Qrcode.getCameras().then(cameras => {
+            if (cameras && cameras.length) {
+                // prefer back/rear/environment camera when available
+                const preferred = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
+                const cameraId = preferred.id || preferred.deviceId || preferred.label;
+                html5QrCode.start(cameraId, config, onScanSuccess).catch(err => {
+                    console.error('Error starting scanner with cameraId', err);
+                    // fallback to facingMode config
+                    html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess).catch(err2 => {
+                        console.error('Fallback start failed', err2);
+                        showToast('Erro ao iniciar câmara: ' + err2, 'error');
+                        scannerModal.classList.remove('open');
+                        html5QrcodeScanner = null;
+                    });
+                });
+            } else {
+                showToast('Nenhuma câmara encontrada.', 'error');
                 scannerModal.classList.remove('open');
                 html5QrcodeScanner = null;
-            });
+            }
+        }).catch(err => {
+            // getCameras may be blocked by permissions; try direct start with facingMode
+            console.warn('getCameras failed', err);
+            html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess)
+                .catch(err2 => {
+                    console.error('Error starting scanner', err2);
+                    showToast('Erro ao iniciar câmara: ' + err2, 'error');
+                    scannerModal.classList.remove('open');
+                    html5QrcodeScanner = null;
+                });
+        });
     } catch (e) {
         console.error('Scanner Lib Error', e);
         showToast('Erro biblioteca scanner.', 'error');
+        scannerModal.classList.remove('open');
+        html5QrcodeScanner = null;
     }
 }
 
@@ -929,9 +995,9 @@ async function exportToExcel() {
         // Collect translation mapping and keys
         const colMap = state.columnSettings || {};
         const labels = {
-            photo: 'Foto', part_number: 'Referência', name: 'Designação', location: 'Nave', box: 'Caixa', pallet: 'Palete',
+            photo: 'Foto', part_number: 'Part-Number', name: 'Descrição', location: 'Nave', box: 'Caixa', pallet: 'Palete',
             category: 'Modelo', sales_process: 'Processo', cost_price: 'Preço Custo', quantity: 'Quantidade', status: 'Estado',
-            id: 'ID', created_at: 'Criado Em', brand: 'Marca', min_quantity: 'Stock Mínimo', description: 'Comentários', maker: 'Fabricante',
+            id: 'ID', created_at: 'Criado Em', brand: 'Marca', min_quantity: 'Stock Mínimo', description: 'Comentários', maker: 'Fornecedor',
             equipment: 'Equipamento', updated_at: 'Atualizado Em', order_to: 'Encomendado A', order_date: 'Data Encomenda',
             ship_plant: 'Ship Plant', delivery_time: 'Tempo Entrega', local_price: 'Preço Local', author: 'Autor'
         };
@@ -1188,7 +1254,7 @@ async function importFromExcel() {
                         excelColumns.push({ name: cell.text, index: colNumber });
                     });
 
-                    showMappingModal(sheet, excelColumns);
+                    showMappingModal(sheet, excelColumns, file);
                 } catch (innerErr) {
                     console.error('ExcelJS Load Error:', innerErr);
                     showToast('Erro ao processar conteúdo do Excel: ' + innerErr.message, 'error');
@@ -1204,15 +1270,15 @@ async function importFromExcel() {
     input.click();
 }
 
-async function showMappingModal(sheet, excelColumns) {
+async function showMappingModal(sheet, excelColumns, file) {
     const modal = document.getElementById('modal-excel-import');
     const mappingList = document.getElementById('excel-mapping-list');
     if (!modal || !mappingList) return;
 
     // Fields to map
     const appFields = [
-        { key: 'part_number', label: 'Referência / PN *', required: true },
-        { key: 'name', label: 'Designação / Nome *', required: true },
+        { key: 'part_number', label: 'Part-Number / PN *', required: true },
+        { key: 'name', label: 'Descrição / Nome *', required: true },
         { key: 'brand', label: 'Marca / Brand', required: false },
         { key: 'quantity', label: 'Quantidade', required: false },
         { key: 'cost_price', label: 'Preço de Custo', required: false },
@@ -1296,8 +1362,8 @@ async function showMappingModal(sheet, excelColumns) {
 
                     // Final validation: Ensure Name and PN are not blank (mandatory in DB)
                     // If missing, apply fallback values instead of skipping.
-                    const finalName = (item.name || '').toString().trim() || 'Sem Designação (Auto)';
-                    const finalPN = (item.part_number || '').toString().trim() || 'Sem Referência';
+                    const finalName = (item.name || '').toString().trim() || 'Sem Descrição (Auto)';
+                    const finalPN = (item.part_number || '').toString().trim() || 'Sem Part-Number';
 
                     items.push({
                         min_quantity: 0,
@@ -1312,24 +1378,13 @@ async function showMappingModal(sheet, excelColumns) {
 
             if (items.length === 0) throw new Error('Não foram encontrados dados para importar.');
 
-<<<<<<< HEAD
-            const { data: count, error } = await supabase.rpc('secure_batch_import', {
-                p_user: state.currentUser.username,
-                p_pass: state.currentUser.password,
-                p_target: 'products',
-                p_items: items,
-                p_label: 'Importação Excel (Manual)',
-                p_summary: `${items.length} itens importados via Excel manual para Inventario`,
-                p_details: {
-                    source: 'excel_manual',
-                    source_label: 'Excel Manual',
-                    destination: 'inventory',
-                    destination_label: 'Inventario',
-                    file_name: file.name,
-                    table: 'products'
-                }
-=======
-            // Use chunked import to avoid Cloudflare D1 statement limits
+            // Normalize supplier/maker ambiguity: copy values both ways if one exists
+            items.forEach(it => {
+                if (it.order_to && !it.maker) it.maker = it.order_to;
+                if (it.maker && !it.order_to) it.order_to = it.maker;
+            });
+
+            // Chunked import to avoid D1 limits
             const importId = crypto.randomUUID();
             const CHUNK_SIZE = 200;
             const totalChunks = Math.ceil(items.length / CHUNK_SIZE);
@@ -1339,8 +1394,8 @@ async function showMappingModal(sheet, excelColumns) {
                 rpc: 'create_import_history',
                 p_import_id: importId,
                 p_table_name: 'products',
-                p_file_name: file.name,
-                p_file_size: file.size
+                p_file_name: file ? file.name : 'unknown',
+                p_file_size: file ? file.size : 0
             });
 
             let totalInserted = 0;
@@ -1358,40 +1413,45 @@ async function showMappingModal(sheet, excelColumns) {
                     p_chunk_data: chunk,
                     p_total_chunks: totalChunks,
                     p_table_name: 'products',
-                    p_file_name: file.name,
-                    p_file_size: file.size,
+                    p_file_name: file ? file.name : 'unknown',
+                    p_file_size: file ? file.size : 0,
                     p_user: state.currentUser?.username,
                     p_pass: state.currentUser?.password
                 };
 
-                const { data: chunkRes, error: chunkErr } = await supabase.rpc('rpc', params);
-                if (chunkErr) {
-                    console.error(`Chunk ${ci} import error:`, chunkErr);
+                try {
+                    const { data: chunkRes, error: chunkErr } = await supabase.rpc('rpc', params);
+                    if (chunkErr) {
+                        console.error(`Chunk ${ci} import error:`, chunkErr);
+                        totalFailed += chunk.length;
+                    } else {
+                        totalInserted += (chunkRes && chunkRes.inserted) || 0;
+                        totalFailed += (chunkRes && chunkRes.failed) || 0;
+                    }
+                } catch (e) {
+                    console.error(`Chunk ${ci} rpc exception:`, e);
                     totalFailed += chunk.length;
-                } else {
-                    totalInserted += chunkRes.inserted || 0;
-                    totalFailed += chunkRes.failed || 0;
                 }
 
-                // Update user-visible progress
                 showToast(`Importados: ${totalInserted} | Falhados: ${totalFailed}`, 'info');
             }
 
             // Finalize import
-            await supabase.rpc('rpc', {
-                rpc: 'finalize_import',
-                p_import_id: importId,
-                p_total_inserted: totalInserted,
-                p_total_failed: totalFailed,
-                p_status: totalFailed > 0 ? 'completed_with_errors' : 'completed',
-                p_user: state.currentUser?.username,
-                p_pass: state.currentUser?.password
->>>>>>> 3ea5bf4 (staging: commit events and PHC fallback changes for usage view)
-            });
+            try {
+                await supabase.rpc('rpc', {
+                    rpc: 'finalize_import',
+                    p_import_id: importId,
+                    p_total_inserted: totalInserted,
+                    p_total_failed: totalFailed,
+                    p_status: totalFailed > 0 ? 'completed_with_errors' : 'completed',
+                    p_user: state.currentUser?.username,
+                    p_pass: state.currentUser?.password
+                });
+            } catch (e) {
+                console.error('Finalize import error', e);
+            }
 
-            if (error) throw error;
-
-            showToast(`${count} itens importados com sucesso!`, 'success');
+            showToast(`Importação finalizada. Inseridos: ${totalInserted} | Falhados: ${totalFailed}`, 'success');
             loadInventory();
 
         } catch (err) {
