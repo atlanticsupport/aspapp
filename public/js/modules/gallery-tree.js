@@ -35,27 +35,48 @@ export async function loadGalleryView() {
 
     // Build jsTree compatible nodes from object keys
     // Expecting keys like: processName/PartNumber/filename.jpg
+    // If keys are flat (no slashes), try to infer grouping from naming conventions
     const nodes = [];
-    const nodeMap = { '#': [] };
+    const nodeMap = { '#': true };
 
-    list.forEach((obj, idx) => {
-        const parts = obj.key.split('/').filter(Boolean);
+    function pushNode(id, parent, text, a_attr, iconClass) {
+        if (nodeMap[id]) return;
+        nodeMap[id] = true;
+        const node = { id, parent: parent || '#', text, a_attr: a_attr || {} };
+        if (iconClass) node.icon = iconClass;
+        nodes.push(node);
+        return node;
+    }
+
+    list.forEach((obj) => {
+        let parts = obj.key.split('/').filter(Boolean);
+        // Heuristic: keys like product-<id>-...ext -> group as product/<id>/filename
+        if (parts.length === 1) {
+            const m = parts[0].match(/^product-(\d+)-.*$/i);
+            if (m) {
+                const pid = m[1];
+                const filename = parts[0];
+                parts = ['product', pid, filename];
+            } else {
+                // fallback grouping under 'Other'
+                parts = ['Other', parts[0]];
+            }
+        }
+
         let parent = '#';
         let pathSoFar = '';
         parts.forEach((part, i) => {
             pathSoFar = pathSoFar ? pathSoFar + '/' + part : part;
             const id = `n-${pathSoFar.replace(/[^a-zA-Z0-9_-]/g,'_')}`;
-            if (!nodeMap[id]) {
-                const isFile = i === parts.length - 1 && part.match(/\.(jpe?g|png|webp|gif|bmp|svg)$/i);
-                nodeMap[id] = true;
-                nodes.push({ id, parent: parent === '#' ? '#' : parent, text: part, a_attr: { 'data-key': pathSoFar }, icon: isFile ? 'jstree-file' : 'jstree-folder' });
-            }
-            parent = `n-${pathSoFar.replace(/[^a-zA-Z0-9_-]/g,'_')}`;
+            const isFile = i === parts.length - 1 && part.match(/\.(jpe?g|png|webp|gif|bmp|svg)$/i);
+            const iconClass = isFile ? 'fa fa-file-image' : 'fa fa-folder';
+            pushNode(id, parent === '#' ? '#' : parent, part, { 'data-key': pathSoFar }, iconClass);
+            parent = id;
         });
-        // attach metadata to last node
+
         const leafId = `n-${parts.join('/').replace(/[^a-zA-Z0-9_-]/g,'_')}`;
-        // store size and url in map for quick access
-        nodes.find(n => n.id === leafId).li_attr = { 'data-url': `/api/r2_object?key=${encodeURIComponent(obj.key)}`, 'data-key': obj.key };
+        const leaf = nodes.find(n => n.id === leafId);
+        if (leaf) leaf.li_attr = { 'data-url': `/api/r2_object?key=${encodeURIComponent(obj.key)}`, 'data-key': obj.key };
     });
 
     // Render jsTree
