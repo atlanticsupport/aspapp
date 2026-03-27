@@ -1210,7 +1210,19 @@ async function importFromExcel() {
 
                 let password = null;
                 if (headerMagic.startsWith('d0cf11e0')) {
-                    const { dialog } = await import('./dialogs.js');
+                    let dialogModule;
+                    try {
+                        dialogModule = await import('../dialogs.js');
+                    } catch (impErr) {
+                        console.warn('Falha ao importar dialogs.js dinamicamente, a usar fallback prompt. Erro:', impErr);
+                    }
+
+                    // Resolve dialog object (module may re-export)
+                    const dialog = (dialogModule && (dialogModule.dialog || dialogModule.default || dialogModule)) || {
+                        // Fallback lightweight dialog that uses window.prompt
+                        prompt: (opts) => Promise.resolve(window.prompt(typeof opts === 'string' ? opts : (opts.message || opts)))
+                    };
+
                     password = await dialog.prompt({
                         title: 'Ficheiro Protegido',
                         message: 'Este ficheiro parece estar encriptado ou protegido por password. Introduza a password para tentar abrir:',
@@ -1384,7 +1396,7 @@ async function showMappingModal(sheet, excelColumns, file) {
                 if (it.maker && !it.order_to) it.order_to = it.maker;
             });
 
-            // Chunked import to avoid D1 limits
+            // Use chunked import to avoid Cloudflare D1 statement limits
             const importId = crypto.randomUUID();
             const CHUNK_SIZE = 200;
             const totalChunks = Math.ceil(items.length / CHUNK_SIZE);
@@ -1400,7 +1412,6 @@ async function showMappingModal(sheet, excelColumns, file) {
 
             let totalInserted = 0;
             let totalFailed = 0;
-
             for (let ci = 0; ci < totalChunks; ci++) {
                 const start = ci * CHUNK_SIZE;
                 const end = Math.min(start + CHUNK_SIZE, items.length);
@@ -1433,9 +1444,11 @@ async function showMappingModal(sheet, excelColumns, file) {
                     totalFailed += chunk.length;
                 }
 
+                // Update user-visible progress
                 showToast(`Importados: ${totalInserted} | Falhados: ${totalFailed}`, 'info');
             }
 
+            // Finalize import
             // Finalize import
             try {
                 await supabase.rpc('rpc', {
@@ -1451,7 +1464,7 @@ async function showMappingModal(sheet, excelColumns, file) {
                 console.error('Finalize import error', e);
             }
 
-            showToast(`Importação finalizada. Inseridos: ${totalInserted} | Falhados: ${totalFailed}`, 'success');
+            showToast(`${totalInserted} itens importados com sucesso! (${totalFailed} falhados)`, 'success');
             loadInventory();
 
         } catch (err) {
