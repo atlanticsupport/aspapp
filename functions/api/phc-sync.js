@@ -17,6 +17,7 @@ export async function onRequestPost({ request, env }) {
         // Extrai os campos vindos do payload Python
         const {
             processo_id,
+            cliente_principal,
             cliente_final,
             maker,
             engine_type,
@@ -35,9 +36,10 @@ export async function onRequestPost({ request, env }) {
         // Upsert Magico do SQLite D1 (Igual ao do Supabase)
         const stmt = db.prepare(`
             INSERT INTO phc (
-                processo_id, cliente_final, maker, engine_type, ship, equipment, dados_json, last_sync
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                processo_id, cliente_principal, cliente_final, maker, engine_type, ship, equipment, dados_json, last_sync
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(processo_id) DO UPDATE SET
+                cliente_principal = excluded.cliente_principal,
                 cliente_final = excluded.cliente_final,
                 maker = excluded.maker,
                 engine_type = excluded.engine_type,
@@ -47,6 +49,7 @@ export async function onRequestPost({ request, env }) {
                 last_sync = excluded.last_sync
         `).bind(
             processo_id,
+            cliente_principal || null,
             cliente_final || null,
             maker || null,
             engine_type || null,
