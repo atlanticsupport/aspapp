@@ -11,7 +11,7 @@ export function buildItemLabelSubtitle(product = {}) {
 
     if (brand) parts.push(brand);
     if (partNumber) parts.push(partNumber);
-    if (supplier) parts.push(`Fornecedor: ${supplier}`);
+    if (supplier) parts.push(supplier);
 
     return parts.join(' | ');
 }

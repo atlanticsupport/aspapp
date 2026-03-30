@@ -1241,6 +1241,8 @@ export function printCurrentProduct() {
         id,
         name: document.getElementById('prod-name').value,
         part_number: document.getElementById('prod-part-number').value,
-        brand: document.getElementById('prod-brand').value
+        brand: document.getElementById('prod-brand').value,
+        maker: document.getElementById('prod-maker')?.value || document.getElementById('prod-brand').value,
+        order_to: document.getElementById('prod-order-to')?.value || ''
     });
 }
