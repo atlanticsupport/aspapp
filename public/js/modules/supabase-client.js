@@ -33,8 +33,8 @@ export async function initSupabase() {
                 });
                 const result = await res.json();
 
-                // Check for expired/invalid token — redirect to login
-                if (res.status === 401) {
+                // Only treat 401 as session expiry for authenticated requests.
+                if (res.status === 401 && funcName !== 'rpc_login' && funcName !== 'rpc_initialize_admin') {
                     localStorage.removeItem('aspapp_session');
                     state.currentUser = null;
                     location.reload();
