@@ -159,7 +159,7 @@ export async function revertImport(batchId, itemCount = 0) {
         });
 
         showToast('Importacao anulada com sucesso.', 'success');
-        await loadImportHistory();
+        setTimeout(() => window.location.reload(), 250);
     } catch (error) {
         console.error('Error reverting import:', error);
         showToast(`Erro ao anular importacao: ${error.message}`, 'error');

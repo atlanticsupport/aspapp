@@ -3,6 +3,7 @@ import { views } from '../core/dom.js';
 import { loadDashboard } from './dashboard.js';
 import { loadInventory, updateFilterOptions } from '../inventory.js';
 import { dialog } from '../ui/dialogs-original.js';
+import { showToast } from '../ui.js';
 import { loadAdminPanel } from '../admin.js';
 import { loadTransitView } from '../transit.js';
 import { loadHistory } from '../history.js';
@@ -272,7 +273,7 @@ export function loadSettings() {
             const theme = document.getElementById('local-theme').value;
             const lang = document.getElementById('local-lang').value;
             localStorage.setItem('localPrefs', JSON.stringify({ theme, lang }));
-            import('./ui.js').then(m => m.showToast('Preferências aplicadas! (Local)', 'success'));
+            showToast('Preferências aplicadas! (Local)', 'success');
             // In a real app, theme switching logic would go here
             if (theme === 'dark') document.body.classList.add('dark-theme');
             else document.body.classList.remove('dark-theme');
@@ -284,7 +285,7 @@ export function loadSettings() {
             const w = document.getElementById('label-width').value;
             const h = document.getElementById('label-height').value;
             localStorage.setItem('labelSettings', JSON.stringify({ width: w, height: h }));
-            import('./ui.js').then(m => m.showToast('Definições de etiqueta guardadas!', 'success'));
+            showToast('Definições de etiqueta guardadas!', 'success');
         };
     }
 }

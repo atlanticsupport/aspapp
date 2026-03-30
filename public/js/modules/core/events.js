@@ -34,6 +34,66 @@ import { printPalletLabel, printBoxLabel, printLabelBatch } from '../printing.js
 import { dialog } from '../ui/dialogs-original.js';
 import { openUserModal } from '../admin.js';
 import { openViewerGallery } from '../gallery.js';
+import { buildProductKey } from '../product-key.js';
+
+const EXCELJS_URL = 'https://cdn.jsdelivr.net/npm/@zurmokeeper/exceljs@4.4.1/dist/exceljs.min.js';
+const excelScriptCache = new Map();
+
+function loadExcelExternalScript(url) {
+    if (excelScriptCache.has(url)) return excelScriptCache.get(url);
+
+    const promise = new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${url}"]`);
+        if (existing && (existing.dataset.loaded === 'true' || existing.dataset.loaded === '1')) {
+            resolve();
+            return;
+        }
+
+        const script = existing || document.createElement('script');
+
+        const cleanup = () => {
+            script.removeEventListener('load', onLoad);
+            script.removeEventListener('error', onError);
+        };
+
+        const onLoad = () => {
+            script.dataset.loaded = 'true';
+            cleanup();
+            resolve();
+        };
+
+        const onError = () => {
+            cleanup();
+            reject(new Error(`Falha ao carregar ${url}`));
+        };
+
+        script.addEventListener('load', onLoad);
+        script.addEventListener('error', onError);
+
+        if (!existing) {
+            script.src = url;
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+    });
+
+    excelScriptCache.set(url, promise);
+    return promise;
+}
+
+async function ensureExcelJs() {
+    if (window.ExcelJS && window.ExcelJS.Workbook) return true;
+
+    try {
+        await loadExcelExternalScript(EXCELJS_URL);
+    } catch (error) {
+        console.error('ExcelJS load failed:', error);
+        return false;
+    }
+
+    return !!(window.ExcelJS && window.ExcelJS.Workbook);
+}
 
 function openImageSourcePicker() {
     state.imageTarget = 'header';
@@ -57,20 +117,38 @@ window.openProductGallery = async productId => {
             p_params: { eq: { id: productId } }
         });
         const product = products && products.length > 0 ? products[0] : null;
+        const productKey = product?.product_key || buildProductKey(product || {});
 
-        const { data: attachments } = await supabase.rpc('secure_fetch_any', {
-            p_user: state.currentUser.username,
-            p_pass: state.currentUser.password,
-            p_table: 'attachments',
-            p_params: {
-                eq: { product_id: productId },
-                order: { column: 'sort_order', ascending: true }
-            }
-        });
+        let attachments = [];
+        if (productKey) {
+            const { data: keyAttachments } = await supabase.rpc('secure_fetch_any', {
+                p_user: state.currentUser.username,
+                p_pass: state.currentUser.password,
+                p_table: 'attachments',
+                p_params: {
+                    eq: { product_key: productKey },
+                    order: { column: 'sort_order', ascending: true }
+                }
+            });
+            attachments = Array.isArray(keyAttachments) ? keyAttachments : [];
+        }
+
+        if (!attachments.length) {
+            const { data: idAttachments } = await supabase.rpc('secure_fetch_any', {
+                p_user: state.currentUser.username,
+                p_pass: state.currentUser.password,
+                p_table: 'attachments',
+                p_params: {
+                    eq: { product_id: productId },
+                    order: { column: 'sort_order', ascending: true }
+                }
+            });
+            attachments = Array.isArray(idAttachments) ? idAttachments : [];
+        }
 
         const hasMedia =
             !!product?.image_url ||
-            (attachments || []).some(att => {
+            attachments.some(att => {
                 const type = att?.file_type || att?.type;
                 return !!att?.url && (type === 'image' || type === 'video');
             });
@@ -82,6 +160,7 @@ window.openProductGallery = async productId => {
         }
 
         setProductImagesState(product, attachments || []);
+        state.currentProductKey = productKey;
         openCurrentProductGallery();
     } catch (err) {
         console.error(err);
@@ -1177,7 +1256,9 @@ async function onScanSuccess(decodedText) {
 
 async function exportToExcel() {
     if (!state.products.length) return showToast('Sem dados para exportar.', 'info');
-    if (!window.ExcelJS) return showToast('A carregar biblioteca Excel, aguarde...', 'warning');
+    if (!(await ensureExcelJs())) {
+        return showToast('Não foi possível carregar a biblioteca Excel.', 'error');
+    }
 
     const confirmed = await dialog.confirm({
         title: 'Gerar Excel',
@@ -1447,7 +1528,9 @@ function setupGenericAutocomplete(inputId, boxId, key) {
     });
 }
 async function importFromExcel() {
-    if (!window.ExcelJS) return showToast('A carregar biblioteca Excel, aguarde...', 'warning');
+    if (!(await ensureExcelJs())) {
+        return showToast('Não foi possível carregar a biblioteca Excel.', 'error');
+    }
 
     const input = document.createElement('input');
     input.type = 'file';
@@ -1559,6 +1642,20 @@ async function importFromExcel() {
         }
     };
     input.click();
+}
+
+function getExcelCellFillHex(cell) {
+    try {
+        const fill = cell?.fill;
+        const color = fill?.fgColor?.argb || fill?.fgColor?.rgb;
+        if (!color) return null;
+        let s = String(color).replace(/^0x/, '').replace(/^#/, '');
+        if (s.length === 8) s = s.slice(2);
+        if (s.length !== 6) return null;
+        return `#${s.toUpperCase()}`;
+    } catch (error) {
+        return null;
+    }
 }
 
 async function showMappingModal(sheet, excelColumns, file) {
@@ -1676,6 +1773,12 @@ async function showMappingModal(sheet, excelColumns, file) {
                     if (item.quantity) item.quantity = Number(item.quantity) || 0;
                     if (item.cost_price) item.cost_price = Number(item.cost_price) || 0;
 
+                    const qtyIndex = mappings.quantity;
+                    if (qtyIndex) {
+                        const qtyColor = getExcelCellFillHex(row.getCell(qtyIndex));
+                        if (qtyColor) item.qty_color = qtyColor;
+                    }
+
                     // Final validation: Ensure Name and PN are not blank (mandatory in DB)
                     // If missing, apply fallback values instead of skipping.
                     const finalName = (item.name || '').toString().trim() || 'Sem Descrição (Auto)';
@@ -1700,19 +1803,10 @@ async function showMappingModal(sheet, excelColumns, file) {
                 if (it.maker && !it.order_to) it.order_to = it.maker;
             });
 
-            // Use chunked import to avoid Cloudflare D1 statement limits
+            // Use larger chunks to reduce round-trips while keeping D1 query counts safe
             const importId = crypto.randomUUID();
-            const CHUNK_SIZE = 200;
+            const CHUNK_SIZE = 400;
             const totalChunks = Math.ceil(items.length / CHUNK_SIZE);
-
-            // Create import history record
-            await supabase.rpc('rpc', {
-                rpc: 'create_import_history',
-                p_import_id: importId,
-                p_table_name: 'products',
-                p_file_name: file ? file.name : 'unknown',
-                p_file_size: file ? file.size : 0
-            });
 
             let totalInserted = 0;
             let totalFailed = 0;
@@ -1722,14 +1816,22 @@ async function showMappingModal(sheet, excelColumns, file) {
                 const chunk = items.slice(start, end);
 
                 const params = {
-                    rpc: 'secure_chunked_import',
-                    p_import_id: importId,
-                    p_chunk_index: ci,
-                    p_chunk_data: chunk,
-                    p_total_chunks: totalChunks,
-                    p_table_name: 'products',
-                    p_file_name: file ? file.name : 'unknown',
-                    p_file_size: file ? file.size : 0,
+                    rpc: 'secure_batch_import',
+                    p_target: 'products',
+                    p_items: chunk,
+                    p_label: 'Importação de Excel',
+                    p_summary: `${items.length} itens importados do Excel`,
+                    p_record_event: ci === totalChunks - 1,
+                    p_details: {
+                        source: 'excel_manual',
+                        source_label: 'Excel Manual',
+                        destination: 'inventory',
+                        destination_label: 'Inventário',
+                        file_name: file ? file.name : 'unknown',
+                        file_size: file ? file.size : 0,
+                        batch_id: importId,
+                        count: items.length
+                    },
                     p_user: state.currentUser?.username,
                     p_pass: state.currentUser?.password
                 };
@@ -1748,31 +1850,16 @@ async function showMappingModal(sheet, excelColumns, file) {
                     totalFailed += chunk.length;
                 }
 
-                // Update user-visible progress
-                showToast(`Importados: ${totalInserted} | Falhados: ${totalFailed}`, 'info');
-            }
-
-            // Finalize import
-            // Finalize import
-            try {
-                await supabase.rpc('rpc', {
-                    rpc: 'finalize_import',
-                    p_import_id: importId,
-                    p_total_inserted: totalInserted,
-                    p_total_failed: totalFailed,
-                    p_status: totalFailed > 0 ? 'completed_with_errors' : 'completed',
-                    p_user: state.currentUser?.username,
-                    p_pass: state.currentUser?.password
-                });
-            } catch (e) {
-                console.error('Finalize import error', e);
+                if (totalChunks > 1) {
+                    showToast(`Importados: ${totalInserted} | Falhados: ${totalFailed}`, 'info');
+                }
             }
 
             showToast(
                 `${totalInserted} itens importados com sucesso! (${totalFailed} falhados)`,
                 'success'
             );
-            loadInventory();
+            setTimeout(() => window.location.reload(), 250);
         } catch (err) {
             console.error('Import process error:', err);
             showToast('Erro no processamento: ' + err.message, 'error');

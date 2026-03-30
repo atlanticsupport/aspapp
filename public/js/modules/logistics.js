@@ -831,7 +831,7 @@ window.undoShipLogisticsOrder = async (processName, shipmentId) => {
         if (error) throw error;
 
         showToast(`Envio de ${processName} revertido!`, 'success');
-        fetchLogisticsItems();
+        setTimeout(() => window.location.reload(), 250);
     } catch (err) {
         console.error(err);
         showToast('Erro ao reverter saída.', 'error');
@@ -888,7 +888,7 @@ export async function deleteLogisticsItem(id, pn) {
         if (error) throw error;
 
         showToast(`Item ${pn} apagado com sucesso.`, 'success');
-        fetchLogisticsItems();
+        setTimeout(() => window.location.reload(), 250);
     } catch (err) {
         console.error(err);
         showToast('Erro ao apagar item.', 'error');

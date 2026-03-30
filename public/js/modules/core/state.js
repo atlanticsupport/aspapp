@@ -1,6 +1,7 @@
 export const state = {
     currentTransitId: null,
     currentProductId: null,
+    currentProductKey: null,
     pendingAttachments: [],
     loadedAttachments: [],
     currentGallery: [],

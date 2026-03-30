@@ -714,6 +714,17 @@
                                     placeholder="0"
                                 />
                             </div>
+                            <div class="form-group">
+                                <label for="prod-estado">Estado</label>
+                                <select
+                                    id="prod-estado"
+                                    style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:8px; background:white;"
+                                >
+                                    <option value="#92D050" selected>OK</option>
+                                    <option value="#FFC000">P/ Recondicionar</option>
+                                    <option value="#FF0000">Danificado</option>
+                                </select>
+                            </div>
                             <div class="form-group" style="position: relative">
                                 <label for="prod-box">Caixa / Célula</label>
                                 <input
@@ -723,6 +734,14 @@
                                     placeholder="Ex: 05"
                                     autocomplete="off"
                                 />
+                            </div>
+                            <div class="form-group">
+                                <label for="prod-process">STK / Processo</label>
+                                <textarea
+                                    id="prod-process"
+                                    rows="2"
+                                    placeholder="STK/2026.1002..."
+                                ></textarea>
                             </div>
                         </div>
 
@@ -756,7 +775,7 @@
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="prod-brand">Fornecedor / Marca</label>
+                                <label for="prod-brand">Marca</label>
                                 <input
                                     type="text"
                                     autocomplete="off"
@@ -769,7 +788,7 @@
                                 <input type="hidden" id="prod-maker" />
                             </div>
                             <div class="form-group" style="position: relative">
-                                <label for="prod-category">Modelo (Model)</label>
+                                <label for="prod-category">Modelo</label>
                                 <input
                                     type="text"
                                     autocomplete="off"
@@ -786,7 +805,7 @@
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="prod-equipment">Equipment</label>
+                                <label for="prod-equipment">Equipamento</label>
                                 <input
                                     type="text"
                                     autocomplete="off"
@@ -796,7 +815,7 @@
                                 />
                             </div>
                             <div class="form-group">
-                                <label for="prod-ship-plant">Ship / Plant</label>
+                                <label for="prod-ship-plant">Expedição / Fábrica</label>
                                 <input
                                     type="text"
                                     autocomplete="off"
@@ -809,7 +828,7 @@
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="prod-order-to">Order To (Supplier)</label>
+                                <label for="prod-order-to">Fornecedor</label>
                                 <input
                                     type="text"
                                     autocomplete="off"
@@ -826,7 +845,7 @@
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="prod-cost-price">U.Price € (Custo)</label>
+                                <label for="prod-cost-price">Preço de Custo</label>
                                 <input
                                     type="number"
                                     autocomplete="off"
@@ -837,7 +856,7 @@
                                 />
                             </div>
                             <div class="form-group">
-                                <label for="prod-min-qty">Min Qty</label>
+                                <label for="prod-min-qty">Stock Mínimo</label>
                                 <input
                                     type="number"
                                     autocomplete="off"
@@ -855,15 +874,6 @@
                                 id="prod-desc"
                                 rows="3"
                                 placeholder="Notas, observações ou qualquer informação extra sobre o item..."
-                            ></textarea>
-                        </div>
-
-                        <div class="form-group full-width">
-                            <label for="prod-process">STK / Processo</label>
-                            <textarea
-                                id="prod-process"
-                                rows="2"
-                                placeholder="STK/2026.1002..."
                             ></textarea>
                         </div>
 

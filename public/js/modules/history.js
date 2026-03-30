@@ -302,9 +302,7 @@ export async function revertMovement(eventId) {
         });
 
         showToast('Operação anulada com sucesso!', 'success');
-        loadHistory();
-        const { loadInventory } = await import('./inventory.js');
-        loadInventory({ forceFetch: true });
+        setTimeout(() => window.location.reload(), 250);
     } catch (err) {
         showToast('Erro ao reverter: ' + err.message, 'error');
     } finally {
@@ -339,11 +337,8 @@ export async function revertBatch(batchId) {
             p_batch_id: batchId
         });
 
-        loadHistory();
-        const { loadInventory } = await import('./inventory.js');
-        loadInventory({ forceFetch: true });
-
         showToast('Sucesso: Importação anulada.', 'success');
+        setTimeout(() => window.location.reload(), 250);
 
     } catch (err) {
         showToast('Erro ao reverter lote: ' + err.message, 'error');

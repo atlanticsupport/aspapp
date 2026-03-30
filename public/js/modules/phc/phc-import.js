@@ -147,6 +147,7 @@ export async function confirmPhcImport() {
 
             // Force critical values
             filteredData.is_deleted = false;
+            if (targetTable === 'products') filteredData.qty_color = filteredData.qty_color || '#92D050';
             if (destLayout === 'logistics') filteredData.status = 'pending';
             else if (destLayout === 'stock-out') filteredData.status = 'stockout_pending';
             else filteredData.status = (destLayout === 'transit') ? 'transit' : 'available';

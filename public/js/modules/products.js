@@ -8,6 +8,7 @@ import { loadDashboard } from './dashboard.js';
 import { loadInventory } from './inventory.js';
 import { printSingleLabel } from './printing.js';
 import { dialog } from './dialogs.js';
+import { buildProductKey } from './product-key.js';
 import {
     buildGalleryEntries,
     getEntityPrimaryImageUrl,
@@ -45,6 +46,7 @@ export function openModal(title = 'Adicionar Produto', resetForm = true) {
         state.pendingAttachments = [];
         state.loadedAttachments = [];
         state.currentGallery = [];
+        state.currentProductKey = null;
         const galleryList = document.getElementById('product-gallery-list');
         const transitList = document.getElementById('transit-attachments-list');
         if (galleryList) galleryList.innerHTML = '';
@@ -89,6 +91,7 @@ export function closeModal() {
 
     state.currentImageUrl = null;
     state.mainImageFile = null;
+    state.currentProductKey = null;
     state.loadedAttachments = [];
     state.currentGallery = [];
     state.currentTransitId = null;
@@ -109,6 +112,7 @@ export function closeModal() {
 export function openEditModal(product) {
     state.currentProductId = product.id;
     openModal(null, true);
+    state.currentProductKey = product.product_key || buildProductKey(product);
 
     document.getElementById('prod-id').value = product.id;
     document.getElementById('prod-part-number').value = product.part_number || '';
@@ -129,7 +133,9 @@ export function openEditModal(product) {
     if (document.getElementById('prod-maker'))
         document.getElementById('prod-maker').value = product.maker || '';
     document.getElementById('prod-qty').value = product.quantity;
-    document.getElementById('prod-min-qty').value = product.min_quantity;
+    const estadoSelect = document.getElementById('prod-estado');
+    if (estadoSelect) estadoSelect.value = product.qty_color || '#92D050';
+    document.getElementById('prod-min-qty').value = product.min_quantity ?? 0;
     document.getElementById('prod-desc').value = product.description || '';
     document.getElementById('prod-process').value = product.sales_process || '';
     document.getElementById('prod-category').value = product.category || '';
@@ -238,10 +244,18 @@ function shiftProductImageSortOrders(offset) {
 
 function syncProductAttachmentsReference(productId = getCurrentProductId()) {
     if (!productId) return;
+    const trackedProductKey = state.currentProductKey || getTrackedProductRecord(productId)?.product_key || null;
     const attachments = sortProductImagesByOrder(
         (state.loadedAttachments || [])
             .map(normalizeAttachment)
-            .filter(att => att && att.product_id === productId)
+            .filter(
+                att =>
+                    att &&
+                    (att.product_id === productId ||
+                        (trackedProductKey &&
+                            att.product_key &&
+                            att.product_key === trackedProductKey))
+            )
     );
 
     const collections = [
@@ -321,6 +335,7 @@ export function openCurrentProductGallery(preferredUrl = null) {
 
 export function setProductImagesState(product, attachments = []) {
     if (product?.id) state.currentProductId = product.id;
+    state.currentProductKey = product?.product_key || buildProductKey(product || {});
     state.loadedAttachments = sortProductImagesByOrder(
         (attachments || []).map(normalizeAttachment)
     );
@@ -381,6 +396,7 @@ async function persistAttachmentOrder(productId, entries) {
         p_user: state.currentUser.username,
         p_pass: state.currentUser.password,
         p_product_id: productId,
+        p_product_key: state.currentProductKey || null,
         p_items: items
     });
 
@@ -754,6 +770,8 @@ async function autoSaveAttachment(att, productId) {
             p_pass: state.currentUser.password,
             p_data: {
                 product_id: parseInt(productId),
+                product_key:
+                    state.currentProductKey || getTrackedProductRecord(productId)?.product_key || null,
                 url: publicUrl,
                 file_type: att.type,
                 category: att.category,
@@ -796,17 +814,51 @@ async function loadProductAttachments(productId) {
     if (!productId) return;
 
     try {
-        const { data, error } = await supabase.rpc('secure_fetch_any', {
-            p_user: state.currentUser.username,
-            p_pass: state.currentUser.password,
-            p_table: 'attachments',
-            p_params: {
-                eq: { product_id: productId },
-                order: { column: 'sort_order', ascending: true }
-            }
-        });
-        if (error) throw error;
+        const trackedProduct = getTrackedProductRecord(productId);
+        const productKey =
+            state.currentProductKey ||
+            trackedProduct?.product_key ||
+            buildProductKey(trackedProduct || {});
+
+        let data = [];
+        if (productKey) {
+            const { data: keyData, error: keyError } = await supabase.rpc('secure_fetch_any', {
+                p_user: state.currentUser.username,
+                p_pass: state.currentUser.password,
+                p_table: 'attachments',
+                p_params: {
+                    eq: { product_key: productKey },
+                    order: { column: 'sort_order', ascending: true }
+                }
+            });
+            if (keyError) throw keyError;
+            data = Array.isArray(keyData) ? keyData : [];
+        }
+
+        if (!data.length) {
+            const { data: idData, error: idError } = await supabase.rpc('secure_fetch_any', {
+                p_user: state.currentUser.username,
+                p_pass: state.currentUser.password,
+                p_table: 'attachments',
+                p_params: {
+                    eq: { product_id: productId },
+                    order: { column: 'sort_order', ascending: true }
+                }
+            });
+            if (idError) throw idError;
+            data = Array.isArray(idData) ? idData : [];
+        }
+
+        state.currentProductKey = productKey;
         state.loadedAttachments = sortProductImagesByOrder((data || []).map(normalizeAttachment));
+        if (state.loadedAttachments.length && productKey) {
+            await supabase.rpc('secure_rebind_product_attachments', {
+                p_user: state.currentUser.username,
+                p_pass: state.currentUser.password,
+                p_product_id: productId,
+                p_product_key: productKey
+            });
+        }
         await reconcileProductImages({
             persistPrimary: true,
             keepViewerSelection: true
@@ -849,6 +901,7 @@ export async function saveProduct() {
         pallet: document.getElementById('prod-pallet').value,
         box: document.getElementById('prod-box').value,
         cost_price: parseFloat(document.getElementById('prod-cost-price').value) || 0,
+        qty_color: document.getElementById('prod-estado')?.value || '#92D050',
         image_url:
             state.currentImageUrl && !String(state.currentImageUrl).startsWith('data:')
                 ? state.currentImageUrl
@@ -863,6 +916,7 @@ export async function saveProduct() {
             document.getElementById('prod-brand').value,
         delivery_time: document.getElementById('prod-del-time')?.value || ''
     };
+    productData.product_key = buildProductKey(productData);
 
     const btn = productForm.querySelector('button[type="submit"]');
 
@@ -884,6 +938,8 @@ export async function saveProduct() {
             throw upsertErr;
         }
         const finalId = productData.id || savedId;
+        state.currentProductId = finalId;
+        state.currentProductKey = productData.product_key;
 
         // 2. Upload Gallery/Transit Attachments
         const pendingQueue = sortProductImagesByOrder(
@@ -926,6 +982,7 @@ export async function saveProduct() {
                         p_pass: state.currentUser.password,
                         p_data: {
                             product_id: finalId,
+                            product_key: state.currentProductKey,
                             url: publicUrl,
                             file_type: att.type,
                             category: att.category,
@@ -953,6 +1010,14 @@ export async function saveProduct() {
             if (firstProductImageUrl !== productData.image_url) {
                 await persistPrimaryImage(finalId, firstProductImageUrl || null);
                 state.currentImageUrl = firstProductImageUrl || null;
+            }
+            if (state.currentProductKey) {
+                await supabase.rpc('secure_rebind_product_attachments', {
+                    p_user: state.currentUser.username,
+                    p_pass: state.currentUser.password,
+                    p_product_id: finalId,
+                    p_product_key: state.currentProductKey
+                });
             }
             if (failCount > 0)
                 showToast(`${failCount} imagens não foram guardadas (Erro Storage).`, 'warning');
@@ -1150,6 +1215,23 @@ function syncProductImageReference(newUrl) {
     if (state.currentPage === 'inventory') {
         loadInventory({ skipRefetch: true });
     }
+}
+
+function getTrackedProductRecord(productId) {
+    const collections = [
+        'products',
+        'dashboardProducts',
+        'transitProducts',
+        'stockOutProducts',
+        'logisticsProducts'
+    ];
+    for (const key of collections) {
+        const list = state[key];
+        if (!Array.isArray(list)) continue;
+        const product = list.find(item => item.id === productId);
+        if (product) return product;
+    }
+    return null;
 }
 
 export function printCurrentProduct() {

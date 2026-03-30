@@ -48,6 +48,69 @@ async function verifyJWT(token, secret) {
 
 const rateLimits = new Map();
 
+function normalizeProductKeyPart(value) {
+    return String(value ?? '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '');
+}
+
+const PLACEHOLDER_PARTS = new Set([
+    'SEMPARTNUMBER',
+    'SEMPARTNUMBERAUTO',
+    'SEMREFERENCIA',
+    'SEMREFERENCIAAUTO',
+    'SEMREF',
+    'SEMDESCRICAO',
+    'SEMDESCRICAOAUTO',
+    'SEMDESIGNACAO',
+    'SEMDESIGNACAOAUTO',
+    'SEMNOME',
+    'SEMNOMEAUTO'
+]);
+
+function pickMeaningfulKeyPart(...values) {
+    for (const value of values) {
+        const normalized = normalizeProductKeyPart(value);
+        if (normalized && !PLACEHOLDER_PARTS.has(normalized)) {
+            return normalized;
+        }
+    }
+    return '';
+}
+
+function buildProductKey(source = {}) {
+    const partNumber = pickMeaningfulKeyPart(source.part_number);
+    const salesProcess = pickMeaningfulKeyPart(source.sales_process);
+    const name = pickMeaningfulKeyPart(source.name);
+    const brand = pickMeaningfulKeyPart(source.brand, source.maker);
+    const category = pickMeaningfulKeyPart(source.category);
+    const location = pickMeaningfulKeyPart(source.location);
+    const box = pickMeaningfulKeyPart(source.box, source.box_number);
+    const pallet = pickMeaningfulKeyPart(source.pallet);
+
+    if (partNumber) {
+        return `PN:${partNumber}|SP:${salesProcess || '-'}|BR:${brand || '-'}`;
+    }
+
+    return `NM:${name || '-'}|SP:${salesProcess || '-'}|BR:${brand || '-'}|CT:${category || '-'}|LC:${location || '-'}|BX:${box || '-'}|PL:${pallet || '-'}`;
+}
+
+function getProductKeyFromRow(row) {
+    if (!row) return null;
+    return row.product_key || buildProductKey(row);
+}
+
+async function rebindAttachmentsToProduct(db, productId, productKey) {
+    if (!productId || !productKey) return;
+    await db
+        .prepare(
+            'UPDATE attachments SET product_id = ?, product_key = ? WHERE product_id = ? OR product_key = ?'
+        )
+        .bind(productId, productKey, productId, productKey)
+        .run();
+}
+
 export async function onRequestPost({ request, env }) {
     try {
         const body = await request.json();
@@ -593,34 +656,49 @@ export async function onRequestPost({ request, env }) {
                 const { results: inv } = await db.prepare(sql).bind(...qParams).all();
 
                 if (inv.length > 0) {
-                    const productIds = inv.map((item) => item.id).filter((id) => id !== null && id !== undefined);
-                    const attachmentsByProduct = new Map();
-                    
-                    // Fetch attachments in batches to avoid SQL variable limit
-                    const BATCH_SIZE = 20;
-                    for (let i = 0; i < productIds.length; i += BATCH_SIZE) {
-                        const batchIds = productIds.slice(i, i + BATCH_SIZE);
-                        const placeholders = batchIds.map(() => '?').join(', ');
-                        const attachmentsSql = `
-                            SELECT *
-                            FROM attachments
-                            WHERE category = 'product' AND product_id IN (${placeholders})
-                            ORDER BY product_id ASC, sort_order ASC, id ASC
-                        `;
-                        const { results: attachmentRows } = await db.prepare(attachmentsSql).bind(...batchIds).all();
-                        
-                        attachmentRows.forEach((attachment) => {
-                            const current = attachmentsByProduct.get(attachment.product_id) || [];
-                            current.push(attachment);
-                            attachmentsByProduct.set(attachment.product_id, current);
-                        });
-                    }
+                    const productIds = inv.map(item => item.id).filter(id => id !== null && id !== undefined);
+                    const productKeys = inv.map(item => getProductKeyFromRow(item)).filter(Boolean);
+                    const attachmentsByLookup = new Map();
+
+                    const { results: attachmentRows } = await db.prepare(`
+                        SELECT *
+                        FROM attachments
+                        WHERE category = 'product'
+                        ORDER BY sort_order ASC, id ASC
+                    `).all();
+
+                    attachmentRows.forEach((attachment) => {
+                        if (attachment.product_key) {
+                            const keyBucket = attachmentsByLookup.get(`key:${attachment.product_key}`) || [];
+                            keyBucket.push(attachment);
+                            attachmentsByLookup.set(`key:${attachment.product_key}`, keyBucket);
+                        }
+                        if (attachment.product_id !== null && attachment.product_id !== undefined) {
+                            const idBucket = attachmentsByLookup.get(`id:${attachment.product_id}`) || [];
+                            idBucket.push(attachment);
+                            attachmentsByLookup.set(`id:${attachment.product_id}`, idBucket);
+                        }
+                    });
 
                     inv.forEach((item) => {
-                        const productAttachments = attachmentsByProduct.get(item.id) || [];
-                        item.attachments = productAttachments;
+                        const itemKey = getProductKeyFromRow(item);
+                        const mergedAttachments = [
+                            ...(itemKey ? attachmentsByLookup.get(`key:${itemKey}`) || [] : []),
+                            ...(attachmentsByLookup.get(`id:${item.id}`) || [])
+                        ];
+                        const uniqueAttachments = [];
+                        const seen = new Set();
+                        for (const attachment of mergedAttachments) {
+                            const signature = attachment?.id ?? attachment?.url;
+                            if (signature === null || signature === undefined) continue;
+                            if (seen.has(signature)) continue;
+                            seen.add(signature);
+                            uniqueAttachments.push(attachment);
+                        }
 
-                        const primaryImage = productAttachments.find((attachment) => attachment.file_type === 'image');
+                        item.attachments = uniqueAttachments;
+
+                        const primaryImage = uniqueAttachments.find((attachment) => attachment.file_type === 'image');
                         if (primaryImage?.url) {
                             item.image_url = primaryImage.url;
                         }
@@ -643,10 +721,14 @@ export async function onRequestPost({ request, env }) {
                                  hasPermission(user, 'transit', action) || 
                                  hasPermission(user, 'stock_out', action);
                 if (!canModify) throw new Error("Acesso negado para modificar inventário.");
+                const productKey = buildProductKey(sp_data);
+                sp_data.product_key = productKey;
+
                 if (sp_data.id) {
                     const oldProduct = await db.prepare("SELECT * FROM products WHERE id = ?").bind(sp_data.id).first();
-                    await db.prepare(`UPDATE products SET part_number=?, name=?, brand=?, quantity=?, min_quantity=?, description=?, sales_process=?, category=?, location=?, pallet=?, box=?, cost_price=?, image_url=?, status=?, order_to=?, order_date=?, ship_plant=?, equipment=?, maker=?, delivery_time=?, batch_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
-                        .bind(sp_data.part_number, sp_data.name, sp_data.brand, sp_data.quantity || 0, sp_data.min_quantity || 0, sp_data.description, sp_data.sales_process, sp_data.category, sp_data.location, sp_data.pallet, sp_data.box, sp_data.cost_price || 0, sp_data.image_url, sp_data.status, sp_data.order_to, sp_data.order_date || null, sp_data.ship_plant, sp_data.equipment, sp_data.maker, sp_data.delivery_time, sp_data.batch_id || null, sp_data.id).run();
+                    await db.prepare(`UPDATE products SET part_number=?, name=?, brand=?, quantity=?, min_quantity=?, description=?, sales_process=?, category=?, location=?, pallet=?, box=?, cost_price=?, qty_color=?, image_url=?, status=?, order_to=?, order_date=?, ship_plant=?, equipment=?, maker=?, delivery_time=?, batch_id=?, product_key=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+                        .bind(sp_data.part_number, sp_data.name, sp_data.brand, sp_data.quantity || 0, sp_data.min_quantity || 0, sp_data.description, sp_data.sales_process, sp_data.category, sp_data.location, sp_data.pallet, sp_data.box, sp_data.cost_price || 0, sp_data.qty_color || '#92D050', sp_data.image_url, sp_data.status, sp_data.order_to, sp_data.order_date || null, sp_data.ship_plant, sp_data.equipment, sp_data.maker, sp_data.delivery_time, sp_data.batch_id || null, productKey, sp_data.id).run();
+                    await rebindAttachmentsToProduct(db, sp_data.id, productKey);
                     const saveAuditId = await recordAudit('products', 'UPDATE', oldProduct, sp_data);
                     await recordEvent(
                         params.p_event_type || 'PRODUCT_EDIT',
@@ -656,9 +738,10 @@ export async function onRequestPost({ request, env }) {
                     );
                     result = sp_data.id;
                 } else {
-                    const insObj = await db.prepare(`INSERT INTO products (part_number, name, brand, quantity, min_quantity, description, sales_process, category, location, pallet, box, cost_price, image_url, status, order_to, order_date, ship_plant, equipment, maker, delivery_time, batch_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`)
-                        .bind(sp_data.part_number, sp_data.name, sp_data.brand, sp_data.quantity || 0, sp_data.min_quantity || 0, sp_data.description, sp_data.sales_process, sp_data.category, sp_data.location, sp_data.pallet, sp_data.box, sp_data.cost_price || 0, sp_data.image_url, sp_data.status, sp_data.order_to, sp_data.order_date || null, sp_data.ship_plant, sp_data.equipment, sp_data.maker, sp_data.delivery_time, sp_data.batch_id || null).first();
+                    const insObj = await db.prepare(`INSERT INTO products (part_number, name, brand, quantity, min_quantity, description, sales_process, category, location, pallet, box, cost_price, qty_color, image_url, status, order_to, order_date, ship_plant, equipment, maker, delivery_time, batch_id, product_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`)
+                        .bind(sp_data.part_number, sp_data.name, sp_data.brand, sp_data.quantity || 0, sp_data.min_quantity || 0, sp_data.description, sp_data.sales_process, sp_data.category, sp_data.location, sp_data.pallet, sp_data.box, sp_data.cost_price || 0, sp_data.qty_color || '#92D050', sp_data.image_url, sp_data.status, sp_data.order_to, sp_data.order_date || null, sp_data.ship_plant, sp_data.equipment, sp_data.maker, sp_data.delivery_time, sp_data.batch_id || null, productKey).first();
                     const newId = insObj ? insObj.id : null;
+                    await rebindAttachmentsToProduct(db, newId, productKey);
                     const createAuditId = await recordAudit('products', 'INSERT', null, { ...sp_data, id: newId });
                     await recordEvent(
                         params.p_event_type || 'PRODUCT_CREATE',
@@ -696,15 +779,31 @@ export async function onRequestPost({ request, env }) {
                                         hasPermission(user, 'transit', 'C') || 
                                         hasPermission(user, 'logistics', 'C');
                 if (!canAddAttachment) throw new Error("Acesso negado para adicionar anexos.");
+                let resolvedProductId = Number(sa_data.product_id) || null;
+                let productRow = null;
+                if (resolvedProductId) {
+                    productRow = await db.prepare(
+                        "SELECT id, product_key, part_number, name, sales_process, category FROM products WHERE id = ?"
+                    ).bind(resolvedProductId).first();
+                }
+                if (!productRow && sa_data.product_key) {
+                    productRow = await db.prepare(
+                        "SELECT id, product_key, part_number, name, sales_process, category FROM products WHERE product_key = ? LIMIT 1"
+                    ).bind(sa_data.product_key).first();
+                }
+                if (!resolvedProductId && productRow?.id) {
+                    resolvedProductId = productRow.id;
+                }
+                const attachmentProductKey = sa_data.product_key || productRow?.product_key || buildProductKey(productRow || sa_data);
                 let sortOrder = sa_data.sort_order;
                 if (sortOrder === undefined || sortOrder === null || Number.isNaN(Number(sortOrder))) {
                     const sortRow = await db.prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order FROM attachments WHERE product_id = ? AND category = ?")
-                        .bind(sa_data.product_id, sa_data.category || 'product').first();
+                        .bind(resolvedProductId, sa_data.category || 'product').first();
                     sortOrder = sortRow?.next_sort_order ?? 0;
                 }
-                const insertResult = await db.prepare("INSERT INTO attachments (product_id, url, file_type, category, sort_order) VALUES (?, ?, ?, ?, ?)")
-                    .bind(sa_data.product_id, sa_data.url, sa_data.file_type, sa_data.category, Number(sortOrder)).run();
-                await recordAudit('attachments', 'INSERT', null, sa_data);
+                const insertResult = await db.prepare("INSERT INTO attachments (product_id, product_key, url, file_type, category, sort_order) VALUES (?, ?, ?, ?, ?, ?)")
+                    .bind(resolvedProductId, attachmentProductKey, sa_data.url, sa_data.file_type, sa_data.category, Number(sortOrder)).run();
+                await recordAudit('attachments', 'INSERT', null, { ...sa_data, product_id: resolvedProductId, product_key: attachmentProductKey });
                 // Return the ID of the created attachment
                 const newAttachment = await db.prepare("SELECT * FROM attachments WHERE id = ?").bind(insertResult.meta.last_row_id).first();
                 result = newAttachment;
@@ -719,7 +818,8 @@ export async function onRequestPost({ request, env }) {
 
                 const orderItems = Array.isArray(params.p_items) ? params.p_items : [];
                 const productId = Number(params.p_product_id);
-                if (!productId || orderItems.length === 0) {
+                const productKey = params.p_product_key || null;
+                if ((!productId && !productKey) || orderItems.length === 0) {
                     result = true;
                     break;
                 }
@@ -729,15 +829,41 @@ export async function onRequestPost({ request, env }) {
                     const attachmentId = Number(item?.id);
                     const sortOrder = Number(item?.sort_order);
                     if (!attachmentId || Number.isNaN(sortOrder)) continue;
-                    updates.push(
-                        db.prepare("UPDATE attachments SET sort_order = ? WHERE id = ? AND product_id = ?")
-                            .bind(sortOrder, attachmentId, productId)
-                    );
+                    if (productKey) {
+                        updates.push(
+                            db.prepare(
+                                "UPDATE attachments SET sort_order = ? WHERE id = ? AND (product_id = ? OR product_key = ?)"
+                            ).bind(sortOrder, attachmentId, productId || null, productKey)
+                        );
+                    } else {
+                        updates.push(
+                            db.prepare("UPDATE attachments SET sort_order = ? WHERE id = ? AND product_id = ?")
+                                .bind(sortOrder, attachmentId, productId)
+                        );
+                    }
                 }
 
                 if (updates.length > 0) {
                     await db.batch(updates);
                 }
+                result = true;
+                break;
+            }
+
+            case 'secure_rebind_product_attachments': {
+                const canModifyAttachments = hasPermission(user, 'inventory', 'U') ||
+                    hasPermission(user, 'transit', 'U') ||
+                    hasPermission(user, 'logistics', 'U');
+                if (!canModifyAttachments) throw new Error("Acesso negado para reatar anexos.");
+
+                const productId = Number(params.p_product_id);
+                const productKey = params.p_product_key || null;
+                if (!productId || !productKey) {
+                    result = true;
+                    break;
+                }
+
+                await rebindAttachmentsToProduct(db, productId, productKey);
                 result = true;
                 break;
             }
@@ -906,9 +1032,10 @@ export async function onRequestPost({ request, env }) {
                             if (!filteredItem.location || filteredItem.location === 'Almoxarifado') filteredItem.location = '1';
                             if (!filteredItem.is_deleted) filteredItem.is_deleted = 0;
                             if (!filteredItem.quantity) filteredItem.quantity = 0;
-                            if (!filteredItem.min_quantity) filteredItem.min_quantity = 5;
+                            if (!filteredItem.min_quantity) filteredItem.min_quantity = 0;
                             if (!filteredItem.status) filteredItem.status = 'available';
                             if (!filteredItem.category) filteredItem.category = 'Import';
+                            filteredItem.product_key = buildProductKey(filteredItem);
                         }
                         
                         filteredItem.updated_at = new Date().toISOString();
@@ -1193,6 +1320,8 @@ export async function onRequestPost({ request, env }) {
                             if (!filteredItem.part_number) filteredItem.part_number = 'Sem Referência';
                             if (!filteredItem.brand) filteredItem.brand = '-';
                             if (!filteredItem.location || filteredItem.location === 'Almoxarifado') filteredItem.location = '1';
+                            if (!filteredItem.qty_color) filteredItem.qty_color = '#92D050';
+                            filteredItem.product_key = buildProductKey(filteredItem);
                         }
 
                         const keys = Object.keys(filteredItem);
@@ -1218,20 +1347,23 @@ export async function onRequestPost({ request, env }) {
                 const eventLabel = params.p_label || (targetTable === 'products' ? 'Importação de Inventário' : 'Importação de Logística');
                 const extraDetails = params.p_details && typeof params.p_details === 'object' ? params.p_details : {};
                 const eventSummary = params.p_summary || `${itemsToInsert.length} itens importados`;
+                const shouldRecordEvent = params.p_record_event !== false;
 
-                await recordEvent(
-                    'BATCH_IMPORT',
-                    eventLabel,
-                    eventSummary,
-                    batchId,
-                    {
-                        count: itemsToInsert.length,
-                        table: targetTable,
-                        sample: itemsToInsert[0].name || itemsToInsert[0].part_number,
-                        batch_id: batchId,
-                        ...extraDetails
-                    }
-                );
+                if (shouldRecordEvent) {
+                    await recordEvent(
+                        'BATCH_IMPORT',
+                        eventLabel,
+                        eventSummary,
+                        batchId,
+                        {
+                            count: Number(extraDetails.count) || itemsToInsert.length,
+                            table: targetTable,
+                            sample: itemsToInsert[0].name || itemsToInsert[0].part_number,
+                            batch_id: batchId,
+                            ...extraDetails
+                        }
+                    );
+                }
 
                 result = (rpc === 'secure_batch_import_with_ids') ? batchInsertedIds : itemsToInsert.length;
                 break;
@@ -1442,7 +1574,6 @@ export async function onRequestPost({ request, env }) {
                     db.prepare("DELETE FROM products"),
                     db.prepare("DELETE FROM logistics_items"),
                     db.prepare("DELETE FROM movements"),
-                    db.prepare("DELETE FROM attachments"),
                     db.prepare("DELETE FROM historico_geral"),
                     db.prepare("DELETE FROM app_events")
                 ];

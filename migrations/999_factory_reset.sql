@@ -9,7 +9,6 @@ PRAGMA foreign_keys = OFF;
 -- Clear all tables in order of dependencies
 DELETE FROM import_items;
 DELETE FROM import_history;
-DELETE FROM attachments;
 DELETE FROM movements;
 DELETE FROM logistics_items;
 DELETE FROM products;
@@ -22,7 +21,6 @@ DELETE FROM app_users;
 DELETE FROM sqlite_sequence WHERE name IN (
     'import_items',
     'import_history', 
-    'attachments',
     'movements',
     'logistics_items',
     'products',

@@ -223,9 +223,13 @@ export function renderProducts(products, options = {}) {
         {
             id: 'quantity', label: 'Qtd', width: '110px', align: 'center', className: 'col-stk', render: p => (state.currentUser?.inventory_access === 'write' || state.currentUser?.inventory_access?.includes('U')) ? (() => {
                 const qtyColor = (p.__cellColors && p.__cellColors.quantity) || p.qty_color || p.quantity_color || null;
-                const style = qtyColor ? `style="background:${qtyColor}; border-radius:6px; padding:2px;"` : '';
+                const style = qtyColor ? `style="background-color:${qtyColor}; border-radius:6px; padding:2px;"` : '';
                 return `\n            <div class="quick-stock-actions" onclick="event.stopPropagation()" ${style}>\n                <button class="btn-stock-adjust minus" onclick="window.updateStock(${p.id}, -1)"><i class="fa-solid fa-minus"></i></button>\n                <span class="stock-value" id="stock-val-${p.id}">${p.quantity}</span>\n                <button class="btn-stock-adjust plus" onclick="window.updateStock(${p.id}, 1)"><i class="fa-solid fa-plus"></i></button>\n            </div>`;
-            })() : `<span style="font-weight:700;">${p.quantity}</span>`
+            })() : (() => {
+                const qtyColor = (p.__cellColors && p.__cellColors.quantity) || p.qty_color || p.quantity_color || null;
+                const style = qtyColor ? `style="background-color:${qtyColor}; border-radius:6px; padding:2px;"` : '';
+                return `<div class="quick-stock-actions" onclick="event.stopPropagation()" ${style}><span class="stock-value" id="stock-val-${p.id}">${p.quantity}</span></div>`;
+            })()
         },
         {
             id: 'actions', label: 'Ações', width: '110px', align: 'right', className: 'col-actions', render: p => `
@@ -422,7 +426,7 @@ export async function deleteProduct(id, name) {
         if (error) throw error;
 
         showToast('Produto removido com sucesso!', 'success');
-        await loadInventory();
+        setTimeout(() => window.location.reload(), 250);
 
     } catch (err) {
         showToast('Erro ao apagar: ' + err.message, 'error');

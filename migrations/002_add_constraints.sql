@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS products_new (
     name TEXT NOT NULL CHECK(length(trim(name)) > 0),
     brand TEXT NOT NULL CHECK(length(trim(brand)) > 0),
     quantity INTEGER DEFAULT 0 CHECK(quantity >= 0),
-    min_quantity INTEGER DEFAULT 5 CHECK(min_quantity >= 0),
+    min_quantity INTEGER DEFAULT 0 CHECK(min_quantity >= 0),
     description TEXT,
     sales_process TEXT,
     image_url TEXT,
