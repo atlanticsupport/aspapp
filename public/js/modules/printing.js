@@ -204,8 +204,14 @@ function getBatchLabelHTML(labels = []) {
             const barcodeValue = String(label.barcodeValue || '');
             const type = label.type || 'item';
             const isItem = type === 'item';
-            const { titleSize, footerSize, logoHeight, padding, barcodeHeight, barcodeWidth } =
-                getBarcodeDimensions(type, w, h);
+            const {
+                titleSize,
+                footerSize,
+                logoHeight,
+                padding,
+                barcodeHeight,
+                barcodeWidth
+            } = getBarcodeDimensions(type, w, h);
 
             return `
                 <section class="label-page${index === normalizedLabels.length - 1 ? '' : ' page-break'}">
@@ -366,7 +372,11 @@ function getBatchLabelHTML(labels = []) {
 
 export function printLabelBatch(labels = []) {
     if (!labels || labels.length === 0) return showToast('Sem etiquetas para imprimir.', 'info');
-    sendToPrinter(getBatchLabelHTML(labels));
+    const normalizedLabels = labels.map(label => ({
+        ...label,
+        subtitle: label.subtitle || buildItemLabelSubtitle(label)
+    }));
+    sendToPrinter(getBatchLabelHTML(normalizedLabels));
 }
 
 export function printSingleLabel(product) {
