@@ -46,7 +46,20 @@ async function verifyJWT(token, secret) {
     } catch { return null; }
 }
 
-const rateLimits = new Map();
+const loginRateLimits = new Map();
+const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 12;
+
+function getLoginRateLimitState(ip) {
+    const now = Date.now();
+    const state = loginRateLimits.get(ip);
+    if (!state || (now - state.windowStart) > LOGIN_RATE_LIMIT_WINDOW_MS) {
+        const fresh = { count: 0, windowStart: now };
+        loginRateLimits.set(ip, fresh);
+        return fresh;
+    }
+    return state;
+}
 
 function normalizeProductKeyPart(value) {
     return String(value ?? '')
@@ -133,13 +146,22 @@ export async function onRequestPost({ request, env }) {
         // 1. AUTHENTICATION & LOGIN
         if (rpc === 'rpc_login') {
             const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-            const attempts = rateLimits.get(ip) || 0;
-            if (attempts > 10) return new Response(JSON.stringify({ error: "Demasiadas tentativas de login." }), { status: 429 });
+            const attempts = getLoginRateLimitState(ip);
+            if (attempts.count >= LOGIN_RATE_LIMIT_MAX_ATTEMPTS) {
+                const retryAfter = Math.max(60, Math.ceil((attempts.windowStart + LOGIN_RATE_LIMIT_WINDOW_MS - Date.now()) / 1000));
+                return new Response(JSON.stringify({
+                    error: "Demasiadas tentativas de login. Tenta novamente daqui a pouco.",
+                    retry_after_seconds: retryAfter
+                }), {
+                    status: 429,
+                    headers: { 'Retry-After': String(retryAfter) }
+                });
+            }
 
             user = await db.prepare("SELECT * FROM app_users WHERE username = ?").bind(params.p_username).first();
 
             if (!user) {
-                rateLimits.set(ip, attempts + 1);
+                attempts.count += 1;
                 return new Response(JSON.stringify({ error: "Credenciais inválidas." }), { status: 401 });
             }
 
@@ -156,7 +178,7 @@ export async function onRequestPost({ request, env }) {
             }
 
             if (!pwdMatch) {
-                rateLimits.set(ip, attempts + 1);
+                attempts.count += 1;
                 return new Response(JSON.stringify({ error: "Credenciais inválidas." }), { status: 401 });
             }
 
@@ -167,7 +189,7 @@ export async function onRequestPost({ request, env }) {
                 await db.prepare("UPDATE app_users SET password = ? WHERE id = ?").bind(newHash, user.id).run();
             }
 
-            rateLimits.delete(ip);
+            loginRateLimits.delete(ip);
 
             if (!env.JWT_SECRET) {
                 return new Response(JSON.stringify({ error: "Configuração de segurança inválida. Contacte o administrador." }), { status: 500 });

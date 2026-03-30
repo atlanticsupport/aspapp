@@ -67,10 +67,11 @@ export async function login(username, password) {
     const { data, error } = await supabase.rpc('rpc_login', {
         p_username: username,
         p_password: password
-    });
+      });
 
     if (error || !data || data.length === 0) {
-        showToast('Credenciais inválidas ou erro de ligação.', 'error');
+        const message = error?.message || 'Credenciais inválidas ou erro de ligação.';
+        showToast(message, 'error');
         return false;
     }
 
