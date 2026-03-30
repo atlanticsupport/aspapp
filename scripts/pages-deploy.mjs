@@ -1,5 +1,5 @@
-import { copyFile, readFile, unlink, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
+import { copyFile, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const environment = process.argv[2];
@@ -19,6 +19,14 @@ const environments = {
 
 if (!environment || !environments[environment]) {
     console.error('Usage: node scripts/pages-deploy.mjs <production|staging>');
+    process.exit(1);
+}
+
+const gitBranch = process.env.GITHUB_REF_NAME;
+if (gitBranch && gitBranch !== environments[environment].branch) {
+    console.error(
+        `Branch mismatch: deploy "${environment}" expects "${environments[environment].branch}" but got "${gitBranch}".`
+    );
     process.exit(1);
 }
 
@@ -53,16 +61,17 @@ try {
         args.push('--commit-message', commitMessage);
     }
 
-    const command = process.platform === 'win32'
-        ? { file: 'cmd.exe', args: ['/d', '/s', '/c', 'npx', ...args] }
-        : { file: 'npx', args };
+    const command =
+        process.platform === 'win32'
+            ? { file: 'cmd.exe', args: ['/d', '/s', '/c', 'npx', ...args] }
+            : { file: 'npx', args };
 
     const child = spawn(command.file, command.args, {
         stdio: 'inherit',
         env: process.env
     });
 
-    const exitCode = await new Promise((resolve) => {
+    const exitCode = await new Promise(resolve => {
         child.on('exit', resolve);
     });
 

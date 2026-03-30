@@ -1,345 +1,924 @@
 import { views } from './core/dom.js';
 
-function escapeId(s = '') {
-    return `n-${String(s).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+const IMAGE_FILE_PATTERN = /\.(avif|bmp|gif|heic|heif|jfif|jpeg|jpg|png|svg|webp)$/i;
+
+const galleryState = {
+    processes: [],
+    filteredProcesses: [],
+    selected: null,
+    search: '',
+    expandedProcessIds: new Set()
+};
+
+function escapeHtml(value = '') {
+    return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+function escapeAttr(value = '') {
+    return escapeHtml(value);
+}
+
+function slugify(value = '') {
+    return String(value)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .toLowerCase();
+}
+
+function sanitizeZipSegment(value = '', fallback = 'Sem nome') {
+    const cleaned = String(value || '')
+        .trim()
+        .replace(/[\\/:*?"<>|]+/g, '-')
+        .replace(/\s+/g, ' ')
+        .replace(/\.+$/g, '')
+        .trim();
+
+    return cleaned || fallback;
+}
+
+function sanitizeZipFileName(value = '', fallback = 'ficheiro') {
+    const cleaned = String(value || '')
+        .trim()
+        .replace(/[\\/:*?"<>|]+/g, '-')
+        .replace(/\s+/g, ' ')
+        .replace(/\.+$/g, '')
+        .trim();
+
+    return cleaned || fallback;
+}
+
+function formatFileSize(bytes = 0) {
+    if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    const value = bytes / 1024 ** exponent;
+    return `${value >= 10 || exponent === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[exponent]}`;
+}
+
+function formatUploadedDate(value) {
+    if (!value) return 'Sem data';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Sem data';
+    return new Intl.DateTimeFormat('pt-PT', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(date);
+}
+
+function getFileExtension(filename = '') {
+    const match = String(filename).match(/\.([^.]+)$/);
+    return match ? match[1].toUpperCase() : 'Ficheiro';
+}
+
+function getFileTypeLabel(file) {
+    const extension = getFileExtension(file?.filename || file?.key || '');
+    return `${extension} Image`;
+}
+
+function ensureJsZip() {
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+
+    return new Promise((resolve, reject) => {
+        const existing = document.querySelector('script[data-gallery-jszip="true"]');
+        if (existing) {
+            existing.addEventListener('load', () => resolve(window.JSZip), { once: true });
+            existing.addEventListener('error', reject, { once: true });
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+        script.dataset.galleryJszip = 'true';
+        script.onload = () => resolve(window.JSZip);
+        script.onerror = () => reject(new Error('Falha ao carregar JSZip.'));
+        document.head.appendChild(script);
+    });
+}
+
+function isImageObject(item) {
+    return IMAGE_FILE_PATTERN.test(item?.key || item?.name || '');
+}
+
+function buildFolderLabel(item) {
+    if (item?.product_name) return String(item.product_name).trim();
+    if (item?.part_number) return String(item.part_number).trim();
+
+    const filename = (item?.key || '').split('/').pop() || '';
+    const baseName = filename.replace(/\.[^/.]+$/, '');
+    const friendly = baseName.replace(/[-_]+/g, ' ').trim();
+    return friendly || 'Sem identificação';
+}
+
+function summarizeFolders(folders = []) {
+    return folders.reduce(
+        (totals, folder) => ({
+            totalImages: totals.totalImages + Number(folder.totalImages || 0),
+            totalSize: totals.totalSize + Number(folder.totalSize || 0)
+        }),
+        { totalImages: 0, totalSize: 0 }
+    );
+}
+
+function createStructuredGallery(rawList = []) {
+    const processMap = new Map();
+
+    rawList
+        .filter(isImageObject)
+        .map(item => ({
+            ...item,
+            processLabel:
+                item.sales_process?.trim() ||
+                item.product_name?.trim() ||
+                (item.key?.includes('/') ? item.key.split('/')[0] : 'Processo'),
+            folderLabel: buildFolderLabel(item),
+            filename: (item.key || '').split('/').pop() || item.key || 'ficheiro',
+            previewUrl: `/api/r2_thumbnail?key=${encodeURIComponent(item.key)}&w=520&h=520&q=78`,
+            fullUrl: `/api/r2_object?key=${encodeURIComponent(item.key)}`,
+            uploadedLabel: formatUploadedDate(item.uploaded)
+        }))
+        .sort((a, b) => {
+            if (a.processLabel !== b.processLabel)
+                return a.processLabel.localeCompare(b.processLabel, 'pt');
+            if (a.folderLabel !== b.folderLabel)
+                return a.folderLabel.localeCompare(b.folderLabel, 'pt');
+            const orderDiff = Number(a.sort_order || 0) - Number(b.sort_order || 0);
+            if (orderDiff !== 0) return orderDiff;
+            return String(a.filename).localeCompare(String(b.filename), 'pt');
+        })
+        .forEach(item => {
+            const processKey = slugify(item.processLabel) || 'sem-processo';
+            const folderKey = `${processKey}::${slugify(item.folderLabel) || 'sem-pasta'}`;
+
+            if (!processMap.has(processKey)) {
+                processMap.set(processKey, {
+                    id: processKey,
+                    label: item.processLabel,
+                    folders: new Map(),
+                    totalImages: 0,
+                    totalSize: 0
+                });
+            }
+
+            const process = processMap.get(processKey);
+            if (!process.folders.has(folderKey)) {
+                process.folders.set(folderKey, {
+                    id: folderKey,
+                    processId: processKey,
+                    label: item.folderLabel,
+                    files: [],
+                    totalImages: 0,
+                    totalSize: 0
+                });
+            }
+
+            const folder = process.folders.get(folderKey);
+            folder.files.push(item);
+            folder.totalImages += 1;
+            folder.totalSize += Number(item.size || 0);
+            process.totalImages += 1;
+            process.totalSize += Number(item.size || 0);
+        });
+
+    return [...processMap.values()].map(process => ({
+        ...process,
+        folders: [...process.folders.values()]
+    }));
+}
+
+function filterProcesses(processes, query) {
+    if (!query) return processes;
+    const needle = query.toLowerCase();
+
+    return processes
+        .map(process => {
+            const matchesProcess = process.label.toLowerCase().includes(needle);
+            const folders = process.folders.filter(folder => {
+                if (matchesProcess) return true;
+                if (folder.label.toLowerCase().includes(needle)) return true;
+                return folder.files.some(
+                    file =>
+                        file.filename.toLowerCase().includes(needle) ||
+                        (file.part_number || '').toLowerCase().includes(needle) ||
+                        (file.product_name || '').toLowerCase().includes(needle)
+                );
+            });
+
+            const totals = summarizeFolders(folders);
+
+            return {
+                ...process,
+                folders,
+                totalImages: totals.totalImages,
+                totalSize: totals.totalSize
+            };
+        })
+        .filter(process => process.folders.length > 0);
+}
+
+function getAllFiles() {
+    return galleryState.processes.flatMap(process =>
+        process.folders.flatMap(folder =>
+            folder.files.map(file => ({
+                ...file,
+                processId: process.id,
+                processLabel: process.label,
+                folderId: folder.id,
+                folderLabel: folder.label
+            }))
+        )
+    );
+}
+
+function resolveSelection(source = galleryState.processes) {
+    if (!galleryState.selected) return null;
+
+    const { type, processId, folderId, key } = galleryState.selected;
+    const process = source.find(item => item.id === processId);
+    const folder = process?.folders.find(item => item.id === folderId);
+    const file = folder?.files.find(item => item.key === key);
+
+    if (type === 'process' && process) return { type, process, folder: null, file: null };
+    if (type === 'folder' && process && folder) return { type, process, folder, file: null };
+    if (type === 'file' && process && folder && file) return { type, process, folder, file };
+
+    return null;
+}
+
+function getSelectionFiles(selection) {
+    if (!selection?.type) return [];
+    if (selection.type === 'file') {
+        if (!selection.file) return [];
+        return [
+            {
+                ...selection.file,
+                processLabel: selection.process?.label || selection.file.processLabel || '',
+                folderLabel: selection.folder?.label || selection.file.folderLabel || ''
+            }
+        ];
+    }
+    if (selection.type === 'folder') {
+        return (selection.folder?.files || []).map(file => ({
+            ...file,
+            processLabel: selection.process?.label || file.processLabel || '',
+            folderLabel: selection.folder?.label || file.folderLabel || ''
+        }));
+    }
+    if (selection.type === 'process') {
+        return (
+            selection.process?.folders.flatMap(folder =>
+                folder.files.map(file => ({
+                    ...file,
+                    processLabel: selection.process?.label || file.processLabel || '',
+                    folderLabel: folder.label || file.folderLabel || ''
+                }))
+            ) || []
+        );
+    }
+    return [];
+}
+
+function buildArchivePath(file) {
+    const processLabel = sanitizeZipSegment(file.processLabel || file.sales_process || 'Sem Processo');
+    const folderLabel = sanitizeZipSegment(file.folderLabel || file.product_name || file.part_number || 'Sem Item');
+    const fileName = sanitizeZipFileName(file.filename || file.key || 'ficheiro');
+    return `${processLabel}/${folderLabel}/Fotos/${fileName}`;
+}
+
+function getDefaultSelection(processes = galleryState.filteredProcesses) {
+    const firstProcess = processes[0];
+    const firstFolder = firstProcess?.folders?.[0];
+
+    if (firstFolder) {
+        return {
+            type: 'folder',
+            processId: firstProcess.id,
+            folderId: firstFolder.id
+        };
+    }
+
+    if (firstProcess) {
+        return {
+            type: 'process',
+            processId: firstProcess.id
+        };
+    }
+
+    return null;
+}
+
+function ensureSelectionVisible() {
+    if (!galleryState.filteredProcesses.length) {
+        galleryState.selected = null;
+        return;
+    }
+
+    const visibleSelection = resolveSelection(galleryState.filteredProcesses);
+    if (visibleSelection) return;
+
+    galleryState.selected = getDefaultSelection(galleryState.filteredProcesses);
+}
+
+function setSelection(nextSelection) {
+    galleryState.selected = nextSelection;
+
+    if (nextSelection?.processId) {
+        galleryState.expandedProcessIds.add(nextSelection.processId);
+    }
+
+    renderGalleryTree();
+    renderPreview();
+}
+
+function toggleProcess(processId) {
+    if (!processId) return;
+
+    if (galleryState.expandedProcessIds.has(processId)) {
+        galleryState.expandedProcessIds.delete(processId);
+    } else {
+        galleryState.expandedProcessIds.add(processId);
+    }
+
+    renderGalleryTree();
+}
+
+function buildBreadcrumbSegments(selection) {
+    const segments = [
+        {
+            label: 'Staging',
+            selection: getDefaultSelection(galleryState.filteredProcesses)
+        }
+    ];
+
+    if (!selection?.type) return segments;
+
+    if (selection.process) {
+        segments.push({
+            label: selection.process.label,
+            selection: {
+                type: 'process',
+                processId: selection.process.id
+            }
+        });
+    }
+
+    if (selection.folder) {
+        segments.push({
+            label: selection.folder.label,
+            selection: {
+                type: 'folder',
+                processId: selection.process?.id || '',
+                folderId: selection.folder.id
+            }
+        });
+    }
+
+    if (selection.file) {
+        segments.push({
+            label: selection.file.filename,
+            selection: null
+        });
+    }
+
+    return segments;
+}
+
+function renderBreadcrumb(segments = []) {
+    const breadcrumbNode = document.getElementById('gallery-breadcrumb');
+    const addressNode = document.getElementById('gallery-address');
+    if (!breadcrumbNode || !addressNode) return;
+
+    const safeSegments = segments.length ? segments : buildBreadcrumbSegments(null);
+    const address = safeSegments.map(segment => segment.label).join(' \\ ');
+
+    addressNode.textContent = address;
+    breadcrumbNode.innerHTML = safeSegments
+        .map((segment, index) => {
+            const isLast = index === safeSegments.length - 1;
+            const separator =
+                index < safeSegments.length - 1 ? '<i class="fa-solid fa-chevron-right"></i>' : '';
+
+            if (!segment.selection || isLast) {
+                return `
+                    <span class="gallery-crumb current">
+                        ${escapeHtml(segment.label)}
+                    </span>
+                    ${separator}
+                `;
+            }
+
+            return `
+                <button
+                    type="button"
+                    class="gallery-crumb"
+                    data-breadcrumb='${escapeAttr(JSON.stringify(segment.selection))}'
+                >
+                    ${escapeHtml(segment.label)}
+                </button>
+                ${separator}
+            `;
+        })
+        .join('');
+
+    breadcrumbNode.querySelectorAll('[data-breadcrumb]').forEach(button => {
+        button.addEventListener('click', () => {
+            try {
+                const selection = JSON.parse(button.dataset.breadcrumb || 'null');
+                if (selection) setSelection(selection);
+            } catch (error) {
+                console.error('Breadcrumb parse error:', error);
+            }
+        });
+    });
+}
+
+function updatePreviewHeader({ title, meta, segments }) {
+    const titleNode = document.getElementById('gallery-preview-title');
+    const metaNode = document.getElementById('gallery-preview-meta');
+
+    if (titleNode) titleNode.textContent = title;
+    if (metaNode) metaNode.textContent = meta;
+
+    renderBreadcrumb(segments);
+}
+
+function updateStatusBar(left = '', right = '') {
+    const statusNode = document.getElementById('gallery-statusbar');
+    if (!statusNode) return;
+
+    statusNode.innerHTML = `
+        <span>${escapeHtml(left)}</span>
+        <span>${escapeHtml(right)}</span>
+    `;
+}
+
+function renderGalleryTree() {
+    const tree = document.getElementById('gallery-tree-container');
+    if (!tree) return;
+
+    if (!galleryState.filteredProcesses.length) {
+        tree.innerHTML = `
+            <div class="gallery-empty-state compact">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <p>Não encontrámos resultados para esta pesquisa.</p>
+            </div>
+        `;
+        return;
+    }
+
+    tree.innerHTML = `
+        <div class="gallery-tree-root">
+            <div class="gallery-tree-root-row">
+                <span class="gallery-tree-root-copy">
+                    <strong>Processo</strong>
+                    <small>Item / Fotos</small>
+                </span>
+            </div>
+            <div class="gallery-tree-children root">
+                ${galleryState.filteredProcesses
+                    .map(process => {
+                        const isExpanded = galleryState.expandedProcessIds.has(process.id);
+                        const isProcessSelected =
+                            galleryState.selected?.type === 'process' &&
+                            galleryState.selected?.processId === process.id;
+
+                        const foldersMarkup = process.folders
+                            .map(folder => {
+                                const isFolderSelected =
+                                    galleryState.selected?.type === 'folder' &&
+                                    galleryState.selected?.processId === process.id &&
+                                    galleryState.selected?.folderId === folder.id;
+
+                                return `
+                                    <button
+                                        type="button"
+                                        class="gallery-tree-item child ${isFolderSelected ? 'active' : ''}"
+                                        data-node-type="folder"
+                                        data-process-id="${escapeAttr(process.id)}"
+                                        data-folder-id="${escapeAttr(folder.id)}"
+                                    >
+                                        <span class="gallery-tree-icon folder">
+                                            <i class="fa-solid fa-folder"></i>
+                                        </span>
+                                        <span class="gallery-tree-copy">
+                                            <strong>${escapeHtml(folder.label)}</strong>
+                                            <small>${folder.totalImages} fotos</small>
+                                        </span>
+                                    </button>
+                                `;
+                            })
+                            .join('');
+
+                        return `
+                            <div class="gallery-tree-branch">
+                                <div class="gallery-tree-branch-row ${isProcessSelected ? 'active' : ''}">
+                                    <button
+                                        type="button"
+                                        class="gallery-tree-toggle"
+                                        data-toggle-process="${escapeAttr(process.id)}"
+                                        aria-label="${isExpanded ? 'Fechar' : 'Abrir'} ${escapeAttr(process.label)}"
+                                    >
+                                        <i class="fa-solid fa-chevron-right ${isExpanded ? 'open' : ''}"></i>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="gallery-tree-item process ${isProcessSelected ? 'active' : ''}"
+                                        data-node-type="process"
+                                        data-process-id="${escapeAttr(process.id)}"
+                                    >
+                                        <span class="gallery-tree-icon folder-open">
+                                            <i class="fa-solid fa-folder-open"></i>
+                                        </span>
+                                        <span class="gallery-tree-copy">
+                                            <strong>${escapeHtml(process.label)}</strong>
+                                            <small>${process.folders.length} itens</small>
+                                        </span>
+                                        <span class="gallery-tree-meta">${process.totalImages}</span>
+                                    </button>
+                                </div>
+                                <div class="gallery-tree-children ${isExpanded ? '' : 'collapsed'}">
+                                    ${foldersMarkup}
+                                </div>
+                            </div>
+                        `;
+                    })
+                    .join('')}
+            </div>
+        </div>
+    `;
+
+    tree.querySelectorAll('[data-toggle-process]').forEach(button => {
+        button.addEventListener('click', () => toggleProcess(button.dataset.toggleProcess));
+    });
+
+    tree.querySelectorAll('[data-node-type="process"]').forEach(button => {
+        button.addEventListener('click', () => {
+            setSelection({
+                type: 'process',
+                processId: button.dataset.processId
+            });
+        });
+    });
+
+    tree.querySelectorAll('[data-node-type="folder"]').forEach(button => {
+        button.addEventListener('click', () => {
+            setSelection({
+                type: 'folder',
+                processId: button.dataset.processId,
+                folderId: button.dataset.folderId
+            });
+        });
+    });
+}
+
+function renderExplorerList(files, selection, columns) {
+    const preview = document.getElementById('gallery-preview-content');
+    const downloadBtn = document.getElementById('gallery-download-btn');
+    if (!preview || !downloadBtn) return;
+
+    const title =
+        selection?.type === 'process'
+            ? selection.process?.label || 'Processo'
+            : selection.folder?.label || 'Pasta';
+    const segments = buildBreadcrumbSegments(selection);
+
+    updatePreviewHeader({
+        title,
+        meta: `${files.length} imagem(ns)`,
+        segments
+    });
+
+    downloadBtn.style.display = files.length ? 'inline-flex' : 'none';
+
+    if (!files.length) {
+        preview.innerHTML = `
+            <div class="gallery-empty-state">
+                <i class="fa-regular fa-images"></i>
+                <p>Não existem imagens nesta seleção.</p>
+            </div>
+        `;
+        return;
+    }
+
+    preview.innerHTML = `
+        <div class="gallery-grid-shell cols-${columns}">
+            ${files
+                .map(file => {
+                    const label = escapeHtml(file.filename);
+                    return `
+                        <button type="button" class="gallery-grid-card" data-file-key="${escapeAttr(file.key)}">
+                            <img
+                                class="gallery-grid-thumb"
+                                src="${escapeAttr(file.previewUrl)}"
+                                alt="${escapeAttr(file.filename)}"
+                                loading="lazy"
+                            >
+                            <span class="gallery-grid-label">${label}</span>
+                        </button>
+                    `;
+                })
+                .join('')}
+        </div>
+    `;
+
+    preview.querySelectorAll('[data-file-key]').forEach(row => {
+        row.addEventListener('click', () => {
+            const file = files.find(item => item.key === row.dataset.fileKey);
+            if (!file) return;
+            setSelection({
+                type: 'file',
+                processId: selection.process?.id || '',
+                folderId: file.folderId || selection.folder?.id || '',
+                key: file.key
+            });
+        });
+    });
+}
+
+function renderSinglePreview(selection) {
+    const preview = document.getElementById('gallery-preview-content');
+    const downloadBtn = document.getElementById('gallery-download-btn');
+    if (!preview || !downloadBtn || !selection?.file) return;
+
+    const { file, process, folder } = selection;
+
+    updatePreviewHeader({
+        title: file.filename,
+        meta: '1 imagem',
+        segments: buildBreadcrumbSegments(selection)
+    });
+
+    downloadBtn.style.display = 'inline-flex';
+
+    preview.innerHTML = `
+        <div class="gallery-grid-shell cols-1">
+            <button type="button" class="gallery-grid-card single">
+                <img class="gallery-grid-thumb" src="${escapeAttr(file.fullUrl)}" alt="${escapeAttr(file.filename)}">
+                <span class="gallery-grid-label">${escapeHtml(file.filename)}</span>
+            </button>
+            <button type="button" class="gallery-back-btn" id="gallery-back-to-folder">
+                Voltar
+            </button>
+            <div class="gallery-file-path">${escapeHtml(process?.label || '')} / ${escapeHtml(folder?.label || '')}</div>
+            </div>
+    `;
+
+    document.getElementById('gallery-back-to-folder')?.addEventListener('click', () => {
+        if (folder?.id) {
+            setSelection({
+                type: 'folder',
+                processId: process?.id || '',
+                folderId: folder.id
+            });
+            return;
+        }
+
+        if (process?.id) {
+            setSelection({
+                type: 'process',
+                processId: process.id
+            });
+        }
+    });
+}
+
+function renderPreview() {
+    const preview = document.getElementById('gallery-preview-content');
+    const downloadBtn = document.getElementById('gallery-download-btn');
+    if (!preview || !downloadBtn) return;
+
+    const selection = resolveSelection(galleryState.filteredProcesses) || resolveSelection();
+
+    if (!selection?.type) {
+        const totalImages = getAllFiles().length;
+        updatePreviewHeader({
+            title: 'Galeria de Imagens',
+            meta: `${totalImages} imagem(ns)`,
+            segments: buildBreadcrumbSegments(null)
+        });
+        downloadBtn.style.display = 'none';
+        preview.innerHTML = `
+            <div class="gallery-empty-state">
+                <i class="fa-regular fa-images"></i>
+                <p>Seleciona um processo na esquerda.</p>
+            </div>
+        `;
+        return;
+    }
+
+    if (selection.type === 'file') {
+        renderSinglePreview(selection);
+        return;
+    }
+
+    if (selection.type === 'process') {
+        const files =
+            selection.process?.folders.flatMap(folder =>
+                folder.files.map(file => ({
+                    ...file,
+                    processId: selection.process?.id || '',
+                    processLabel: selection.process?.label || '',
+                    folderId: folder.id,
+                    folderLabel: folder.label
+                }))
+            ) || [];
+
+        renderExplorerList(files, selection, 5);
+        return;
+    }
+
+    if (selection.type === 'folder') {
+        const files =
+            selection.folder?.files.map(file => ({
+                ...file,
+                processId: selection.process?.id || '',
+                processLabel: selection.process?.label || '',
+                folderId: selection.folder?.id || '',
+                folderLabel: selection.folder?.label || ''
+            })) || [];
+
+        renderExplorerList(files, selection, 3);
+    }
+}
+
+async function downloadFile(file) {
+    const response = await fetch(file.fullUrl);
+    if (!response.ok) {
+        throw new Error('Falha ao descarregar a imagem.');
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = file.filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+async function downloadMany(files, archiveName) {
+    if (!files.length) return;
+
+    await ensureJsZip();
+    const zip = new window.JSZip();
+
+    for (const file of files) {
+        const response = await fetch(file.fullUrl);
+        if (!response.ok) continue;
+        const buffer = await response.arrayBuffer();
+        zip.file(buildArchivePath(file), buffer);
+    }
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${archiveName || 'galeria'}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+function attachGalleryEvents() {
+    const search = document.getElementById('gallery-search');
+    const downloadBtn = document.getElementById('gallery-download-btn');
+
+    if (search) {
+        search.addEventListener('input', event => {
+            galleryState.search = event.target.value.trim();
+            galleryState.filteredProcesses = filterProcesses(
+                galleryState.processes,
+                galleryState.search
+            );
+            ensureSelectionVisible();
+            renderGalleryTree();
+            renderPreview();
+        });
+    }
+
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', async () => {
+            const selection = resolveSelection();
+            if (!selection?.type) return;
+
+            const originalHtml = downloadBtn.innerHTML;
+            downloadBtn.disabled = true;
+            downloadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> A preparar';
+
+            try {
+                if (selection.type === 'file' && selection.file) {
+                    await downloadFile(selection.file);
+                    return;
+                }
+
+                const files = getSelectionFiles(selection);
+                const archiveName =
+                    selection.type === 'folder'
+                        ? selection.folder?.label
+                        : selection.process?.label;
+                await downloadMany(files, slugify(archiveName || 'galeria'));
+            } catch (error) {
+                console.error('Gallery download error:', error);
+                alert(`Erro ao descarregar: ${error.message || error}`);
+            } finally {
+                downloadBtn.disabled = false;
+                downloadBtn.innerHTML = originalHtml;
+            }
+        });
+    }
+}
+
+function renderShell() {
+    views.gallery.innerHTML = `
+        <div class="view-gallery">
+            <aside class="gallery-sidebar">
+                <div class="gallery-sidebar-header">
+                    <div>
+                        <h2>Galeria de Imagens</h2>
+                        <p>Processo / Item / Fotos</p>
+                    </div>
+
+                    <label class="gallery-search-wrap">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="gallery-search" placeholder="Pesquisar processo, pasta ou ficheiro">
+                    </label>
+                </div>
+
+                <div class="gallery-tree-shell">
+                    <div id="gallery-tree-container" class="gallery-tree"></div>
+                </div>
+            </aside>
+
+            <section id="gallery-preview" class="gallery-preview-panel">
+                <div class="gallery-preview-toolbar">
+                    <div>
+                        <h3 id="gallery-preview-title">Galeria de Imagens</h3>
+                        <p id="gallery-preview-meta">A carregar...</p>
+                    </div>
+                    <button id="gallery-download-btn" class="btn btn-primary" style="display:none;">
+                        <i class="fa-solid fa-download"></i>
+                        Descarregar
+                    </button>
+                </div>
+
+                <div id="gallery-preview-content"></div>
+            </section>
+        </div>
+    `;
+
+    attachGalleryEvents();
 }
 
 export async function loadGalleryView() {
     if (!views.gallery) return;
 
-    views.gallery.innerHTML = `
-        <div class="view-gallery">
-            <div id="gallery-tree-container"></div>
-            <div id="gallery-preview">
-                <div id="gallery-preview-toolbar">
-                    <div style="font-weight:700;">Preview</div>
-                    <div>
-                        <button id="gallery-download-btn" class="btn btn-primary" style="display:none;"><i class="fa-solid fa-download"></i> Descarregar</button>
-                    </div>
+    renderShell();
+
+    const tree = document.getElementById('gallery-tree-container');
+    const titleNode = document.getElementById('gallery-preview-title');
+    const metaNode = document.getElementById('gallery-preview-meta');
+
+    try {
+        const response = await fetch('/api/list_images');
+        if (!response.ok) throw new Error('Não foi possível listar as imagens.');
+
+        const rawList = await response.json();
+        galleryState.processes = createStructuredGallery(rawList);
+        galleryState.filteredProcesses = filterProcesses(
+            galleryState.processes,
+            galleryState.search
+        );
+        galleryState.expandedProcessIds = new Set(
+            galleryState.processes.map(process => process.id)
+        );
+        galleryState.selected = getDefaultSelection(galleryState.filteredProcesses);
+
+        renderGalleryTree();
+        renderPreview();
+    } catch (error) {
+        console.error('Gallery load error:', error);
+        if (titleNode) titleNode.textContent = 'Galeria indisponível';
+        if (metaNode) metaNode.textContent = 'Falha ao carregar dados do staging';
+        if (tree) {
+            tree.innerHTML = `
+                <div class="gallery-empty-state compact">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <p>${escapeHtml(error.message || 'Erro inesperado')}</p>
                 </div>
-                <div id="gallery-preview-content"></div>
-            </div>
-        </div>
-    `;
-
-    const container = document.getElementById('gallery-tree-container');
-    const preview = document.getElementById('gallery-preview-content');
-    const downloadBtn = document.getElementById('gallery-download-btn');
-
-    // Fetch file list and metadata from server
-    let list = [];
-    let meta = { byBase: {}, byUrl: {} };
-    try {
-        const [resList, resMeta] = await Promise.all([
-            fetch('/api/list_images'),
-            fetch('/api/gallery_meta').catch(() => new Response(JSON.stringify({})))
-        ]);
-
-        if (!resList.ok) throw new Error('Erro ao listar imagens');
-        list = await resList.json();
-
-        if (resMeta && resMeta.ok) {
-            try { meta = await resMeta.json(); } catch (e) { meta = { byBase: {}, byUrl: {} }; }
+            `;
         }
-    } catch (e) {
-        container.innerHTML = `<div style="padding:1rem; color:var(--text-secondary);">Falha ao listar imagens: ${e.message}</div>`;
-        return;
-    }
-
-    // Group files by sales_process -> displayFolder
-    const grouped = new Map();
-    function formatFolderLabel(base, m, obj) {
-        // Show only part_number for product folders when available
-        if (obj && obj.part_number) return String(obj.part_number).trim();
-        if (m && m.part_number) return String(m.part_number).trim();
-        // prefer explicit display label if no part_number
-        if (m && m.displayLabel) return m.displayLabel;
-        // prefer product_name as fallback
-        if (obj && obj.product_name) return obj.product_name;
-        if (m && m.product_name) return m.product_name;
-        // if base contains product-<id>-... show friendly Produto #id
-        const mProd = base.match(/^product-(\d+)/);
-        if (mProd) return `Produto #${mProd[1]}`;
-        // fallback: use readable path segment or cleaned base
-        const cleaned = base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
-        return cleaned.length > 40 ? cleaned.substring(0, 37) + '...' : (cleaned || 'Unknown Item');
-    }
-
-    for (const obj of list) {
-        const key = obj.key || obj.name || '';
-        const filename = key.split('/').pop() || key;
-        const base = filename.replace(/\.[^/.]+$/, '');
-        const mByUrl = meta.byUrl && meta.byUrl[key];
-        const mByBase = meta.byBase && meta.byBase[base];
-        const mBaseItem = Array.isArray(mByBase) ? mByBase[0] : mByBase;
-        const m = mByUrl || mBaseItem || {};
-        // sales process: prefer metadata, then obj, then key path first segment
-        const salesProcess = m.sales_process || obj.sales_process || (key.includes('/') ? key.split('/')[0] : 'Unknown Process');
-        const displayFolder = formatFolderLabel(base, m, obj);
-
-        if (!grouped.has(salesProcess)) grouped.set(salesProcess, new Map());
-        const procMap = grouped.get(salesProcess);
-        if (!procMap.has(displayFolder)) procMap.set(displayFolder, []);
-        procMap.get(displayFolder).push({ obj, filename });
-    }
-
-    // Build jsTree nodes
-    const nodes = [];
-    const nodeMap = { '#': true };
-    function pushNode(id, parent, text, a_attr, iconClass) {
-        if (nodeMap[id]) return;
-        nodeMap[id] = true;
-        const node = { id, parent: parent || '#', text, a_attr: a_attr || {} };
-        if (iconClass) node.icon = iconClass;
-        nodes.push(node);
-        return node;
-    }
-
-    grouped.forEach((procMap, proc) => {
-        const procId = escapeId(proc);
-        pushNode(procId, '#', proc, {}, 'fa fa-folder');
-        procMap.forEach((items, itemLabel) => {
-            const itemId = escapeId(proc + '|' + itemLabel);
-            pushNode(itemId, procId, itemLabel, {}, 'fa fa-folder');
-            // sort images by sort_order then uploaded (if present)
-            items.sort((a,b) => {
-                const sa = (a.obj && a.obj.sort_order) || 0;
-                const sb = (b.obj && b.obj.sort_order) || 0;
-                if (sa !== sb) return sa - sb;
-                return new Date(a.obj && a.obj.uploaded || 0) - new Date(b.obj && b.obj.uploaded || 0);
-            });
-            items.forEach((it, idx) => {
-                const extMatch = it.filename.match(/(\.[^.]*)$/);
-                const ext = extMatch ? extMatch[1] : '';
-                const fname = `${idx+1}${ext}`;
-                const leafId = escapeId(proc + '|' + itemLabel + '|' + fname);
-                // Do not set an icon for file leaves; thumbnails will be shown instead
-                const leaf = pushNode(leafId, itemId, fname, { 'data-key': it.obj.key }, null);
-                if (leaf) leaf.li_attr = { 'data-url': `/api/r2_object?key=${encodeURIComponent(it.obj.key)}`, 'data-key': it.obj.key, 'data-index': String(idx+1) };
-            });
-        });
-    });
-
-    // Render jsTree and inject thumbnails for leaves
-    try {
-        $(container).jstree({ core: { data: nodes, themes: { icons: true } }, plugins: ['wholerow'] });
-
-        function renderThumbs() {
-            // Find all li elements with data-key and prepend a small thumbnail to their anchor
-            const lis = container.querySelectorAll('li[data-key]');
-            lis.forEach(li => {
-                try {
-                    const key = li.getAttribute('data-key');
-                    if (!key) return;
-                    const a = li.querySelector('.jstree-anchor');
-                    if (!a) return;
-                    if (a.querySelector('.jstree-thumb')) return; // already rendered
-                    // insert numbering element
-                    if (!a.querySelector('.jstree-index')) {
-                        const idxAttr = li.getAttribute('data-index') || li.dataset.index || '';
-                        const span = document.createElement('span');
-                        span.className = 'jstree-index';
-                        span.textContent = idxAttr ? `${idxAttr} - ` : '';
-                        span.style.fontWeight = '600';
-                        span.style.marginRight = '6px';
-                        a.insertBefore(span, a.firstChild);
-                    }
-
-                    const img = document.createElement('img');
-                    img.className = 'jstree-thumb';
-                    img.loading = 'lazy';
-                    img.height = 24;
-                    img.style.width = 'auto';
-                    img.src = `/api/r2_thumbnail?key=${encodeURIComponent(key)}&w=72&h=72&q=60`;
-                    // insert thumbnail after index (if present) so order is: index, thumb
-                    const firstChild = a.querySelector('.jstree-index');
-                    if (firstChild) a.insertBefore(img, firstChild.nextSibling); else a.insertBefore(img, a.firstChild);
-                    // remove any leftover jsTree icon elements inside the anchor to ensure only the thumbnail remains
-                    const leftoverIcons = a.querySelectorAll('.jstree-icon, .jstree-themeicon, .jstree-themeicon-custom');
-                    leftoverIcons.forEach(el => el.remove());
-                    // remove plain text nodes inside anchor for file leaves so only thumbnail is visible
-                    Array.from(a.childNodes).forEach(n => {
-                        if (n.nodeType === Node.TEXT_NODE) n.remove();
-                    });
-                } catch (e) { /* ignore per-item errors */ }
-            });
-        }
-
-        $(container).on('ready.jstree refresh.jstree open_node.jstree', renderThumbs);
-
-        $(container).on('select_node.jstree', function (e, data) {
-            const node = data.node;
-            const liAttr = node.li_attr || {};
-            const fileUrl = liAttr['data-url'];
-            const fileKey = liAttr['data-key'];
-            const tree = $(container).jstree(true);
-
-            function renderGridForNode(nodeId, cols) {
-                const nodeObj = tree.get_node(nodeId);
-                const descendants = nodeObj.children_d || [];
-                const fileIds = descendants.filter(id => {
-                    const nnode = tree.get_node(id);
-                    const fkey = (nnode && nnode.li_attr && nnode.li_attr['data-key']) || (nnode && nnode.original && nnode.original.li_attr && nnode.original.li_attr['data-key']);
-                    return !!fkey;
-                });
-                if (fileIds.length === 0) {
-                    preview.innerHTML = `<div style="color:var(--text-secondary);">Nenhum ficheiro na seleção</div>`;
-                    return;
-                }
-                const grid = document.createElement('div');
-                grid.className = `gallery-grid cols-${cols}`;
-                // compute cell size from preview width and set fixed column widths so thumbnails are constrained
-                const available = (preview.clientWidth || preview.offsetWidth) || 600;
-                const gap = 8; // grid gap
-                const cellSize = Math.max(60, Math.floor((available - (cols - 1) * gap) / cols));
-                grid.style.display = 'grid';
-                grid.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
-                grid.style.gridAutoRows = `${cellSize}px`;
-                grid.style.gridAutoFlow = 'row';
-                grid.style.justifyContent = 'start';
-                grid.style.alignItems = 'start';
-                for (const fid of fileIds) {
-                    const nnode = tree.get_node(fid);
-                    const fkey = (nnode.li_attr && nnode.li_attr['data-key']) || (nnode.original && nnode.original.li_attr && nnode.original.li_attr['data-key']);
-                    const img = document.createElement('img');
-                    img.className = 'gallery-grid-thumb';
-                    img.loading = 'lazy';
-                    img.src = `/api/r2_thumbnail?key=${encodeURIComponent(fkey)}&w=400&h=400&q=70`;
-                    img.alt = nnode.text || fkey.split('/').pop();
-                    img.dataset.key = fkey;
-                    img.width = 0;
-                    img.height = 0;
-                    img.style.width = '100%';
-                    img.style.height = '100%';
-                    img.onclick = () => {
-                        preview.innerHTML = '';
-                        const wrapper = document.createElement('div');
-                        wrapper.style.display = 'flex';
-                        wrapper.style.alignItems = 'center';
-                        wrapper.style.justifyContent = 'center';
-                        wrapper.style.height = '100%';
-                        wrapper.style.width = '100%';
-                        wrapper.style.overflow = 'hidden';
-                        const big = document.createElement('img');
-                        big.src = `/api/r2_object?key=${encodeURIComponent(fkey)}`;
-                        big.style.maxWidth = '100%';
-                        big.style.maxHeight = '100%';
-                        big.style.width = 'auto';
-                        big.style.objectFit = 'contain';
-                        big.style.borderRadius = '6px';
-                        wrapper.appendChild(big);
-                        preview.appendChild(wrapper);
-                        downloadBtn.dataset.key = fkey;
-                        downloadBtn.dataset.node = node.id;
-                    };
-                    const cell = document.createElement('div');
-                    cell.className = 'gallery-grid-cell';
-                    cell.appendChild(img);
-                    grid.appendChild(cell);
-                }
-                preview.innerHTML = '';
-                preview.appendChild(grid);
-                // ensure download button is set to operate on node (folder/process)
-                downloadBtn.style.display = 'inline-flex';
-                downloadBtn.dataset.key = '';
-                downloadBtn.dataset.node = node.id;
-            }
-
-            if (fileUrl) {
-                // single-file: show a centered, large image inside a fixed-size preview container
-                preview.innerHTML = `<div class="gallery-single"><img src="${fileUrl}" alt="preview" /></div>`;
-                downloadBtn.style.display = 'inline-flex';
-                downloadBtn.dataset.key = fileKey;
-                downloadBtn.dataset.node = node.id;
-            } else {
-                // Determine path depth using tree paths; root-level (process) => cols=5, product-folder => cols=3
-                const pathArr = tree.get_path(node.id, null, false) || [];
-                const depth = Array.isArray(pathArr) ? pathArr.length : 0;
-                if (depth <= 1) {
-                    // process level (top-level): 5 columns
-                    renderGridForNode(node.id, 5);
-                } else {
-                    // product/item folder: 3 columns
-                    renderGridForNode(node.id, 3);
-                }
-            }
-        });
-        downloadBtn.onclick = async () => {
-            const key = downloadBtn.dataset.key;
-            const nodeId = downloadBtn.dataset.node;
-            downloadBtn.disabled = true;
-            const origText = downloadBtn.innerText;
-            downloadBtn.innerText = 'A descarregar...';
-            try {
-                const tree = $(container).jstree(true);
-                if (key) {
-                    // Single file download
-                    const resp = await fetch(`/api/r2_object?key=${encodeURIComponent(key)}`);
-                    if (!resp.ok) throw new Error('Falha ao obter ficheiro');
-                    const blob = await resp.blob();
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = key.split('/').pop();
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(url);
-                } else if (nodeId) {
-                    // Folder/process download: collect descendant file keys and zip client-side
-                    // Ensure JSZip is loaded
-                    if (!window.JSZip) {
-                        await new Promise((res, rej) => {
-                            const s = document.createElement('script');
-                            s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
-                            s.onload = res; s.onerror = rej; document.head.appendChild(s);
-                        });
-                    }
-                    const instance = tree;
-                    const nodeObj = instance.get_node(nodeId);
-                    const descendants = nodeObj.children_d || [];
-                    // collect file leaf ids using the tree model (works even when collapsed)
-                    const fileIds = descendants.filter(id => {
-                        const nnode = instance.get_node(id);
-                        const fkey = (nnode && (nnode.li_attr && nnode.li_attr['data-key'])) || (nnode && nnode.original && nnode.original.li_attr && nnode.original.li_attr['data-key']) || (nnode && nnode.a_attr && nnode.a_attr['data-key']);
-                        return !!fkey;
-                    });
-                    if (fileIds.length === 0) throw new Error('Nenhum ficheiro na pasta selecionada');
-                    const zip = new window.JSZip();
-                    for (const fid of fileIds) {
-                        const nnode = instance.get_node(fid);
-                        const fkey = (nnode.li_attr && nnode.li_attr['data-key']) || (nnode.original && nnode.original.li_attr && nnode.original.li_attr['data-key']) || (nnode.a_attr && nnode.a_attr['data-key']);
-                        if (!fkey) continue;
-                        // build path relative to selected node using tree paths (arrays)
-                        const pathSegments = instance.get_path(fid, null, false) || [];
-                        const selPath = instance.get_path(nodeId, null, false) || [];
-                        let relParts = Array.isArray(pathSegments) ? pathSegments.slice(selPath.length) : [];
-                        if (!relParts || relParts.length === 0) relParts = [nnode && nnode.text ? nnode.text : (fkey.split('/').pop())];
-                        const filePath = relParts.join('/');
-                        const resp = await fetch(`/api/r2_object?key=${encodeURIComponent(fkey)}`);
-                        if (!resp.ok) continue;
-                        const buf = await resp.arrayBuffer();
-                        zip.file(filePath, buf);
-                    }
-                    const blob = await zip.generateAsync({ type: 'blob' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    const nodeText = nodeObj.text.replace(/\s+/g,'_');
-                    a.download = `${nodeText}.zip`;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(url);
-                }
-            } catch (err) {
-                alert('Erro ao descarregar: ' + (err.message || err));
-            } finally {
-                downloadBtn.disabled = false;
-                downloadBtn.innerText = origText;
-            }
-        };
-    } catch (err) {
-        container.innerHTML = `<div style="padding:1rem; color:var(--text-secondary);">Erro a renderizar a árvore: ${err.message}</div>`;
+        updateStatusBar('Erro de carregamento', 'Sem ligação à galeria');
     }
 }

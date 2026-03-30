@@ -3,6 +3,59 @@ import { supabase } from '../supabase-client.js';
 import { showToast, formatCurrency } from '../core/ui.js';
 import { views } from '../core/dom.js';
 
+const SCRIPT_CACHE = new Map();
+const CHART_JS_URL = 'https://cdn.jsdelivr.net/npm/chart.js';
+
+function loadExternalScript(url) {
+    if (SCRIPT_CACHE.has(url)) return SCRIPT_CACHE.get(url);
+
+    const promise = new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${url}"]`);
+        if (existing && (existing.dataset.loaded === 'true' || existing.dataset.loaded === '1')) {
+            resolve();
+            return;
+        }
+
+        const script = existing || document.createElement('script');
+        const cleanup = () => {
+            script.removeEventListener('load', onLoad);
+            script.removeEventListener('error', onError);
+        };
+        const onLoad = () => {
+            script.dataset.loaded = 'true';
+            cleanup();
+            resolve();
+        };
+        const onError = () => {
+            cleanup();
+            reject(new Error(`Falha ao carregar ${url}`));
+        };
+
+        script.addEventListener('load', onLoad);
+        script.addEventListener('error', onError);
+
+        if (!existing) {
+            script.src = url;
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+    });
+
+    SCRIPT_CACHE.set(url, promise);
+    return promise;
+}
+
+async function ensureChartJs() {
+    if (typeof Chart !== 'undefined') return true;
+    try {
+        await loadExternalScript(CHART_JS_URL);
+    } catch (error) {
+        return false;
+    }
+    return typeof Chart !== 'undefined';
+}
+
 let isDashboardFetching = false;
 
 const dashboardUiState = {
@@ -19,7 +72,9 @@ function parseDate(value) {
 }
 
 function getMovementDate(movement) {
-    return parseDate(movement.created_at || movement.createdAt || movement.date || movement.moved_at);
+    return parseDate(
+        movement.created_at || movement.createdAt || movement.date || movement.moved_at
+    );
 }
 
 function normalizeMovementType(movement) {
@@ -36,7 +91,7 @@ function getFilteredMovements(movements, periodDays) {
     const days = Number(periodDays || 30);
     const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
 
-    return movements.filter((movement) => {
+    return movements.filter(movement => {
         const date = getMovementDate(movement);
         return date && date.getTime() >= cutoff;
     });
@@ -45,7 +100,7 @@ function getFilteredMovements(movements, periodDays) {
 function buildTopMoved(movements, productsById, metric) {
     const agg = {};
 
-    movements.forEach((movement) => {
+    movements.forEach(movement => {
         const product = productsById[movement.product_id] || {};
         const name = movement.product_name || product.name || `ID ${movement.product_id}`;
         const qty = Math.abs(Number(movement.quantity || 0));
@@ -76,7 +131,7 @@ function buildTrendSeries(movements, periodDays) {
         buckets[key] = { inQty: 0, outQty: 0 };
     }
 
-    movements.forEach((movement) => {
+    movements.forEach(movement => {
         const date = getMovementDate(movement);
         if (!date) return;
 
@@ -90,16 +145,16 @@ function buildTrendSeries(movements, periodDays) {
 
     const keys = Object.keys(buckets);
     return {
-        labels: keys.map((d) => d.slice(5)),
-        inData: keys.map((d) => buckets[d].inQty),
-        outData: keys.map((d) => buckets[d].outQty)
+        labels: keys.map(d => d.slice(5)),
+        inData: keys.map(d => buckets[d].inQty),
+        outData: keys.map(d => buckets[d].outQty)
     };
 }
 
 function buildStockHealth(products) {
     const health = { healthy: 0, low: 0, out: 0 };
 
-    products.forEach((product) => {
+    products.forEach(product => {
         const qty = Number(product.quantity || 0);
         const min = Number(product.min_quantity || 0);
 
@@ -113,47 +168,52 @@ function buildStockHealth(products) {
 
 function buildCriticalProducts(products) {
     return products
-        .filter((product) => Number(product.quantity || 0) <= Number(product.min_quantity || 0))
-        .map((product) => ({
+        .filter(product => Number(product.quantity || 0) <= Number(product.min_quantity || 0))
+        .map(product => ({
             id: product.id,
             name: product.name || product.part_number || `ID ${product.id}`,
             part: product.part_number || '-',
             qty: Number(product.quantity || 0),
             min: Number(product.min_quantity || 0)
         }))
-        .sort((a, b) => (a.qty - a.min) - (b.qty - b.min))
+        .sort((a, b) => a.qty - a.min - (b.qty - b.min))
         .slice(0, 8);
 }
 
 function buildMakerValue(products) {
     const makerMap = {};
 
-    products.forEach((product) => {
+    products.forEach(product => {
         const maker = product.maker || product.brand || 'Outros';
         const value = Number(product.quantity || 0) * Number(product.cost_price || 0);
         if (value <= 0) return;
         makerMap[maker] = (makerMap[maker] || 0) + value;
     });
 
-    const labels = Object.keys(makerMap).sort((a, b) => makerMap[b] - makerMap[a]).slice(0, 8);
+    const labels = Object.keys(makerMap)
+        .sort((a, b) => makerMap[b] - makerMap[a])
+        .slice(0, 8);
     return {
         labels,
-        values: labels.map((label) => makerMap[label])
+        values: labels.map(label => makerMap[label])
     };
 }
 
 function computeDashboardSnapshot() {
     const products = state.dashboardProducts || [];
-    const movements = getFilteredMovements(state.dashboardMovements || [], dashboardUiState.periodDays);
+    const movements = getFilteredMovements(
+        state.dashboardMovements || [],
+        dashboardUiState.periodDays
+    );
     const productsById = products.reduce((acc, product) => {
         acc[product.id] = product;
         return acc;
     }, {});
 
-    const activeProducts = products.filter((product) => Number(product.quantity || 0) > 0);
+    const activeProducts = products.filter(product => Number(product.quantity || 0) > 0);
     const totalUnits = products.reduce((acc, product) => acc + Number(product.quantity || 0), 0);
-    const outOfStock = products.filter((product) => Number(product.quantity || 0) === 0).length;
-    const lowStock = products.filter((product) => {
+    const outOfStock = products.filter(product => Number(product.quantity || 0) === 0).length;
+    const lowStock = products.filter(product => {
         const qty = Number(product.quantity || 0);
         const min = Number(product.min_quantity || 0);
         return qty > 0 && qty <= min;
@@ -163,11 +223,11 @@ function computeDashboardSnapshot() {
     }, 0);
 
     const totalIn = movements
-        .filter((movement) => normalizeMovementType(movement) === 'IN')
+        .filter(movement => normalizeMovementType(movement) === 'IN')
         .reduce((acc, movement) => acc + Math.abs(Number(movement.quantity || 0)), 0);
 
     const totalOut = movements
-        .filter((movement) => normalizeMovementType(movement) === 'OUT')
+        .filter(movement => normalizeMovementType(movement) === 'OUT')
         .reduce((acc, movement) => acc + Math.abs(Number(movement.quantity || 0)), 0);
 
     return {
@@ -191,7 +251,7 @@ function computeDashboardSnapshot() {
 
 function bindDashboardControls() {
     const periodButtons = views.dashboard.querySelectorAll('.dash-period-btn');
-    periodButtons.forEach((button) => {
+    periodButtons.forEach(button => {
         button.onclick = () => {
             const value = button.dataset.period;
             dashboardUiState.periodDays = value === 'all' ? 'all' : Number(value);
@@ -200,7 +260,7 @@ function bindDashboardControls() {
     });
 
     const metricButtons = views.dashboard.querySelectorAll('.dash-metric-btn');
-    metricButtons.forEach((button) => {
+    metricButtons.forEach(button => {
         button.onclick = () => {
             dashboardUiState.topMetric = button.dataset.metric || 'qty';
             renderDashboard();
@@ -230,7 +290,12 @@ export async function loadDashboard(options = {}) {
         const promises = [];
         const isAdmin = state.currentUser.role === 'admin';
 
-        if (isAdmin || state.currentUser.view_inventory || state.currentUser.inventory_access !== 'none' || state.currentUser.transit_access !== 'none') {
+        if (
+            isAdmin ||
+            state.currentUser.view_inventory ||
+            state.currentUser.inventory_access !== 'none' ||
+            state.currentUser.transit_access !== 'none'
+        ) {
             promises.push(
                 supabase.rpc('secure_fetch_inventory', {
                     p_user: state.currentUser.username,
@@ -335,13 +400,17 @@ export function renderDashboard() {
                     <p class="dash-kpi-value">${lowStock + outOfStock}</p>
                     <span class="dash-kpi-meta">${lowStock} baixo | ${outOfStock} sem stock</span>
                 </div>
-                ${canViewPrices ? `
+                ${
+                    canViewPrices
+                        ? `
                 <div class="dash-kpi-card">
                     <span class="dash-kpi-label">Valor de Inventario</span>
                     <p class="dash-kpi-value">${formatCurrency(totalValue)}</p>
                     <span class="dash-kpi-meta">custo acumulado atual</span>
                 </div>
-                ` : ''}
+                `
+                        : ''
+                }
                 <div class="dash-kpi-card">
                     <span class="dash-kpi-label">Movimentos Totais</span>
                     <p class="dash-kpi-value">${Number(state.totalMovementsCount || 0).toLocaleString()}</p>
@@ -361,14 +430,22 @@ export function renderDashboard() {
                                 <tr><th>Produto</th><th>PN</th><th>Stock</th><th>Min</th></tr>
                             </thead>
                             <tbody>
-                                ${criticalProducts.length ? criticalProducts.map((p) => `
+                                ${
+                                    criticalProducts.length
+                                        ? criticalProducts
+                                              .map(
+                                                  p => `
                                     <tr>
                                         <td>${p.name}</td>
                                         <td>${p.part}</td>
                                         <td class="${p.qty === 0 ? 'txt-danger' : 'txt-warning'}">${p.qty}</td>
                                         <td>${p.min}</td>
                                     </tr>
-                                `).join('') : '<tr><td colspan="4" class="empty">Sem itens criticos</td></tr>'}
+                                `
+                                              )
+                                              .join('')
+                                        : '<tr><td colspan="4" class="empty">Sem itens criticos</td></tr>'
+                                }
                             </tbody>
                         </table>
                     </div>
@@ -385,18 +462,28 @@ export function renderDashboard() {
                                 <tr><th>Data</th><th>Produto</th><th>Type</th><th>Qtd</th></tr>
                             </thead>
                             <tbody>
-                                ${movements.slice(0, 8).map((movement) => {
-                                    const date = getMovementDate(movement);
-                                    const type = normalizeMovementType(movement);
-                                    const productName = movement.product_name || (dashboardSnapshot.productsById[movement.product_id]?.name || `ID ${movement.product_id}`);
-                                    return `
+                                ${
+                                    movements
+                                        .slice(0, 8)
+                                        .map(movement => {
+                                            const date = getMovementDate(movement);
+                                            const type = normalizeMovementType(movement);
+                                            const productName =
+                                                movement.product_name ||
+                                                dashboardSnapshot.productsById[movement.product_id]
+                                                    ?.name ||
+                                                `ID ${movement.product_id}`;
+                                            return `
                                     <tr>
                                         <td>${date ? date.toLocaleDateString('pt-PT') : '-'}</td>
                                         <td>${productName}</td>
                                         <td class="${type === 'IN' ? 'txt-success' : 'txt-danger'}">${type === 'IN' ? 'Entrada' : 'Saida'}</td>
                                         <td>${Math.abs(Number(movement.quantity || 0))}</td>
                                     </tr>`;
-                                }).join('') || '<tr><td colspan="4" class="empty">Sem dados no periodo</td></tr>'}
+                                        })
+                                        .join('') ||
+                                    '<tr><td colspan="4" class="empty">Sem dados no periodo</td></tr>'
+                                }
                             </tbody>
                         </table>
                     </div>
@@ -431,7 +518,9 @@ export function renderDashboard() {
                     <div class="chart-wrapper"><canvas id="chart-health"></canvas></div>
                 </div>
 
-                ${canViewPrices ? `
+                ${
+                    canViewPrices
+                        ? `
                 <div class="dash-panel chart-panel">
                     <div class="dash-panel-head">
                         <h3>Valor por Marca</h3>
@@ -439,7 +528,9 @@ export function renderDashboard() {
                     </div>
                     <div class="chart-wrapper"><canvas id="chart-maker-value"></canvas></div>
                 </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
 
             <div class="quick-actions">
@@ -455,8 +546,12 @@ export function renderDashboard() {
     setTimeout(initDashboardCharts, 60);
 }
 
-function initDashboardCharts() {
+async function initDashboardCharts() {
     if (!dashboardSnapshot) return;
+    if (!(await ensureChartJs())) {
+        console.warn('Chart.js indisponível, gráficos do dashboard não foram inicializados.');
+        return;
+    }
 
     const { topMoved, trend, health, makerValue } = dashboardSnapshot;
 
@@ -466,14 +561,20 @@ function initDashboardCharts() {
         state.chartInstances.top = new Chart(topCtx, {
             type: 'bar',
             data: {
-                labels: topMoved.map((item) => (item.name.length > 24 ? `${item.name.slice(0, 24)}...` : item.name)),
-                datasets: [{
-                    label: dashboardUiState.topMetric === 'value' ? 'Valor' : 'Quantidade',
-                    data: topMoved.map((item) => (dashboardUiState.topMetric === 'value' ? item.value : item.qty)),
-                    backgroundColor: '#ef4444',
-                    borderRadius: 4,
-                    maxBarThickness: 26
-                }]
+                labels: topMoved.map(item =>
+                    item.name.length > 24 ? `${item.name.slice(0, 24)}...` : item.name
+                ),
+                datasets: [
+                    {
+                        label: dashboardUiState.topMetric === 'value' ? 'Valor' : 'Quantidade',
+                        data: topMoved.map(item =>
+                            dashboardUiState.topMetric === 'value' ? item.value : item.qty
+                        ),
+                        backgroundColor: '#ef4444',
+                        borderRadius: 4,
+                        maxBarThickness: 26
+                    }
+                ]
             },
             options: {
                 indexAxis: 'y',
@@ -483,9 +584,10 @@ function initDashboardCharts() {
                     legend: { display: false },
                     tooltip: {
                         callbacks: {
-                            label: (ctx) => (dashboardUiState.topMetric === 'value'
-                                ? formatCurrency(Number(ctx.parsed.x || 0))
-                                : `${Number(ctx.parsed.x || 0).toLocaleString()} un`)
+                            label: ctx =>
+                                dashboardUiState.topMetric === 'value'
+                                    ? formatCurrency(Number(ctx.parsed.x || 0))
+                                    : `${Number(ctx.parsed.x || 0).toLocaleString()} un`
                         }
                     }
                 },
@@ -544,12 +646,14 @@ function initDashboardCharts() {
             type: 'doughnut',
             data: {
                 labels: ['Saudavel', 'Baixo', 'Sem Stock'],
-                datasets: [{
-                    data: [health.healthy, health.low, health.out],
-                    backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
-                    borderColor: '#ffffff',
-                    borderWidth: 2
-                }]
+                datasets: [
+                    {
+                        data: [health.healthy, health.low, health.out],
+                        backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
+                        borderColor: '#ffffff',
+                        borderWidth: 2
+                    }
+                ]
             },
             options: {
                 responsive: true,
@@ -566,13 +670,15 @@ function initDashboardCharts() {
             type: 'bar',
             data: {
                 labels: makerValue.labels,
-                datasets: [{
-                    label: 'Valor',
-                    data: makerValue.values,
-                    backgroundColor: '#0f172a',
-                    borderRadius: 4,
-                    maxBarThickness: 30
-                }]
+                datasets: [
+                    {
+                        label: 'Valor',
+                        data: makerValue.values,
+                        backgroundColor: '#0f172a',
+                        borderRadius: 4,
+                        maxBarThickness: 30
+                    }
+                ]
             },
             options: {
                 indexAxis: 'y',
@@ -582,7 +688,7 @@ function initDashboardCharts() {
                     legend: { display: false },
                     tooltip: {
                         callbacks: {
-                            label: (ctx) => formatCurrency(Number(ctx.parsed.x || 0))
+                            label: ctx => formatCurrency(Number(ctx.parsed.x || 0))
                         }
                     }
                 },

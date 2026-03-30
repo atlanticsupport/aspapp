@@ -1,7 +1,19 @@
 import { state } from './state.js';
 import { supabase } from '../supabase-client.js';
 import { showToast, showGlobalLoading, hideGlobalLoading } from './ui.js';
-import { views, modal, scannerModal, productForm, imageContainer, imageInput, viewerOverlay, viewerImg, btnAddProduct, searchInput, qsModal } from './dom.js';
+import {
+    views,
+    modal,
+    scannerModal,
+    productForm,
+    imageContainer,
+    imageInput,
+    viewerOverlay,
+    viewerImg,
+    btnAddProduct,
+    searchInput,
+    qsModal
+} from './dom.js';
 import { loadInventory, updateFilterOptions, renderProducts } from '../inventory.js';
 import { navigateTo } from '../views/views.js';
 import {
@@ -18,7 +30,7 @@ import {
 } from '../products.js';
 import { closeViewer, openViewer } from '../ag-grid-shim.js';
 import { login, logout } from '../auth.js';
-import { printPalletLabel, printBoxLabel, printSingleLabel } from '../printing.js';
+import { printPalletLabel, printBoxLabel, printLabelBatch } from '../printing.js';
 import { dialog } from '../ui/dialogs-original.js';
 import { openUserModal } from '../admin.js';
 import { openViewerGallery } from '../gallery.js';
@@ -35,7 +47,7 @@ function openImageSourcePicker() {
 
 // Global actions shim
 // Global actions shim
-window.openProductGallery = async (productId) => {
+window.openProductGallery = async productId => {
     if (!productId) return;
     try {
         const { data: products } = await supabase.rpc('secure_fetch_any', {
@@ -56,10 +68,12 @@ window.openProductGallery = async (productId) => {
             }
         });
 
-        const hasMedia = !!product?.image_url || (attachments || []).some((att) => {
-            const type = att?.file_type || att?.type;
-            return !!att?.url && (type === 'image' || type === 'video');
-        });
+        const hasMedia =
+            !!product?.image_url ||
+            (attachments || []).some(att => {
+                const type = att?.file_type || att?.type;
+                return !!att?.url && (type === 'image' || type === 'video');
+            });
 
         if (!hasMedia && product) {
             openEditModal(product);
@@ -75,7 +89,7 @@ window.openProductGallery = async (productId) => {
     }
 };
 
-window.viewGenericImage = (url) => {
+window.viewGenericImage = url => {
     if (!url) return;
     openViewerGallery([{ key: `generic:${url}`, url, category: 'generic' }]);
 };
@@ -103,16 +117,16 @@ function updateViewerFromGallery() {
         state.currentGallery.length > 1 &&
         (!!currentItem.attachmentId || !!currentItem.pendingId);
     const canDelete =
-        !!currentItem &&
-        typeof currentItem === 'object' &&
-        currentItem.category === 'product';
+        !!currentItem && typeof currentItem === 'object' && currentItem.category === 'product';
 
     const moveLeftBtn = document.getElementById('btn-move-image-left');
     const moveRightBtn = document.getElementById('btn-move-image-right');
     const deleteBtn = document.getElementById('btn-delete-image');
 
     if (moveLeftBtn) moveLeftBtn.disabled = !canReorder || state.galleryIndex === 0;
-    if (moveRightBtn) moveRightBtn.disabled = !canReorder || state.galleryIndex === state.currentGallery.length - 1;
+    if (moveRightBtn)
+        moveRightBtn.disabled =
+            !canReorder || state.galleryIndex === state.currentGallery.length - 1;
     if (deleteBtn) deleteBtn.disabled = !canDelete;
 }
 window.updateViewerFromGallery = updateViewerFromGallery;
@@ -138,11 +152,64 @@ function nextGalleryImage() {
 
 function prevGalleryImage() {
     if (!state.currentGallery) return;
-    state.galleryIndex = (state.galleryIndex - 1 + state.currentGallery.length) % state.currentGallery.length;
+    state.galleryIndex =
+        (state.galleryIndex - 1 + state.currentGallery.length) % state.currentGallery.length;
     updateViewerFromGallery();
 }
 
 let html5QrcodeScanner = null;
+const SCRIPT_CACHE = new Map();
+const HTML5_QRCODE_URL = 'https://unpkg.com/html5-qrcode';
+
+function loadExternalScript(url) {
+    if (SCRIPT_CACHE.has(url)) return SCRIPT_CACHE.get(url);
+
+    const promise = new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${url}"]`);
+        if (existing && (existing.dataset.loaded === 'true' || existing.dataset.loaded === '1')) {
+            resolve();
+            return;
+        }
+
+        const script = existing || document.createElement('script');
+        const cleanup = () => {
+            script.removeEventListener('load', onLoad);
+            script.removeEventListener('error', onError);
+        };
+        const onLoad = () => {
+            script.dataset.loaded = 'true';
+            cleanup();
+            resolve();
+        };
+        const onError = () => {
+            cleanup();
+            reject(new Error(`Falha ao carregar ${url}`));
+        };
+
+        script.addEventListener('load', onLoad);
+        script.addEventListener('error', onError);
+
+        if (!existing) {
+            script.src = url;
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+    });
+
+    SCRIPT_CACHE.set(url, promise);
+    return promise;
+}
+
+async function ensureHtml5QrcodeLib() {
+    if (typeof Html5Qrcode !== 'undefined') return true;
+    try {
+        await loadExternalScript(HTML5_QRCODE_URL);
+    } catch (error) {
+        return false;
+    }
+    return typeof Html5Qrcode !== 'undefined';
+}
 
 export function setupEventListeners() {
     setViewerActionsExpanded(false);
@@ -150,14 +217,18 @@ export function setupEventListeners() {
     // Cookie helpers for Sidebar
     const setCookie = (name, val, days = 365) => {
         const d = new Date();
-        d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+        d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
         document.cookie = `${name}=${encodeURIComponent(JSON.stringify(val))};expires=${d.toUTCString()};path=/`;
     };
-    const getCookie = (name) => {
+    const getCookie = name => {
         const v = `; ${document.cookie}`;
         const parts = v.split(`; ${name}=`);
         if (parts.length === 2) {
-            try { return JSON.parse(decodeURIComponent(parts.pop().split(';').shift())); } catch (e) { return null; }
+            try {
+                return JSON.parse(decodeURIComponent(parts.pop().split(';').shift()));
+            } catch (e) {
+                return null;
+            }
         }
         return JSON.parse(localStorage.getItem(name) || 'null'); // backward compatibility
     };
@@ -177,7 +248,7 @@ export function setupEventListeners() {
 
     // Navigation & Folder Toggle
     document.querySelectorAll('.nav-item').forEach(link => {
-        link.onclick = (e) => {
+        link.onclick = e => {
             e.preventDefault();
             navigateTo(link.dataset.page);
 
@@ -191,10 +262,10 @@ export function setupEventListeners() {
 
     // Unified Sidebar Drag & Drop Logic
     const navMenu = document.querySelector('.nav-menu');
-    const getDraggable = (el) => el.closest('.nav-item, .nav-folder');
+    const getDraggable = el => el.closest('.nav-item, .nav-folder');
 
-    const setupDraggable = (el) => {
-        el.addEventListener('dragstart', (e) => {
+    const setupDraggable = el => {
+        el.addEventListener('dragstart', e => {
             const id = el.dataset.page || el.id;
             const type = el.classList.contains('nav-item') ? 'item' : 'folder';
             e.dataTransfer.setData('text/plain', JSON.stringify({ id, type }));
@@ -204,10 +275,12 @@ export function setupEventListeners() {
 
         el.addEventListener('dragend', () => {
             el.style.opacity = '1';
-            document.querySelectorAll('.nav-item, .nav-folder').forEach(item => item.classList.remove('drag-over'));
+            document
+                .querySelectorAll('.nav-item, .nav-folder')
+                .forEach(item => item.classList.remove('drag-over'));
         });
 
-        el.addEventListener('dragover', (e) => {
+        el.addEventListener('dragover', e => {
             e.preventDefault();
             const target = getDraggable(e.target);
             if (target && target !== el) {
@@ -215,12 +288,12 @@ export function setupEventListeners() {
             }
         });
 
-        el.addEventListener('dragleave', (e) => {
+        el.addEventListener('dragleave', e => {
             const target = getDraggable(e.target);
             if (target) target.classList.remove('drag-over');
         });
 
-        el.addEventListener('drop', (e) => {
+        el.addEventListener('drop', e => {
             e.preventDefault();
             e.stopPropagation();
             const sourceData = JSON.parse(e.dataTransfer.getData('text/plain'));
@@ -230,9 +303,10 @@ export function setupEventListeners() {
 
             if (!target) return;
 
-            const sourceEl = sourceType === 'item'
-                ? document.querySelector(`.nav-item[data-page="${sourceId}"]`)
-                : document.getElementById(sourceId);
+            const sourceEl =
+                sourceType === 'item'
+                    ? document.querySelector(`.nav-item[data-page="${sourceId}"]`)
+                    : document.getElementById(sourceId);
 
             if (sourceEl && sourceEl !== target) {
                 // Reorder only if they share the same parent for stability
@@ -251,7 +325,9 @@ export function setupEventListeners() {
                     // Persist Full Sidebar Order structure
                     // We save a list of all elements in the order they appear in the DOM
                     // Folders use their ID, Items use their data-page
-                    const fullOrder = Array.from(navMenu.querySelectorAll('.nav-item, .nav-folder')).map(item => {
+                    const fullOrder = Array.from(
+                        navMenu.querySelectorAll('.nav-item, .nav-folder')
+                    ).map(item => {
                         return {
                             id: item.dataset.page || item.id,
                             type: item.classList.contains('nav-item') ? 'item' : 'folder'
@@ -278,12 +354,14 @@ export function setupEventListeners() {
             const isExpanded = savedStates[folderId];
             folder.classList.toggle('expanded', isExpanded);
             if (folderIcon) {
-                folderIcon.className = isExpanded ? 'fa-solid fa-folder-open' : 'fa-solid fa-folder';
+                folderIcon.className = isExpanded
+                    ? 'fa-solid fa-folder-open'
+                    : 'fa-solid fa-folder';
             }
         }
 
         if (header) {
-            header.onclick = (e) => {
+            header.onclick = e => {
                 e.stopPropagation();
                 const isExpanded = folder.classList.toggle('expanded');
 
@@ -296,17 +374,27 @@ export function setupEventListeners() {
 
                 // Change icon
                 if (folderIcon) {
-                    folderIcon.className = isExpanded ? 'fa-solid fa-folder-open' : 'fa-solid fa-folder';
+                    folderIcon.className = isExpanded
+                        ? 'fa-solid fa-folder-open'
+                        : 'fa-solid fa-folder';
                 }
             };
         }
     });
 
     // Modal Triggers
-    if (btnAddProduct) btnAddProduct.onclick = () => { closeModal(); openModal(); };
+    if (btnAddProduct)
+        btnAddProduct.onclick = () => {
+            closeModal();
+            openModal();
+        };
     const btnAddProductMobile = document.getElementById('btn-add-product-mobile');
-    if (btnAddProductMobile) btnAddProductMobile.onclick = () => { closeModal(); openModal(); };
-    document.querySelectorAll('.close-modal').forEach(btn => btn.onclick = closeModal);
+    if (btnAddProductMobile)
+        btnAddProductMobile.onclick = () => {
+            closeModal();
+            openModal();
+        };
+    document.querySelectorAll('.close-modal').forEach(btn => (btn.onclick = closeModal));
 
     // Header Buttons
     const btnHeaderSave = document.getElementById('btn-header-save');
@@ -323,7 +411,7 @@ export function setupEventListeners() {
 
     function openPrintChoice(type) {
         if (!printChoiceModal) return;
-        const name = (type === 'pallet') ? state.filterState.pallet : state.filterState.box;
+        const name = type === 'pallet' ? state.filterState.pallet : state.filterState.box;
         if (!name || name === 'all') {
             showToast(`Selecione uma ${type} no filtro para imprimir.`, 'info');
             return;
@@ -340,12 +428,17 @@ export function setupEventListeners() {
                     printPalletLabel(name);
                     return;
                 }
-                // Bulk: print each product label in pallet
                 const products = (state.products || []).filter(p => p.pallet === name);
-                if (!products.length) return showToast('Nenhum produto encontrado nesta palete.', 'info');
-                products.forEach((prod, idx) => {
-                    setTimeout(() => printSingleLabel(prod), idx * 600);
-                });
+                if (!products.length)
+                    return showToast('Nenhum produto encontrado nesta palete.', 'info');
+                printLabelBatch(
+                    products.map(prod => ({
+                        title: prod.name,
+                        subtitle: `${prod.brand || ''} | ${prod.part_number || ''}`,
+                        barcodeValue: prod.id,
+                        type: 'item'
+                    }))
+                );
                 return;
             } else {
                 if (!bulk) {
@@ -353,16 +446,28 @@ export function setupEventListeners() {
                     return;
                 }
                 const products = (state.products || []).filter(p => p.box === name);
-                if (!products.length) return showToast('Nenhum produto encontrado nesta caixa.', 'info');
-                products.forEach((prod, idx) => {
-                    setTimeout(() => printSingleLabel(prod), idx * 600);
-                });
+                if (!products.length)
+                    return showToast('Nenhum produto encontrado nesta caixa.', 'info');
+                printLabelBatch(
+                    products.map(prod => ({
+                        title: prod.name,
+                        subtitle: `${prod.brand || ''} | ${prod.part_number || ''}`,
+                        barcodeValue: prod.id,
+                        type: 'item'
+                    }))
+                );
                 return;
             }
         };
 
-        const onConfirm = () => { doPrint(); cleanup(); };
-        const onCancel = () => { printChoiceModal.classList.remove('open'); cleanup(); };
+        const onConfirm = () => {
+            doPrint();
+            cleanup();
+        };
+        const onCancel = () => {
+            printChoiceModal.classList.remove('open');
+            cleanup();
+        };
         const cleanup = () => {
             printChoiceConfirm.removeEventListener('click', onConfirm);
             printChoiceCancel.removeEventListener('click', onCancel);
@@ -375,13 +480,21 @@ export function setupEventListeners() {
     }
 
     const btnPrintPallet = document.getElementById('btn-print-pallet');
-    if (btnPrintPallet) btnPrintPallet.onclick = (e) => { e.stopPropagation(); openPrintChoice('pallet'); };
+    if (btnPrintPallet)
+        btnPrintPallet.onclick = e => {
+            e.stopPropagation();
+            openPrintChoice('pallet');
+        };
 
     const btnPrintBox = document.getElementById('btn-print-box');
-    if (btnPrintBox) btnPrintBox.onclick = (e) => { e.stopPropagation(); openPrintChoice('box'); };
+    if (btnPrintBox)
+        btnPrintBox.onclick = e => {
+            e.stopPropagation();
+            openPrintChoice('box');
+        };
 
     // Column Settings
-    document.addEventListener('change', (e) => {
+    document.addEventListener('change', e => {
         if (e.target && e.target.dataset && e.target.dataset.col) {
             state.columnSettings[e.target.dataset.col] = e.target.checked;
             localStorage.setItem('columnSettings', JSON.stringify(state.columnSettings));
@@ -407,7 +520,7 @@ export function setupEventListeners() {
     ];
     modals.forEach(m => {
         if (m) {
-            m.addEventListener('click', (e) => {
+            m.addEventListener('click', e => {
                 if (e.target === m) {
                     m.classList.remove('open');
                     if (m === modal) closeModal();
@@ -428,10 +541,11 @@ export function setupEventListeners() {
     });
 
     const closeScannerBtn = document.getElementById('close-scanner');
-    if (closeScannerBtn) closeScannerBtn.onclick = () => {
-        scannerModal.classList.remove('open');
-        stopScanner();
-    };
+    if (closeScannerBtn)
+        closeScannerBtn.onclick = () => {
+            scannerModal.classList.remove('open');
+            stopScanner();
+        };
 
     // Logout
     const btnLogout = document.getElementById('btn-logout');
@@ -439,7 +553,7 @@ export function setupEventListeners() {
 
     // Search
     if (searchInput) {
-        searchInput.oninput = async (e) => {
+        searchInput.oninput = async e => {
             state.currentFilter = e.target.value.trim();
             state.inventoryPage = 0;
 
@@ -449,7 +563,7 @@ export function setupEventListeners() {
             }
         };
         // Keep Enter for navigation if not on inventory
-        searchInput.onkeydown = (e) => {
+        searchInput.onkeydown = e => {
             if (e.key === 'Enter') {
                 const currentPage = document.querySelector('.nav-item.active')?.dataset.page;
                 if (currentPage !== 'inventory') navigateTo('inventory');
@@ -458,44 +572,68 @@ export function setupEventListeners() {
     }
 
     // Form Submit
-    if (productForm) productForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        await saveProduct();
-    });
+    if (productForm)
+        productForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            await saveProduct();
+        });
 
     // Login Handler
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
+        loginForm.addEventListener('submit', async e => {
             e.preventDefault();
             const user = document.getElementById('login-username').value;
             const pass = document.getElementById('login-password').value;
             const btn = loginForm.querySelector('button[type="submit"]');
 
             try {
-                if (btn) { btn.disabled = true; btn.textContent = 'A entrar...'; }
+                if (btn) {
+                    btn.disabled = true;
+                    btn.textContent = 'A entrar...';
+                }
                 await login(user, pass);
             } catch (err) {
                 console.error(err);
                 showToast('Erro ao tentar entrar.', 'error');
             } finally {
-                if (btn) { btn.disabled = false; btn.textContent = 'Entrar no Sistema'; }
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Entrar no Sistema';
+                }
             }
         });
     }
 
     // Image Handlers
     // Image Handlers
-    if (imageContainer) imageContainer.addEventListener('click', () => {
-        const hasExtraImages = document.querySelectorAll('#product-gallery-list img, #transit-attachments-list img, #product-gallery-list video, #transit-attachments-list video').length > 0;
+    if (imageContainer)
+        imageContainer.addEventListener('click', () => {
+            const hasExtraImages =
+                (state.loadedAttachments || []).some(att => {
+                    const type = att?.file_type || att?.type;
+                    return (
+                        !!att?.url &&
+                        (att?.category || 'product') === 'product' &&
+                        (type === 'image' || type === 'video')
+                    );
+                }) ||
+                (state.pendingAttachments || []).some(att => {
+                    const type = att?.file_type || att?.type;
+                    return (
+                        !!att?.url &&
+                        (att?.category || 'product') === 'product' &&
+                        (type === 'image' || type === 'video')
+                    );
+                });
 
-        if (!state.currentImageUrl && !hasExtraImages) {
-            // Open Source Picker
-            openImageSourcePicker();
-            return;
-        }
-        openCurrentProductGallery();
-    });
+            if (!state.currentImageUrl && !hasExtraImages) {
+                // Open Source Picker
+                openImageSourcePicker();
+                return;
+            }
+            openCurrentProductGallery();
+        });
 
     // Image Source Modal Handlers (CORRECTED)
     const sourceMo = document.getElementById('image-source-modal');
@@ -554,39 +692,50 @@ export function setupEventListeners() {
         const closeBtn = sourceMo.querySelector('.close-source-modal');
         if (closeBtn) closeBtn.onclick = () => sourceMo.classList.remove('open');
 
-        sourceMo.addEventListener('click', (e) => {
+        sourceMo.addEventListener('click', e => {
             if (e.target === sourceMo) sourceMo.classList.remove('open');
         });
     }
 
     const btnCloseViewer = document.getElementById('btn-close-viewer-x');
-    if (btnCloseViewer) btnCloseViewer.onclick = () => {
-        setViewerActionsExpanded(false);
-        closeViewer();
-    };
-
-    const btnCloseViewerTop = document.getElementById('btn-close-viewer-top');
-    if (btnCloseViewerTop) btnCloseViewerTop.onclick = () => {
-        setViewerActionsExpanded(false);
-        closeViewer();
-    };
-
-    if (viewerOverlay) viewerOverlay.addEventListener('click', (e) => {
-        if (e.target === viewerOverlay) {
+    if (btnCloseViewer)
+        btnCloseViewer.onclick = () => {
             setViewerActionsExpanded(false);
             closeViewer();
-        }
-    });
+        };
+
+    const btnCloseViewerTop = document.getElementById('btn-close-viewer-top');
+    if (btnCloseViewerTop)
+        btnCloseViewerTop.onclick = () => {
+            setViewerActionsExpanded(false);
+            closeViewer();
+        };
+
+    if (viewerOverlay)
+        viewerOverlay.addEventListener('click', e => {
+            if (e.target === viewerOverlay) {
+                setViewerActionsExpanded(false);
+                closeViewer();
+            }
+        });
 
     // Carousel Nav
     const btnPrev = document.getElementById('viewer-prev');
     const btnNext = document.getElementById('viewer-next');
-    if (btnPrev) btnPrev.onclick = (e) => { e.stopPropagation(); prevGalleryImage(); };
-    if (btnNext) btnNext.onclick = (e) => { e.stopPropagation(); nextGalleryImage(); };
+    if (btnPrev)
+        btnPrev.onclick = e => {
+            e.stopPropagation();
+            prevGalleryImage();
+        };
+    if (btnNext)
+        btnNext.onclick = e => {
+            e.stopPropagation();
+            nextGalleryImage();
+        };
 
     const btnToggleViewerActions = document.getElementById('btn-toggle-viewer-actions');
     if (btnToggleViewerActions) {
-        btnToggleViewerActions.onclick = (e) => {
+        btnToggleViewerActions.onclick = e => {
             e.stopPropagation();
             const actions = document.getElementById('viewer-actions-minimal');
             const isCollapsed = actions?.classList.contains('collapsed');
@@ -596,7 +745,7 @@ export function setupEventListeners() {
 
     const btnMoveImageLeft = document.getElementById('btn-move-image-left');
     if (btnMoveImageLeft) {
-        btnMoveImageLeft.onclick = async (e) => {
+        btnMoveImageLeft.onclick = async e => {
             e.stopPropagation();
             const currentItem = state.currentGallery?.[state.galleryIndex];
             if (!currentItem || typeof currentItem !== 'object') return;
@@ -606,7 +755,7 @@ export function setupEventListeners() {
 
     const btnMoveImageRight = document.getElementById('btn-move-image-right');
     if (btnMoveImageRight) {
-        btnMoveImageRight.onclick = async (e) => {
+        btnMoveImageRight.onclick = async e => {
             e.stopPropagation();
             const currentItem = state.currentGallery?.[state.galleryIndex];
             if (!currentItem || typeof currentItem !== 'object') return;
@@ -615,7 +764,7 @@ export function setupEventListeners() {
     }
 
     // Keyboard Nav for viewer
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', e => {
         if (!viewerOverlay.classList.contains('open')) return;
         if (e.key === 'ArrowRight') nextGalleryImage();
         if (e.key === 'ArrowLeft') prevGalleryImage();
@@ -625,41 +774,44 @@ export function setupEventListeners() {
         }
     });
 
-    if (imageInput) imageInput.addEventListener('change', (e) => {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
+    if (imageInput)
+        imageInput.addEventListener('change', e => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
 
-        const category = state.currentTransitId ? 'reception' : 'product';
+            const category = state.currentTransitId ? 'reception' : 'product';
 
-        if (state.imageTarget === 'gallery') {
-            if (window.handleAttachmentSelectionFiles) {
-                window.handleAttachmentSelectionFiles(files, category);
+            if (state.imageTarget === 'gallery') {
+                if (window.handleAttachmentSelectionFiles) {
+                    window.handleAttachmentSelectionFiles(files, category);
+                }
+            } else {
+                if (window.handleAttachmentSelectionFiles) {
+                    window.handleAttachmentSelectionFiles(files, category, {
+                        promoteFirstImage: true
+                    });
+                }
             }
-        } else {
-            if (window.handleAttachmentSelectionFiles) {
-                window.handleAttachmentSelectionFiles(files, category, {
-                    promoteFirstImage: true
-                });
-            }
-        }
 
-        e.target.value = '';
-        state.imageTarget = null;
-    });
+            e.target.value = '';
+            state.imageTarget = null;
+        });
 
     // Viewer Buttons
     const btnChangeImg = document.getElementById('btn-change-image');
-    if (btnChangeImg) btnChangeImg.onclick = () => {
-        state.imageTarget = 'gallery';
-        imageInput.click();
-    };
+    if (btnChangeImg)
+        btnChangeImg.onclick = () => {
+            state.imageTarget = 'gallery';
+            imageInput.click();
+        };
 
     const btnTakePh = document.getElementById('btn-take-photo');
-    if (btnTakePh) btnTakePh.onclick = () => {
-        state.imageTarget = 'gallery';
-        const cam = document.getElementById('prod-camera-input');
-        if (cam) cam.click();
-    };
+    if (btnTakePh)
+        btnTakePh.onclick = () => {
+            state.imageTarget = 'gallery';
+            const cam = document.getElementById('prod-camera-input');
+            if (cam) cam.click();
+        };
 
     const btnDelImg = document.getElementById('btn-delete-image');
     if (btnDelImg) {
@@ -671,7 +823,7 @@ export function setupEventListeners() {
     // Camera Logic
     const camInput = document.getElementById('prod-camera-input');
     if (camInput) {
-        camInput.onchange = async (e) => {
+        camInput.onchange = async e => {
             const file = e.target.files[0];
             if (!file) return;
 
@@ -695,7 +847,10 @@ export function setupEventListeners() {
 
     const btnTakePhoto = document.getElementById('btn-take-photo');
     if (btnTakePhoto && camInput) {
-        btnTakePhoto.onclick = () => { closeViewer(); camInput.click(); };
+        btnTakePhoto.onclick = () => {
+            closeViewer();
+            camInput.click();
+        };
     }
 
     // Excel Actions
@@ -705,8 +860,19 @@ export function setupEventListeners() {
             const choice = await dialog.choice({
                 title: 'Ações de Excel',
                 choices: [
-                    { value: 'export', label: '<i class="fa-solid fa-file-export"></i> Exportar Inventário', bg: 'var(--primary-color)', color: 'white' },
-                    { value: 'import', label: '<i class="fa-solid fa-file-import"></i> Importar de Ficheiro', bg: 'white', color: 'var(--primary-color)', border: 'var(--primary-color)' }
+                    {
+                        value: 'export',
+                        label: '<i class="fa-solid fa-file-export"></i> Exportar Inventário',
+                        bg: 'var(--primary-color)',
+                        color: 'white'
+                    },
+                    {
+                        value: 'import',
+                        label: '<i class="fa-solid fa-file-import"></i> Importar de Ficheiro',
+                        bg: 'white',
+                        color: 'var(--primary-color)',
+                        border: 'var(--primary-color)'
+                    }
                 ]
             });
             if (choice === 'export') exportToExcel();
@@ -716,7 +882,7 @@ export function setupEventListeners() {
 
     // Filter Logic
     document.querySelectorAll('.filter-group').forEach(group => {
-        group.onclick = (e) => {
+        group.onclick = e => {
             e.stopPropagation();
             const dropdown = group.querySelector('.filter-dropdown');
             document.querySelectorAll('.filter-dropdown').forEach(d => {
@@ -727,7 +893,13 @@ export function setupEventListeners() {
             if (isOpen) {
                 // ... focus logic ...
                 const inp = dropdown.querySelector('input');
-                if (inp) { inp.value = ''; inp.focus(); dropdown.querySelectorAll('.dropdown-item').forEach(i => i.style.display = 'flex'); }
+                if (inp) {
+                    inp.value = '';
+                    inp.focus();
+                    dropdown
+                        .querySelectorAll('.dropdown-item')
+                        .forEach(i => (i.style.display = 'flex'));
+                }
             }
         };
     });
@@ -735,7 +907,7 @@ export function setupEventListeners() {
     // Internal Search for Dropdowns
     document.querySelectorAll('.dropdown-search input').forEach(input => {
         input.addEventListener('click', e => e.stopPropagation());
-        input.addEventListener('input', (e) => {
+        input.addEventListener('input', e => {
             const term = e.target.value.toLowerCase();
             const items = e.target.closest('.filter-dropdown').querySelectorAll('.dropdown-item');
             items.forEach(item => {
@@ -774,8 +946,12 @@ export function setupEventListeners() {
                 }
             });
 
-            document.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('selected'));
-            document.querySelectorAll('[data-value="all"]').forEach(i => i.classList.add('selected'));
+            document
+                .querySelectorAll('.dropdown-item')
+                .forEach(i => i.classList.remove('selected'));
+            document
+                .querySelectorAll('[data-value="all"]')
+                .forEach(i => i.classList.add('selected'));
 
             const btnPrintPallet = document.getElementById('btn-print-pallet');
             if (btnPrintPallet) btnPrintPallet.style.display = 'none';
@@ -798,10 +974,15 @@ export function setupEventListeners() {
 }
 
 function setupDragToScroll() {
-    const containers = ['.table-wrapper', '.folder-items', '.inventory-container', '.pdf-preview-container'];
+    const containers = [
+        '.table-wrapper',
+        '.folder-items',
+        '.inventory-container',
+        '.pdf-preview-container'
+    ];
 
     // Using delegation because some tables are rendered dynamically later
-    document.addEventListener('mousedown', (e) => {
+    document.addEventListener('mousedown', e => {
         const container = e.target.closest(containers.join(','));
         if (!container) return;
 
@@ -812,7 +993,7 @@ function setupDragToScroll() {
         const startX = e.pageX - container.offsetLeft;
         const scrollLeft = container.scrollLeft;
 
-        const onMouseMove = (ev) => {
+        const onMouseMove = ev => {
             if (!isDown) return;
             ev.preventDefault();
             const x = ev.pageX - container.offsetLeft;
@@ -834,10 +1015,14 @@ function setupDragToScroll() {
 }
 
 // Scanner Functions
-function startScanner() {
+async function startScanner() {
     scannerModal.classList.add('open');
     if (html5QrcodeScanner) return;
     try {
+        if (!(await ensureHtml5QrcodeLib())) {
+            throw new Error('Biblioteca de scanner indisponível.');
+        }
+
         const html5QrCode = new Html5Qrcode('reader');
         html5QrcodeScanner = html5QrCode;
 
@@ -845,37 +1030,44 @@ function startScanner() {
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
         // Prefer enumerating cameras for better mobile compatibility
-        Html5Qrcode.getCameras().then(cameras => {
-            if (cameras && cameras.length) {
-                // prefer back/rear/environment camera when available
-                const preferred = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
-                const cameraId = preferred.id || preferred.deviceId || preferred.label;
-                html5QrCode.start(cameraId, config, onScanSuccess).catch(err => {
-                    console.error('Error starting scanner with cameraId', err);
-                    // fallback to facingMode config
-                    html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess).catch(err2 => {
-                        console.error('Fallback start failed', err2);
+        Html5Qrcode.getCameras()
+            .then(cameras => {
+                if (cameras && cameras.length) {
+                    // prefer back/rear/environment camera when available
+                    const preferred =
+                        cameras.find(c => /back|rear|environment/i.test(c.label)) ||
+                        cameras[cameras.length - 1];
+                    const cameraId = preferred.id || preferred.deviceId || preferred.label;
+                    html5QrCode.start(cameraId, config, onScanSuccess).catch(err => {
+                        console.error('Error starting scanner with cameraId', err);
+                        // fallback to facingMode config
+                        html5QrCode
+                            .start({ facingMode: 'environment' }, config, onScanSuccess)
+                            .catch(err2 => {
+                                console.error('Fallback start failed', err2);
+                                showToast('Erro ao iniciar câmara: ' + err2, 'error');
+                                scannerModal.classList.remove('open');
+                                html5QrcodeScanner = null;
+                            });
+                    });
+                } else {
+                    showToast('Nenhuma câmara encontrada.', 'error');
+                    scannerModal.classList.remove('open');
+                    html5QrcodeScanner = null;
+                }
+            })
+            .catch(err => {
+                // getCameras may be blocked by permissions; try direct start with facingMode
+                console.warn('getCameras failed', err);
+                html5QrCode
+                    .start({ facingMode: 'environment' }, config, onScanSuccess)
+                    .catch(err2 => {
+                        console.error('Error starting scanner', err2);
                         showToast('Erro ao iniciar câmara: ' + err2, 'error');
                         scannerModal.classList.remove('open');
                         html5QrcodeScanner = null;
                     });
-                });
-            } else {
-                showToast('Nenhuma câmara encontrada.', 'error');
-                scannerModal.classList.remove('open');
-                html5QrcodeScanner = null;
-            }
-        }).catch(err => {
-            // getCameras may be blocked by permissions; try direct start with facingMode
-            console.warn('getCameras failed', err);
-            html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess)
-                .catch(err2 => {
-                    console.error('Error starting scanner', err2);
-                    showToast('Erro ao iniciar câmara: ' + err2, 'error');
-                    scannerModal.classList.remove('open');
-                    html5QrcodeScanner = null;
-                });
-        });
+            });
     } catch (e) {
         console.error('Scanner Lib Error', e);
         showToast('Erro biblioteca scanner.', 'error');
@@ -886,10 +1078,13 @@ function startScanner() {
 
 function stopScanner() {
     if (html5QrcodeScanner) {
-        html5QrcodeScanner.stop().then(() => {
-            html5QrcodeScanner.clear();
-            html5QrcodeScanner = null;
-        }).catch(err => console.error(err));
+        html5QrcodeScanner
+            .stop()
+            .then(() => {
+                html5QrcodeScanner.clear();
+                html5QrcodeScanner = null;
+            })
+            .catch(err => console.error(err));
     }
 }
 
@@ -946,7 +1141,11 @@ async function onScanSuccess(decodedText) {
     }
 
     // 2. Product Check
-    let match = state.products.find(p => String(p.id) === cleanText || (p.part_number && p.part_number.toLowerCase() === cleanText.toLowerCase()));
+    let match = state.products.find(
+        p =>
+            String(p.id) === cleanText ||
+            (p.part_number && p.part_number.toLowerCase() === cleanText.toLowerCase())
+    );
 
     if (!match) {
         // Try DB lookup by ID
@@ -956,7 +1155,9 @@ async function onScanSuccess(decodedText) {
         }
         // Try DB lookup by PN
         if (!match) {
-            const { data } = await secureFetch('products', { eq: { part_number: cleanText.toUpperCase() } });
+            const { data } = await secureFetch('products', {
+                eq: { part_number: cleanText.toUpperCase() }
+            });
             if (data && data.length > 0) match = data[0];
         }
     }
@@ -995,16 +1196,38 @@ async function exportToExcel() {
         // Collect translation mapping and keys
         const colMap = state.columnSettings || {};
         const labels = {
-            photo: 'Foto', part_number: 'Part-Number', name: 'Descrição', location: 'Nave', box: 'Caixa', pallet: 'Palete',
-            category: 'Modelo', sales_process: 'Processo', cost_price: 'Preço Custo', quantity: 'Quantidade', status: 'Estado',
-            id: 'ID', created_at: 'Criado Em', brand: 'Marca', min_quantity: 'Stock Mínimo', description: 'Comentários', maker: 'Fornecedor',
-            equipment: 'Equipamento', updated_at: 'Atualizado Em', order_to: 'Encomendado A', order_date: 'Data Encomenda',
-            ship_plant: 'Ship Plant', delivery_time: 'Tempo Entrega', local_price: 'Preço Local', author: 'Autor'
+            photo: 'Foto',
+            part_number: 'Part-Number',
+            name: 'Descrição',
+            location: 'Nave',
+            box: 'Caixa',
+            pallet: 'Palete',
+            category: 'Modelo',
+            sales_process: 'Processo',
+            cost_price: 'Preço Custo',
+            quantity: 'Quantidade',
+            status: 'Estado',
+            id: 'ID',
+            created_at: 'Criado Em',
+            brand: 'Marca',
+            min_quantity: 'Stock Mínimo',
+            description: 'Comentários',
+            maker: 'Fornecedor',
+            equipment: 'Equipamento',
+            updated_at: 'Atualizado Em',
+            order_to: 'Encomendado A',
+            order_date: 'Data Encomenda',
+            ship_plant: 'Ship Plant',
+            delivery_time: 'Tempo Entrega',
+            local_price: 'Preço Local',
+            author: 'Autor'
         };
 
         const allKeys = new Set();
         state.products.forEach(p => Object.keys(p).forEach(k => allKeys.add(k)));
-        const headers = Array.from(allKeys).filter(k => k !== 'attachments' && k !== 'is_deleted' && k !== 'image_url');
+        const headers = Array.from(allKeys).filter(
+            k => k !== 'attachments' && k !== 'is_deleted' && k !== 'image_url'
+        );
 
         worksheet.columns = headers.map(h => ({
             header: (labels[h] || h).toUpperCase(),
@@ -1014,11 +1237,16 @@ async function exportToExcel() {
 
         // Style Header Row
         const headerRow = worksheet.getRow(1);
-        headerRow.eachCell((cell) => {
+        headerRow.eachCell(cell => {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } };
             cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, family: 2, size: 11 };
             cell.alignment = { vertical: 'middle', horizontal: 'center' };
-            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
         });
 
         // Add Data
@@ -1027,13 +1255,14 @@ async function exportToExcel() {
             headers.forEach(h => {
                 let val = p[h];
                 if (val === null || val === undefined) val = '';
-                if (h === 'cost_price' || h === 'quantity' || h === 'min_quantity') val = Number(val) || 0;
+                if (h === 'cost_price' || h === 'quantity' || h === 'min_quantity')
+                    val = Number(val) || 0;
                 rowData[h] = val;
             });
             const row = worksheet.addRow(rowData);
 
             const isEven = index % 2 === 0;
-            row.eachCell((cell) => {
+            row.eachCell(cell => {
                 cell.border = {
                     top: { style: 'thin', color: { argb: 'FFEEEEEE' } },
                     bottom: { style: 'thin', color: { argb: 'FFEEEEEE' } },
@@ -1041,16 +1270,25 @@ async function exportToExcel() {
                     right: { style: 'thin', color: { argb: 'FFEEEEEE' } }
                 };
                 if (!isEven) {
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } }; // Light gray
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFF9FAFB' }
+                    }; // Light gray
                 }
-                cell.alignment = { vertical: 'middle', horizontal: typeof cell.value === 'number' ? 'right' : 'left' };
+                cell.alignment = {
+                    vertical: 'middle',
+                    horizontal: typeof cell.value === 'number' ? 'right' : 'left'
+                };
             });
         });
 
         worksheet.autoFilter = { from: 'A1', to: { row: 1, column: headers.length } };
 
         const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const blob = new Blob([buffer], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -1070,10 +1308,11 @@ async function exportToExcel() {
 let currentQuickProduct = null;
 function setupQuickScanEvents() {
     const qsClose = document.getElementById('close-quick-scan');
-    if (qsClose) qsClose.onclick = () => {
-        if (qsModal) qsModal.classList.remove('open');
-        currentQuickProduct = null;
-    };
+    if (qsClose)
+        qsClose.onclick = () => {
+            if (qsModal) qsModal.classList.remove('open');
+            currentQuickProduct = null;
+        };
 
     const btnSaveLoc = document.getElementById('qs-btn-save-loc');
     if (btnSaveLoc) {
@@ -1082,7 +1321,10 @@ function setupQuickScanEvents() {
             const newLoc = document.getElementById('qs-location').value;
             if (newLoc === currentQuickProduct.location) return;
 
-            const { error } = await supabase.from('products').update({ location: newLoc }).eq('id', currentQuickProduct.id);
+            const { error } = await supabase
+                .from('products')
+                .update({ location: newLoc })
+                .eq('id', currentQuickProduct.id);
             if (!error) {
                 currentQuickProduct.location = newLoc;
                 showToast('Localização guardada!', 'success');
@@ -1106,10 +1348,18 @@ function setupQuickScanEvents() {
             try {
                 // Using window.updateStock to leverage existing logic
                 if (window.updateStock) {
-                    await window.updateStock(currentQuickProduct.id, delta, price ? parseFloat(price) : null, supplier);
-                    document.getElementById('qs-qty-display').textContent = currentQuickProduct.quantity; // Update display
+                    await window.updateStock(
+                        currentQuickProduct.id,
+                        delta,
+                        price ? parseFloat(price) : null,
+                        supplier
+                    );
+                    document.getElementById('qs-qty-display').textContent =
+                        currentQuickProduct.quantity; // Update display
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            }
         };
     });
 }
@@ -1125,12 +1375,15 @@ function setupAutocomplete() {
     const box = document.getElementById('part-number-suggestions');
     if (!input || !box) return;
 
-    input.addEventListener('input', (e) => {
+    input.addEventListener('input', e => {
         const val = e.target.value.toLowerCase();
-        box.innerHTML = ''; box.classList.remove('active');
+        box.innerHTML = '';
+        box.classList.remove('active');
         if (val.length < 1) return;
 
-        const matches = state.products.filter(p => p.part_number && p.part_number.toLowerCase().includes(val)).slice(0, 5);
+        const matches = state.products
+            .filter(p => p.part_number && p.part_number.toLowerCase().includes(val))
+            .slice(0, 5);
         if (matches.length > 0) {
             box.classList.add('active');
             matches.forEach(m => {
@@ -1139,14 +1392,15 @@ function setupAutocomplete() {
                 div.innerHTML = `<span class="suggestion-code">${m.part_number}</span> <span>${m.name}</span>`;
                 div.onclick = () => {
                     openEditModal(m);
-                    box.innerHTML = ''; box.classList.remove('active');
+                    box.innerHTML = '';
+                    box.classList.remove('active');
                 };
                 box.appendChild(div);
             });
         }
     });
 
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', e => {
         if (!input.contains(e.target) && !box.contains(e.target)) box.classList.remove('active');
     });
 }
@@ -1167,11 +1421,15 @@ function setupGenericAutocomplete(inputId, boxId, key) {
             return;
         }
 
-        box.innerHTML = filtered.map(v => `
+        box.innerHTML = filtered
+            .map(
+                v => `
         <div class="suggestion-item">
             <span class="suggestion-name">${v}</span>
         </div>
-        `).join('');
+        `
+            )
+            .join('');
         box.classList.add('active');
 
         box.querySelectorAll('.suggestion-item').forEach(item => {
@@ -1182,7 +1440,7 @@ function setupGenericAutocomplete(inputId, boxId, key) {
         });
     });
 
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', e => {
         if (!input.contains(e.target) && !box.contains(e.target)) {
             box.classList.remove('active');
         }
@@ -1194,7 +1452,7 @@ async function importFromExcel() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.xlsx'; // .xls causes "central directory" error in ExcelJS
-    input.onchange = async (e) => {
+    input.onchange = async e => {
         const file = e.target.files[0];
         if (!file) return;
 
@@ -1203,10 +1461,12 @@ async function importFromExcel() {
 
             // Quick check for Zip Format (PK header) to avoid Central Directory error in ExcelJS
             const reader = new FileReader();
-            reader.onload = async (event) => {
+            reader.onload = async event => {
                 const fullBuffer = event.target.result;
                 const arr = new Uint8Array(fullBuffer).subarray(0, 8);
-                const headerMagic = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+                const headerMagic = Array.from(arr)
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('');
 
                 let password = null;
                 if (headerMagic.startsWith('d0cf11e0')) {
@@ -1214,18 +1474,28 @@ async function importFromExcel() {
                     try {
                         dialogModule = await import('../dialogs.js');
                     } catch (impErr) {
-                        console.warn('Falha ao importar dialogs.js dinamicamente, a usar fallback prompt. Erro:', impErr);
+                        console.warn(
+                            'Falha ao importar dialogs.js dinamicamente, a usar fallback prompt. Erro:',
+                            impErr
+                        );
                     }
 
                     // Resolve dialog object (module may re-export)
-                    const dialog = (dialogModule && (dialogModule.dialog || dialogModule.default || dialogModule)) || {
+                    const dialog = (dialogModule &&
+                        (dialogModule.dialog || dialogModule.default || dialogModule)) || {
                         // Fallback lightweight dialog that uses window.prompt
-                        prompt: (opts) => Promise.resolve(window.prompt(typeof opts === 'string' ? opts : (opts.message || opts)))
+                        prompt: opts =>
+                            Promise.resolve(
+                                window.prompt(
+                                    typeof opts === 'string' ? opts : opts.message || opts
+                                )
+                            )
                     };
 
                     password = await dialog.prompt({
                         title: 'Ficheiro Protegido',
-                        message: 'Este ficheiro parece estar encriptado ou protegido por password. Introduza a password para tentar abrir:',
+                        message:
+                            'Este ficheiro parece estar encriptado ou protegido por password. Introduza a password para tentar abrir:',
                         placeholder: 'Password do Excel...',
                         inputType: 'password'
                     });
@@ -1233,7 +1503,10 @@ async function importFromExcel() {
                 }
 
                 if (!headerMagic.startsWith('504b0304') && !password) {
-                    showToast('Ficheiro inválido. Certifique-se que é um Excel (.xlsx) não protegido.', 'error');
+                    showToast(
+                        'Ficheiro inválido. Certifique-se que é um Excel (.xlsx) não protegido.',
+                        'error'
+                    );
                     return;
                 }
 
@@ -1242,14 +1515,18 @@ async function importFromExcel() {
 
                     // The @zurmokeeper fork strictly requires a Node-style Buffer for encrypted OLE2 files.
                     // We use the buffer polyfill to wrap the ArrayBuffer.
-                    const { Buffer } = await import('https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm');
+                    const { Buffer } =
+                        await import('https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm');
                     const workbookBuffer = Buffer.from(fullBuffer);
 
                     await workbook.xlsx.load(workbookBuffer, { password });
 
                     let sheet = workbook.worksheets[0];
                     if (workbook.worksheets.length > 1) {
-                        const sheetChoices = workbook.worksheets.map((s, idx) => ({ value: idx, label: s.name }));
+                        const sheetChoices = workbook.worksheets.map((s, idx) => ({
+                            value: idx,
+                            label: s.name
+                        }));
                         const chosenIdx = await dialog.choice({
                             title: 'Selecione a Tab (Folha)',
                             choices: sheetChoices
@@ -1259,7 +1536,10 @@ async function importFromExcel() {
                     }
 
                     const headerRow = sheet.getRow(1);
-                    if (!headerRow || !headerRow.values.length) throw new Error('Ficheiro parece estar vazio ou sem cabeçalhos na linha 1.');
+                    if (!headerRow || !headerRow.values.length)
+                        throw new Error(
+                            'Ficheiro parece estar vazio ou sem cabeçalhos na linha 1.'
+                        );
 
                     const excelColumns = [];
                     headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
@@ -1273,7 +1553,6 @@ async function importFromExcel() {
                 }
             };
             reader.readAsArrayBuffer(file);
-
         } catch (err) {
             console.error('Import Error:', err);
             showToast('Erro ao ler Excel: ' + err.message, 'error');
@@ -1303,27 +1582,51 @@ async function showMappingModal(sheet, excelColumns, file) {
         { key: 'order_to', label: 'Fornecedor', required: false }
     ];
 
-    mappingList.innerHTML = appFields.map(f => `
+    mappingList.innerHTML = appFields
+        .map(
+            f => `
         <div class="mapping-row" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:center; padding:8px; border-bottom:1px solid #f1f5f9;">
             <label style="font-size:0.85rem; font-weight:600;">${f.label}</label>
             <select class="mapping-select" data-app-key="${f.key}" data-required="${f.required}" style="padding:6px; border-radius:6px; border:1px solid #e2e8f0; font-size:0.85rem;">
                 <option value="">(Ignorar)</option>
-                ${excelColumns.map(ec => {
-        // Smart suggest mapping
-        const lowerLabel = f.label.toLowerCase();
-        const lowerEc = ec.name.toLowerCase();
-        const matches = lowerEc.includes(lowerLabel) || lowerLabel.includes(lowerEc) ||
-            (f.key === 'part_number' && (lowerEc.includes('ref') || lowerEc.includes('pn') || lowerEc.includes('codigo') || lowerEc.includes('código'))) ||
-            (f.key === 'name' && (lowerEc.includes('design') || lowerEc.includes('nome') || lowerEc.includes('descrição') || lowerEc.includes('descricao'))) ||
-            (f.key === 'quantity' && (lowerEc === 'qty' || lowerEc === 'qtd')) ||
-            (f.key === 'cost_price' && (lowerEc === 'uni' || lowerEc === 'unit' || lowerEc === 'preco' || lowerEc === 'preço')) ||
-            (f.key === 'description' && (lowerEc.includes('informações') || lowerEc.includes('info') || lowerEc.includes('coment'))) ||
-            (f.key === 'category' && (lowerEc.includes('modelo') || lowerEc.includes('type')));
-        return `<option value="${ec.index}" ${matches ? 'selected' : ''}>${ec.name}</option>`;
-    }).join('')}
+                ${excelColumns
+                    .map(ec => {
+                        // Smart suggest mapping
+                        const lowerLabel = f.label.toLowerCase();
+                        const lowerEc = ec.name.toLowerCase();
+                        const matches =
+                            lowerEc.includes(lowerLabel) ||
+                            lowerLabel.includes(lowerEc) ||
+                            (f.key === 'part_number' &&
+                                (lowerEc.includes('ref') ||
+                                    lowerEc.includes('pn') ||
+                                    lowerEc.includes('codigo') ||
+                                    lowerEc.includes('código'))) ||
+                            (f.key === 'name' &&
+                                (lowerEc.includes('design') ||
+                                    lowerEc.includes('nome') ||
+                                    lowerEc.includes('descrição') ||
+                                    lowerEc.includes('descricao'))) ||
+                            (f.key === 'quantity' && (lowerEc === 'qty' || lowerEc === 'qtd')) ||
+                            (f.key === 'cost_price' &&
+                                (lowerEc === 'uni' ||
+                                    lowerEc === 'unit' ||
+                                    lowerEc === 'preco' ||
+                                    lowerEc === 'preço')) ||
+                            (f.key === 'description' &&
+                                (lowerEc.includes('informações') ||
+                                    lowerEc.includes('info') ||
+                                    lowerEc.includes('coment'))) ||
+                            (f.key === 'category' &&
+                                (lowerEc.includes('modelo') || lowerEc.includes('type')));
+                        return `<option value="${ec.index}" ${matches ? 'selected' : ''}>${ec.name}</option>`;
+                    })
+                    .join('')}
             </select>
         </div>
-    `).join('');
+    `
+        )
+        .join('');
 
     modal.classList.add('open');
 
@@ -1355,7 +1658,8 @@ async function showMappingModal(sheet, excelColumns, file) {
                     // Handle Excel formula results or objects
                     if (val && typeof val === 'object') {
                         if (val.result !== undefined) val = val.result;
-                        else if (val.richText !== undefined) val = val.richText.map(t => t.text).join('');
+                        else if (val.richText !== undefined)
+                            val = val.richText.map(t => t.text).join('');
                         else if (val.text !== undefined) val = val.text;
                         else if (val instanceof Date) val = val.toISOString().split('T')[0];
                         else val = String(val); // Fallback to string just in case
@@ -1464,9 +1768,11 @@ async function showMappingModal(sheet, excelColumns, file) {
                 console.error('Finalize import error', e);
             }
 
-            showToast(`${totalInserted} itens importados com sucesso! (${totalFailed} falhados)`, 'success');
+            showToast(
+                `${totalInserted} itens importados com sucesso! (${totalFailed} falhados)`,
+                'success'
+            );
             loadInventory();
-
         } catch (err) {
             console.error('Import process error:', err);
             showToast('Erro no processamento: ' + err.message, 'error');
@@ -1482,7 +1788,7 @@ window.openUserModal = openUserModal;
 window.navigateTo = navigateTo;
 
 // PHC Import button event
-document.addEventListener('click', (e) => {
+document.addEventListener('click', e => {
     if (e.target.closest('.trigger-phc-import')) {
         e.preventDefault();
         if (window.resetPhcImport) {

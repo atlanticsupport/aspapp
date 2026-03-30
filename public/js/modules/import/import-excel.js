@@ -4,6 +4,81 @@ import { state } from '../core/state.js';
 import { showToast } from '../core/ui.js';
 import { dialog } from '../ui/dialogs-original.js';
 
+const SCRIPT_CACHE = new Map();
+const EXCELJS_URL = 'https://cdn.jsdelivr.net/npm/@zurmokeeper/exceljs@4.4.1/dist/exceljs.min.js';
+const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js';
+
+function loadExternalScript(url) {
+    if (SCRIPT_CACHE.has(url)) return SCRIPT_CACHE.get(url);
+
+    const promise = new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${url}"]`);
+        if (existing && (existing.dataset.loaded === 'true' || existing.dataset.loaded === '1')) {
+            resolve();
+            return;
+        }
+
+        const script = existing || document.createElement('script');
+
+        const cleanup = () => {
+            script.removeEventListener('load', onLoad);
+            script.removeEventListener('error', onError);
+        };
+
+        const onLoad = () => {
+            script.dataset.loaded = 'true';
+            cleanup();
+            resolve();
+        };
+
+        const onError = () => {
+            cleanup();
+            reject(new Error(`Falha ao carregar ${url}`));
+        };
+
+        script.addEventListener('load', onLoad);
+        script.addEventListener('error', onError);
+
+        if (!existing) {
+            script.src = url;
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+    });
+
+    SCRIPT_CACHE.set(url, promise);
+    return promise;
+}
+
+async function ensureExcelJs() {
+    if (typeof ExcelJS !== 'undefined' && ExcelJS && ExcelJS.Workbook) return true;
+    try {
+        await loadExternalScript(EXCELJS_URL);
+    } catch (error) {
+        return false;
+    }
+    return typeof ExcelJS !== 'undefined' && ExcelJS && ExcelJS.Workbook;
+}
+
+async function ensureXlsx() {
+    if (typeof XLSX !== 'undefined' && XLSX && XLSX.read) return true;
+    try {
+        await loadExternalScript(XLSX_URL);
+    } catch (error) {
+        return false;
+    }
+    return typeof XLSX !== 'undefined' && XLSX && XLSX.read;
+}
+
+function argbToHex(argb) {
+    if (!argb) return null;
+    let s = String(argb).replace(/^0x/, '').replace(/^#/, '');
+    if (s.length === 8) s = s.slice(2);
+    if (s.length !== 6) return null;
+    return `#${s.toUpperCase()}`;
+}
+
 class ExcelImporter {
     constructor() {
         this.currentImport = null;
@@ -14,7 +89,7 @@ class ExcelImporter {
     async importExcelFile(file, tableName = 'products') {
         try {
             // Validate file
-            if (!file || !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+            if (!file || (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls'))) {
                 throw new Error('Por favor selecione um ficheiro Excel válido (.xlsx ou .xls)');
             }
 
@@ -48,7 +123,6 @@ class ExcelImporter {
 
             // Show completion
             this.showImportComplete();
-
         } catch (error) {
             console.error('Import error:', error);
             showToast(`Erro na importação: ${error.message}`, 'error');
@@ -60,89 +134,129 @@ class ExcelImporter {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
 
-            reader.onload = async (e) => {
+            reader.onload = async e => {
                 try {
                     const arrayBuffer = e.target.result;
+                    const isLegacyXls = String(file.name || '')
+                        .toLowerCase()
+                        .endsWith('.xls');
 
                     // Prefer ExcelJS when available to extract styles (cell fills)
-                    if (typeof ExcelJS !== 'undefined' && ExcelJS && ExcelJS.Workbook) {
-                        const workbook = new ExcelJS.Workbook();
-                        await workbook.xlsx.load(arrayBuffer);
-                        const worksheet = workbook.worksheets[0];
-                        if (!worksheet) return resolve([]);
+                    if (!isLegacyXls && (await ensureExcelJs())) {
+                        try {
+                            const workbook = new ExcelJS.Workbook();
+                            await workbook.xlsx.load(arrayBuffer);
+                            const worksheet = workbook.worksheets[0];
+                            if (!worksheet) return resolve([]);
 
-                        // Read headers (first row)
-                        const headerRow = worksheet.getRow(1);
-                        const headers = [];
-                        headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
-                            headers[colNumber - 1] = (cell.value || '').toString();
-                        });
-
-                        if (!headers || headers.length === 0) return reject(new Error('O Excel precisa ter pelo menos uma linha de cabeçalho e uma de dados'));
-
-                        const result = [];
-                        worksheet.eachRow((row, rowNumber) => {
-                            if (rowNumber === 1) return; // skip headers
-                            const obj = {};
-                            const cellColors = {};
-
-                            headers.forEach((header, index) => {
-                                if (!header) return;
-                                const cleanHeader = header.toLowerCase()
-                                    .replace(/[^a-z0-9_]/g, '_')
-                                    .replace(/_+/g, '_')
-                                    .replace(/^_|_$/g, '');
-
-                                const cell = row.getCell(index + 1);
-                                let val = cell && (cell.value !== undefined ? cell.value : null);
-                                if (val && typeof val === 'object' && val.richText) {
-                                    // RichText from exceljs
-                                    val = val.richText.map(t => t.text).join('');
-                                }
-
-                                obj[cleanHeader] = val;
-
-                                // Extract fill color if present (ARGB) and convert to hex
-                                try {
-                                    const fill = cell && cell.fill;
-                                    if (fill && fill.fgColor && (fill.fgColor.argb || fill.fgColor.rgb)) {
-                                        const argb = fill.fgColor.argb || fill.fgColor.rgb;
-                                        const hex = argbToHex(argb);
-                                        cellColors[cleanHeader] = hex;
-                                    }
-                                } catch (e) {
-                                    // ignore color parsing errors
-                                }
+                            // Read headers (first row)
+                            const headerRow = worksheet.getRow(1);
+                            const headers = [];
+                            headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+                                headers[colNumber - 1] = (cell.value || '').toString();
                             });
 
-                            // attach cell color map for this row
-                            if (Object.keys(cellColors).length) obj.__cellColors = cellColors;
-                            // include only non-empty rows
-                            if (Object.keys(obj).length > 0) result.push(obj);
-                        });
+                            if (!headers || headers.length === 0) {
+                                return reject(
+                                    new Error(
+                                        'O Excel precisa ter pelo menos uma linha de cabeçalho e uma de dados'
+                                    )
+                                );
+                            }
 
-                        resolve(result);
-                        return;
+                            const result = [];
+                            worksheet.eachRow((row, rowNumber) => {
+                                if (rowNumber === 1) return; // skip headers
+                                const obj = {};
+                                const cellColors = {};
+
+                                headers.forEach((header, index) => {
+                                    if (!header) return;
+                                    const cleanHeader = header
+                                        .toLowerCase()
+                                        .replace(/[^a-z0-9_]/g, '_')
+                                        .replace(/_+/g, '_')
+                                        .replace(/^_|_$/g, '');
+
+                                    const cell = row.getCell(index + 1);
+                                    let val =
+                                        cell && (cell.value !== undefined ? cell.value : null);
+                                    if (val && typeof val === 'object' && val.richText) {
+                                        // RichText from exceljs
+                                        val = val.richText.map(t => t.text).join('');
+                                    }
+
+                                    obj[cleanHeader] = val;
+
+                                    // Extract fill color if present (ARGB) and convert to hex
+                                    try {
+                                        const fill = cell && cell.fill;
+                                        if (
+                                            fill &&
+                                            fill.fgColor &&
+                                            (fill.fgColor.argb || fill.fgColor.rgb)
+                                        ) {
+                                            const argb = fill.fgColor.argb || fill.fgColor.rgb;
+                                            const hex = argbToHex(argb);
+                                            cellColors[cleanHeader] = hex;
+                                        }
+                                    } catch (e) {
+                                        // ignore color parsing errors
+                                    }
+                                });
+
+                                // attach cell color map for this row
+                                if (Object.keys(cellColors).length) obj.__cellColors = cellColors;
+                                // include only non-empty rows
+                                if (Object.keys(obj).length > 0) result.push(obj);
+                            });
+
+                            resolve(result);
+                            return;
+                        } catch (excelJsError) {
+                            console.warn(
+                                'ExcelJS parse failed, falling back to SheetJS:',
+                                excelJsError
+                            );
+                        }
                     }
 
                     // Fallback to SheetJS parsing (no styles)
+                    if (!(await ensureXlsx())) {
+                        throw new Error('Não foi possível carregar o leitor de Excel.');
+                    }
                     const data = new Uint8Array(arrayBuffer);
                     const workbook = XLSX.read(data, { type: 'array' });
                     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { raw: true, defval: null, header: 1 });
-                    if (jsonData.length < 2) return reject(new Error('O Excel precisa ter pelo menos uma linha de cabeçalho e uma de dados'));
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {
+                        raw: true,
+                        defval: null,
+                        header: 1
+                    });
+                    if (jsonData.length < 2)
+                        return reject(
+                            new Error(
+                                'O Excel precisa ter pelo menos uma linha de cabeçalho e uma de dados'
+                            )
+                        );
                     const headers = jsonData[0];
                     const rows = jsonData.slice(1);
-                    const result = rows.map(row => {
-                        const obj = {};
-                        headers.forEach((header, index) => {
-                            if (header && typeof header === 'string') {
-                                const cleanHeader = header.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-                                obj[cleanHeader] = row[index];
-                            }
-                        });
-                        return obj;
-                    }).filter(row => Object.keys(row).length > 0);
+                    const result = rows
+                        .map(row => {
+                            const obj = {};
+                            headers.forEach((header, index) => {
+                                if (header && typeof header === 'string') {
+                                    const cleanHeader = header
+                                        .toLowerCase()
+                                        .replace(/[^a-z0-9_]/g, '_')
+                                        .replace(/_+/g, '_')
+                                        .replace(/^_|_$/g, '');
+                                    obj[cleanHeader] = row[index];
+                                }
+                            });
+                            return obj;
+                        })
+                        .filter(row => Object.keys(row).length > 0);
                     resolve(result);
                 } catch (error) {
                     reject(error);
@@ -153,14 +267,6 @@ class ExcelImporter {
             reader.readAsArrayBuffer(file);
         });
     }
-
-function argbToHex(argb) {
-    if (!argb) return null;
-    let s = String(argb).replace(/^0x/, '').replace(/^#/, '');
-    if (s.length === 8) s = s.slice(2);
-    if (s.length !== 6) return null;
-    return `#${s.toUpperCase()}`;
-}
 
     async processChunks(data, tableName) {
         const totalChunks = Math.ceil(data.length / this.chunkSize);
@@ -187,13 +293,20 @@ function argbToHex(argb) {
                 totalFailed += failedNow;
 
                 // Detect partial processing (server inserted less than chunk length)
-                if ((insertedNow + failedNow) < chunk.length) {
-                    console.warn(`Chunk ${i} processed partially: expected ${chunk.length}, got ${insertedNow + failedNow}. Will retry missing items.`);
+                if (insertedNow + failedNow < chunk.length) {
+                    console.warn(
+                        `Chunk ${i} processed partially: expected ${chunk.length}, got ${insertedNow + failedNow}. Will retry missing items.`
+                    );
                     // Attempt a simple retry for missing items (send the chunk again up to maxRetries)
                     let attempts = 0;
-                    while ((insertedNow + failedNow) < chunk.length && attempts < this.maxRetries) {
+                    while (insertedNow + failedNow < chunk.length && attempts < this.maxRetries) {
                         attempts++;
-                        const retryResult = await this.processChunk(chunk, i, totalChunks, tableName);
+                        const retryResult = await this.processChunk(
+                            chunk,
+                            i,
+                            totalChunks,
+                            tableName
+                        );
                         const retryInserted = retryResult.inserted || 0;
                         const retryFailed = retryResult.failed || 0;
                         // Update totals based on new attempt (only add the delta)
@@ -201,7 +314,7 @@ function argbToHex(argb) {
                         const deltaFailed = Math.max(0, retryFailed - failedNow);
                         totalInserted += deltaInserted;
                         totalFailed += deltaFailed;
-                        if ((retryInserted + retryFailed) >= chunk.length) break;
+                        if (retryInserted + retryFailed >= chunk.length) break;
                     }
                 }
 
@@ -210,7 +323,6 @@ function argbToHex(argb) {
 
                 // Small delay to prevent overwhelming the server
                 await new Promise(resolve => setTimeout(resolve, 100));
-
             } catch (error) {
                 console.error(`Chunk ${i} failed:`, error);
                 totalFailed += chunk.length;
@@ -243,14 +355,18 @@ function argbToHex(argb) {
         } catch (err) {
             // Se a resposta for HTML, mostrar erro claro
             if (err && err.message && err.message.includes('<')) {
-                throw new Error('Erro inesperado: resposta HTML recebida. Verifique a ligação ao servidor ou permissões.');
+                throw new Error(
+                    'Erro inesperado: resposta HTML recebida. Verifique a ligação ao servidor ou permissões.'
+                );
             }
             throw err;
         }
         const { data, error } = response;
         // Detetar resposta HTML inesperada
         if (typeof data === 'string' && data.trim().startsWith('<')) {
-            throw new Error('Erro inesperado: resposta HTML recebida. O endpoint pode estar indisponível ou mal configurado.');
+            throw new Error(
+                'Erro inesperado: resposta HTML recebida. O endpoint pode estar indisponível ou mal configurado.'
+            );
         }
         if (error) {
             throw new Error(error.message || 'Erro no processamento do chunk');
@@ -334,7 +450,8 @@ function argbToHex(argb) {
         const statFailed = document.getElementById('stat-failed');
 
         if (progressFill) progressFill.style.width = `${percent}%`;
-        if (progressText) progressText.textContent = `Processando: ${processed}/${total} chunks (${percent}%)`;
+        if (progressText)
+            progressText.textContent = `Processando: ${processed}/${total} chunks (${percent}%)`;
         if (statSuccess) statSuccess.textContent = inserted;
         if (statFailed) statFailed.textContent = failed;
     }

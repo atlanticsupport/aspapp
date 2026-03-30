@@ -5,9 +5,10 @@ export function normalizeGalleryAttachment(att, fallbackCategory = 'product') {
     if (!att) return null;
 
     const rawSortOrder = att.sort_order;
-    const normalizedSortOrder = rawSortOrder === undefined || rawSortOrder === null || rawSortOrder === ''
-        ? null
-        : Number(rawSortOrder);
+    const normalizedSortOrder =
+        rawSortOrder === undefined || rawSortOrder === null || rawSortOrder === ''
+            ? null
+            : Number(rawSortOrder);
 
     return {
         ...att,
@@ -51,17 +52,17 @@ export function buildGalleryEntries(options = {}) {
     const acceptedTypeSet = new Set(acceptedTypes);
     const entries = [];
 
-    const matchesAttachment = (att) => {
+    const matchesAttachment = att => {
         const normalized = normalizeGalleryAttachment(att, fallbackCategory);
         if (!normalized?.url) return false;
         if ((normalized.category || fallbackCategory) !== attachmentCategory) return false;
         return acceptedTypeSet.has(normalized.type || normalized.file_type || 'image');
     };
 
-    const addEntry = (entry) => {
+    const addEntry = entry => {
         if (!entry?.url) return;
 
-        const existing = entries.find((item) => item.url === entry.url);
+        const existing = entries.find(item => item.url === entry.url);
         if (existing) {
             existing.attachmentId = existing.attachmentId ?? entry.attachmentId ?? null;
             existing.pendingId = existing.pendingId ?? entry.pendingId ?? null;
@@ -86,40 +87,44 @@ export function buildGalleryEntries(options = {}) {
         });
     };
 
-    sortGalleryAttachments((attachments || [])
-        .map((att) => normalizeGalleryAttachment(att, fallbackCategory))
-        .filter(matchesAttachment))
-        .forEach((att) => {
+    sortGalleryAttachments(
+        (attachments || [])
+            .map(att => normalizeGalleryAttachment(att, fallbackCategory))
+            .filter(matchesAttachment)
+    ).forEach(att => {
+        addEntry({
+            key: `attachment:${att.id}`,
+            url: att.url,
+            attachmentId: att.id,
+            category: att.category,
+            type: att.type,
+            file_type: att.file_type,
+            sort_order: att.sort_order
+        });
+    });
+
+    if (includePending) {
+        sortGalleryAttachments(
+            (pendingAttachments || [])
+                .map(att => normalizeGalleryAttachment(att, fallbackCategory))
+                .filter(matchesAttachment)
+        ).forEach(att => {
             addEntry({
-                key: `attachment:${att.id}`,
+                key: `pending:${att.id}`,
                 url: att.url,
-                attachmentId: att.id,
+                pendingId: att.id,
+                file: att.file,
                 category: att.category,
                 type: att.type,
                 file_type: att.file_type,
                 sort_order: att.sort_order
             });
         });
-
-    if (includePending) {
-        sortGalleryAttachments((pendingAttachments || [])
-            .map((att) => normalizeGalleryAttachment(att, fallbackCategory))
-            .filter(matchesAttachment))
-            .forEach((att) => {
-                addEntry({
-                    key: `pending:${att.id}`,
-                    url: att.url,
-                    pendingId: att.id,
-                    file: att.file,
-                    category: att.category,
-                    type: att.type,
-                    file_type: att.file_type,
-                    sort_order: att.sort_order
-                });
-            });
     }
 
-    const shouldFallbackToCurrentImage = fallbackOnlyWhenEmpty ? entries.length === 0 : !!currentImageUrl;
+    const shouldFallbackToCurrentImage = fallbackOnlyWhenEmpty
+        ? entries.length === 0
+        : !!currentImageUrl;
     if (shouldFallbackToCurrentImage && currentImageUrl) {
         addEntry({
             key: `primary:${currentImageUrl}`,
@@ -158,7 +163,7 @@ export function openViewerGallery(entries, preferredUrl = null) {
 
     state.currentGallery = entries;
     const targetUrl = preferredUrl || entries[0]?.url || null;
-    const selectedIndex = entries.findIndex((entry) => entry.url === targetUrl);
+    const selectedIndex = entries.findIndex(entry => entry.url === targetUrl);
     state.galleryIndex = selectedIndex >= 0 ? selectedIndex : 0;
 
     if (window.updateViewerFromGallery) window.updateViewerFromGallery();

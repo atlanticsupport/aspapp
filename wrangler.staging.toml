@@ -1,6 +1,7 @@
 name = "asp-app-staging"
 compatibility_date = "2024-03-04"
 pages_build_output_dir = "public"
+vars = { CF_ACCOUNT_ID = "e04d71a919de85594a6303a0aa4133e1" }
 
 [[d1_databases]]
 binding = "DB"

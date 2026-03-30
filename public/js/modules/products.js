@@ -38,7 +38,8 @@ export function openNewTransitModal() {
 
 export function openModal(title = 'Adicionar Produto', resetForm = true) {
     modal.classList.add('open');
-    if (document.getElementById('product-history-section')) document.getElementById('product-history-section').style.display = 'none';
+    if (document.getElementById('product-history-section'))
+        document.getElementById('product-history-section').style.display = 'none';
 
     if (resetForm) {
         state.pendingAttachments = [];
@@ -60,8 +61,11 @@ export function openModal(title = 'Adicionar Produto', resetForm = true) {
     // Permission Logic
     const isTransit = state.currentTransitId || state.currentPage === 'transit';
     const isEditing = !!document.getElementById('prod-id')?.value;
-    const access = isTransit ? (state.currentUser?.transit_access || '') : (state.currentUser?.inventory_access || '');
-    const canWrite = access === 'write' || (isEditing ? access.includes('U') : access.includes('C'));
+    const access = isTransit
+        ? state.currentUser?.transit_access || ''
+        : state.currentUser?.inventory_access || '';
+    const canWrite =
+        access === 'write' || (isEditing ? access.includes('U') : access.includes('C'));
 
     const submitBtn = productForm.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.style.display = canWrite ? 'inline-block' : 'none';
@@ -112,12 +116,18 @@ export function openEditModal(product) {
     document.getElementById('prod-brand').value = product.brand || product.maker || '';
 
     // Population
-    if (document.getElementById('prod-equipment')) document.getElementById('prod-equipment').value = product.equipment || '';
-    if (document.getElementById('prod-ship-plant')) document.getElementById('prod-ship-plant').value = product.ship_plant || '';
-    if (document.getElementById('prod-order-to')) document.getElementById('prod-order-to').value = product.order_to || '';
-    if (document.getElementById('prod-order-date')) document.getElementById('prod-order-date').value = product.order_date || '';
-    if (document.getElementById('prod-del-time')) document.getElementById('prod-del-time').value = product.delivery_time || '';
-    if (document.getElementById('prod-maker')) document.getElementById('prod-maker').value = product.maker || '';
+    if (document.getElementById('prod-equipment'))
+        document.getElementById('prod-equipment').value = product.equipment || '';
+    if (document.getElementById('prod-ship-plant'))
+        document.getElementById('prod-ship-plant').value = product.ship_plant || '';
+    if (document.getElementById('prod-order-to'))
+        document.getElementById('prod-order-to').value = product.order_to || '';
+    if (document.getElementById('prod-order-date'))
+        document.getElementById('prod-order-date').value = product.order_date || '';
+    if (document.getElementById('prod-del-time'))
+        document.getElementById('prod-del-time').value = product.delivery_time || '';
+    if (document.getElementById('prod-maker'))
+        document.getElementById('prod-maker').value = product.maker || '';
     document.getElementById('prod-qty').value = product.quantity;
     document.getElementById('prod-min-qty').value = product.min_quantity;
     document.getElementById('prod-desc').value = product.description || '';
@@ -152,13 +162,19 @@ export function openEditModal(product) {
 
     // Permission Logic for Save Button
     const isTransit = state.currentTransitId || state.currentPage === 'transit';
-    const access = isTransit ? (state.currentUser?.transit_access || '') : (state.currentUser?.inventory_access || '');
+    const access = isTransit
+        ? state.currentUser?.transit_access || ''
+        : state.currentUser?.inventory_access || '';
     const canSave = access === 'write' || access.includes('U');
 
     const submitBtn = productForm.querySelector('button[type="submit"]');
     if (submitBtn) {
         submitBtn.style.display = canSave ? 'inline-block' : 'none';
-        submitBtn.textContent = state.currentTransitId ? 'Confirmar Receção' : (product.id ? 'Guardar Produto' : 'Adicionar Produto');
+        submitBtn.textContent = state.currentTransitId
+            ? 'Confirmar Receção'
+            : product.id
+              ? 'Guardar Produto'
+              : 'Adicionar Produto';
     }
 
     if (product.image_url) updateHeaderImage(product.image_url);
@@ -201,7 +217,7 @@ function sortProductImagesByOrder(list = []) {
 function shiftProductImageSortOrders(offset) {
     if (!offset) return;
 
-    state.loadedAttachments = (state.loadedAttachments || []).map((att) => {
+    state.loadedAttachments = (state.loadedAttachments || []).map(att => {
         const normalized = normalizeAttachment(att);
         if (!isImageAttachment(normalized)) return normalized;
         return {
@@ -210,7 +226,7 @@ function shiftProductImageSortOrders(offset) {
         };
     });
 
-    state.pendingAttachments = (state.pendingAttachments || []).map((att) => {
+    state.pendingAttachments = (state.pendingAttachments || []).map(att => {
         const normalized = normalizeAttachment(att);
         if (!isImageAttachment(normalized)) return normalized;
         return {
@@ -222,15 +238,23 @@ function shiftProductImageSortOrders(offset) {
 
 function syncProductAttachmentsReference(productId = getCurrentProductId()) {
     if (!productId) return;
-    const attachments = sortProductImagesByOrder((state.loadedAttachments || [])
-        .map(normalizeAttachment)
-        .filter((att) => att && att.product_id === productId));
+    const attachments = sortProductImagesByOrder(
+        (state.loadedAttachments || [])
+            .map(normalizeAttachment)
+            .filter(att => att && att.product_id === productId)
+    );
 
-    const collections = ['products', 'dashboardProducts', 'transitProducts', 'stockOutProducts', 'logisticsProducts'];
-    collections.forEach((key) => {
+    const collections = [
+        'products',
+        'dashboardProducts',
+        'transitProducts',
+        'stockOutProducts',
+        'logisticsProducts'
+    ];
+    collections.forEach(key => {
         const list = state[key];
         if (!Array.isArray(list)) return;
-        const product = list.find((item) => item.id === productId);
+        const product = list.find(item => item.id === productId);
         if (product) product.attachments = attachments;
     });
 }
@@ -280,18 +304,10 @@ function renderAttachmentPreview(item) {
 }
 
 function renderAllAttachmentItems() {
-    const galleryList = document.getElementById('product-gallery-list');
     const transitList = document.getElementById('transit-attachments-list');
-    if (galleryList) galleryList.innerHTML = '';
     if (transitList) transitList.innerHTML = '';
 
-    const productEntries = buildProductImageEntries();
-    productEntries.forEach((entry, index) => renderAttachmentItem({
-        ...entry,
-        canMoveLeft: index > 0,
-        canMoveRight: index < productEntries.length - 1
-    }));
-    getTransitMediaEntries().forEach((entry) => renderAttachmentItem(entry));
+    getTransitMediaEntries().forEach(entry => renderAttachmentItem(entry));
 }
 
 export function openCurrentProductGallery(preferredUrl = null) {
@@ -305,14 +321,19 @@ export function openCurrentProductGallery(preferredUrl = null) {
 
 export function setProductImagesState(product, attachments = []) {
     if (product?.id) state.currentProductId = product.id;
-    state.loadedAttachments = sortProductImagesByOrder((attachments || []).map(normalizeAttachment));
-    state.currentImageUrl = getEntityPrimaryImageUrl({
-        attachments: state.loadedAttachments,
-        image_url: product?.image_url || null
-    }, {
-        attachmentCategory: 'product',
-        acceptedTypes: ['image']
-    });
+    state.loadedAttachments = sortProductImagesByOrder(
+        (attachments || []).map(normalizeAttachment)
+    );
+    state.currentImageUrl = getEntityPrimaryImageUrl(
+        {
+            attachments: state.loadedAttachments,
+            image_url: product?.image_url || null
+        },
+        {
+            attachmentCategory: 'product',
+            acceptedTypes: ['image']
+        }
+    );
     state.mainImageFile = null;
     syncProductAttachmentsReference(product?.id || getCurrentProductId());
     syncProductImageReference(state.currentImageUrl);
@@ -325,20 +346,22 @@ function applyProductImageOrder(entries) {
         isPrimary: index === 0
     }));
 
-    state.loadedAttachments = (state.loadedAttachments || []).map((att) => {
+    state.loadedAttachments = (state.loadedAttachments || []).map(att => {
         const normalized = normalizeAttachment(att);
-        const match = normalizedEntries.find((entry) => entry.attachmentId === normalized.id);
+        const match = normalizedEntries.find(entry => entry.attachmentId === normalized.id);
         return match ? { ...normalized, sort_order: match.sort_order } : normalized;
     });
 
-    state.pendingAttachments = (state.pendingAttachments || []).map((att) => {
+    state.pendingAttachments = (state.pendingAttachments || []).map(att => {
         const normalized = normalizeAttachment(att);
-        const match = normalizedEntries.find((entry) => entry.pendingId === normalized.id);
+        const match = normalizedEntries.find(entry => entry.pendingId === normalized.id);
         return match ? { ...normalized, sort_order: match.sort_order } : normalized;
     });
 
     state.currentImageUrl = normalizedEntries[0]?.url || null;
-    state.mainImageFile = normalizedEntries[0]?.pendingId ? normalizedEntries[0].file || null : null;
+    state.mainImageFile = normalizedEntries[0]?.pendingId
+        ? normalizedEntries[0].file || null
+        : null;
 
     return normalizedEntries;
 }
@@ -346,8 +369,8 @@ function applyProductImageOrder(entries) {
 async function persistAttachmentOrder(productId, entries) {
     if (!productId) return;
     const items = entries
-        .filter((entry) => entry.attachmentId)
-        .map((entry) => ({
+        .filter(entry => entry.attachmentId)
+        .map(entry => ({
             id: entry.attachmentId,
             sort_order: entry.sort_order
         }));
@@ -366,11 +389,17 @@ async function persistAttachmentOrder(productId, entries) {
 
 async function persistPrimaryImage(productId, imageUrl) {
     if (!productId) return;
-    const trackedCollections = ['products', 'dashboardProducts', 'transitProducts', 'stockOutProducts', 'logisticsProducts'];
+    const trackedCollections = [
+        'products',
+        'dashboardProducts',
+        'transitProducts',
+        'stockOutProducts',
+        'logisticsProducts'
+    ];
     for (const key of trackedCollections) {
         const list = state[key];
         if (!Array.isArray(list)) continue;
-        const product = list.find((item) => item.id === productId);
+        const product = list.find(item => item.id === productId);
         if (product && product.image_url === imageUrl) return;
     }
 
@@ -387,7 +416,7 @@ async function persistPrimaryImage(productId, imageUrl) {
 
 export async function moveProductImage(entry, direction) {
     const entries = buildProductImageEntries();
-    const currentIndex = entries.findIndex((item) => item.key === entry.key);
+    const currentIndex = entries.findIndex(item => item.key === entry.key);
     const targetIndex = currentIndex + direction;
 
     if (currentIndex < 0 || targetIndex < 0 || targetIndex >= entries.length) return;
@@ -420,11 +449,7 @@ export async function moveProductImage(entry, direction) {
 }
 
 async function reconcileProductImages(options = {}) {
-    const {
-        preferredUrl = null,
-        persistPrimary = false,
-        keepViewerSelection = false
-    } = options;
+    const { preferredUrl = null, persistPrimary = false, keepViewerSelection = false } = options;
 
     const productId = getCurrentProductId();
     const { entries, primary } = getPrimaryImageEntry(preferredUrl);
@@ -454,10 +479,10 @@ function setupAttachmentEvents() {
     const transitInput = document.getElementById('transit-media-upload');
 
     if (galleryInput) {
-        galleryInput.onchange = (e) => handleAttachmentSelection(e, 'product');
+        galleryInput.onchange = e => handleAttachmentSelection(e, 'product');
     }
     if (transitInput) {
-        transitInput.onchange = (e) => handleAttachmentSelection(e, 'reception');
+        transitInput.onchange = e => handleAttachmentSelection(e, 'reception');
     }
 }
 
@@ -467,39 +492,50 @@ window.handleMultipleFiles = async function (files, category, targetListId = nul
     const { promoteFirstImage = false } = options;
     const productId = getCurrentProductId();
     const shouldAutoSave = !!productId;
-    const productImageCount = files.filter((file) => file.type.startsWith('image/')).length;
+    const productImageCount = files.filter(file => file.type.startsWith('image/')).length;
     if (category === 'product' && promoteFirstImage && productImageCount > 0) {
         shiftProductImageSortOrders(productImageCount);
     }
-    const existingMaxSortOrder = buildProductImageEntries()
-        .reduce((max, entry) => Math.max(max, getAttachmentOrderValue(entry, -1)), -1);
+    const existingMaxSortOrder = buildProductImageEntries().reduce(
+        (max, entry) => Math.max(max, getAttachmentOrderValue(entry, -1)),
+        -1
+    );
 
-    const preparedAttachments = await Promise.all(files.map((file, index) => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            resolve({
-                id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                file,
-                url: ev.target.result,
-                category,
-                type: file.type.startsWith('video/') ? 'video' : 'image',
-                isNew: true,
-                targetListId,
-                insertedAt: Date.now() + index,
-                sort_order: category === 'product' && promoteFirstImage
-                    ? index
-                    : existingMaxSortOrder + index + 1
-            });
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    })));
+    const preparedAttachments = await Promise.all(
+        files.map(
+            (file, index) =>
+                new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = ev => {
+                        resolve({
+                            id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                            file,
+                            url: ev.target.result,
+                            category,
+                            type: file.type.startsWith('video/') ? 'video' : 'image',
+                            isNew: true,
+                            targetListId,
+                            insertedAt: Date.now() + index,
+                            persistState: 'queued',
+                            sort_order:
+                                category === 'product' && promoteFirstImage
+                                    ? index
+                                    : existingMaxSortOrder + index + 1
+                        });
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                })
+        )
+    );
 
-    preparedAttachments.forEach((attachment) => {
+    preparedAttachments.forEach(attachment => {
         state.pendingAttachments.push(attachment);
     });
 
-    const firstProductImage = preparedAttachments.find((attachment) => attachment.category === 'product' && attachment.type === 'image');
+    const firstProductImage = preparedAttachments.find(
+        attachment => attachment.category === 'product' && attachment.type === 'image'
+    );
     if (firstProductImage && (promoteFirstImage || !state.currentImageUrl)) {
         state.currentImageUrl = firstProductImage.url;
         state.mainImageFile = firstProductImage.file;
@@ -539,12 +575,10 @@ async function handleAttachmentSelection(e, category) {
 window.handleAttachmentSelection = handleAttachmentSelection;
 
 function renderAttachmentItem(att) {
-    const target = att.category === 'product' ? 'product-gallery-list' : 'transit-attachments-list';
+    const target = att.category === 'product' ? null : 'transit-attachments-list';
+    if (!target) return;
     const list = document.getElementById(target);
-    if (!list) {
-        console.error('Target list element not found:', target);
-        return;
-    }
+    if (!list) return;
 
     const item = document.createElement('div');
     item.className = 'attachment-item';
@@ -569,7 +603,7 @@ function renderAttachmentItem(att) {
         moveLeftBtn.setAttribute('type', 'button');
         moveLeftBtn.disabled = !att.canMoveLeft;
         moveLeftBtn.title = 'Mover para a esquerda';
-        moveLeftBtn.onclick = async (e) => {
+        moveLeftBtn.onclick = async e => {
             e.stopPropagation();
             e.preventDefault();
             await moveProductImage(att, -1);
@@ -581,7 +615,7 @@ function renderAttachmentItem(att) {
         moveRightBtn.setAttribute('type', 'button');
         moveRightBtn.disabled = !att.canMoveRight;
         moveRightBtn.title = 'Mover para a direita';
-        moveRightBtn.onclick = async (e) => {
+        moveRightBtn.onclick = async e => {
             e.stopPropagation();
             e.preventDefault();
             await moveProductImage(att, 1);
@@ -596,7 +630,7 @@ function renderAttachmentItem(att) {
     removeBtn.className = 'remove-btn';
     removeBtn.innerHTML = '&times;';
     removeBtn.setAttribute('type', 'button');
-    removeBtn.onclick = (e) => {
+    removeBtn.onclick = e => {
         e.stopPropagation();
         e.preventDefault();
         if (att.category === 'product') {
@@ -645,7 +679,9 @@ async function autoSaveMainImage(productId) {
     try {
         const fileName = `main-${Date.now()}.webp`;
         const optimized = await processImageForUpload(state.mainImageFile);
-        const { error: uploadErr } = await supabase.storage.from('product-images').upload(fileName, optimized);
+        const { error: uploadErr } = await supabase.storage
+            .from('product-images')
+            .upload(fileName, optimized);
 
         if (uploadErr) {
             console.error('Main image upload failed:', uploadErr);
@@ -653,7 +689,9 @@ async function autoSaveMainImage(productId) {
             return;
         }
 
-        const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
+        const {
+            data: { publicUrl }
+        } = supabase.storage.from('product-images').getPublicUrl(fileName);
 
         // Update product with new image URL
         const { error: updateErr } = await supabase.rpc('secure_update_product_field', {
@@ -680,27 +718,37 @@ async function autoSaveMainImage(productId) {
 
 async function autoSaveAttachment(att, productId) {
     try {
+        if (!att || att.persistState === 'saving' || att.persistState === 'saved') {
+            return;
+        }
+
+        att.persistState = 'saving';
         const localPreviewUrl = att.url;
         const shouldBecomePrimary =
             att.category === 'product' &&
             att.type === 'image' &&
             (!state.currentImageUrl || state.currentImageUrl === localPreviewUrl);
 
-        const extension = att.type === 'image' ? 'webp' : (att.file.name.split('.').pop() || 'bin');
+        const extension = att.type === 'image' ? 'webp' : att.file.name.split('.').pop() || 'bin';
         const fileName = `${att.category}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}.${extension}`;
         const uploadFile = att.type === 'image' ? await processImageForUpload(att.file) : att.file;
-        const { error: uploadErr } = await supabase.storage.from('product-images').upload(fileName, uploadFile);
+        const { error: uploadErr } = await supabase.storage
+            .from('product-images')
+            .upload(fileName, uploadFile);
 
         if (uploadErr) {
             console.error('Auto-save upload failed:', uploadErr);
+            att.persistState = 'queued';
             throw new Error(`Upload failed: ${uploadErr.message}`);
         }
 
-        if (!state.pendingAttachments.some((candidate) => candidate.id === att.id)) {
+        if (!state.pendingAttachments.some(candidate => candidate.id === att.id)) {
             return;
         }
 
-        const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
+        const {
+            data: { publicUrl }
+        } = supabase.storage.from('product-images').getPublicUrl(fileName);
         const { data: rpcData, error: dbErr } = await supabase.rpc('secure_add_attachment', {
             p_user: state.currentUser.username,
             p_pass: state.currentUser.password,
@@ -715,9 +763,11 @@ async function autoSaveAttachment(att, productId) {
 
         if (dbErr) {
             console.error('Auto-save DB insert failed:', dbErr);
+            att.persistState = 'queued';
             throw new Error(`DB insert failed: ${dbErr.message}`);
         }
 
+        att.persistState = 'saved';
         state.pendingAttachments = state.pendingAttachments.filter(a => a.id !== att.id);
 
         if (rpcData) {
@@ -737,6 +787,7 @@ async function autoSaveAttachment(att, productId) {
         });
     } catch (err) {
         console.error('Auto-save error:', err);
+        if (att) att.persistState = 'queued';
         throw err;
     }
 }
@@ -773,9 +824,13 @@ export async function saveProduct() {
     const id = document.getElementById('prod-id').value;
     const isEditing = !!id;
 
-    const isTransit = !!document.getElementById('force-transit-status') || state.currentPage === 'transit';
-    const access = isTransit ? (state.currentUser?.transit_access || '') : (state.currentUser?.inventory_access || '');
-    const canWrite = access === 'write' || (isEditing ? access.includes('U') : access.includes('C'));
+    const isTransit =
+        !!document.getElementById('force-transit-status') || state.currentPage === 'transit';
+    const access = isTransit
+        ? state.currentUser?.transit_access || ''
+        : state.currentUser?.inventory_access || '';
+    const canWrite =
+        access === 'write' || (isEditing ? access.includes('U') : access.includes('C'));
 
     if (!canWrite) {
         return showToast('Sem permissão para gravar.', 'error');
@@ -794,19 +849,27 @@ export async function saveProduct() {
         pallet: document.getElementById('prod-pallet').value,
         box: document.getElementById('prod-box').value,
         cost_price: parseFloat(document.getElementById('prod-cost-price').value) || 0,
-        image_url: state.currentImageUrl && !String(state.currentImageUrl).startsWith('data:') ? state.currentImageUrl : null,
+        image_url:
+            state.currentImageUrl && !String(state.currentImageUrl).startsWith('data:')
+                ? state.currentImageUrl
+                : null,
         status: document.getElementById('force-transit-status') ? 'transit' : 'available',
         order_to: document.getElementById('prod-order-to')?.value || '',
         order_date: document.getElementById('prod-order-date')?.value || null,
         ship_plant: document.getElementById('prod-ship-plant')?.value || '',
         equipment: document.getElementById('prod-equipment')?.value || '',
-        maker: document.getElementById('prod-maker')?.value || document.getElementById('prod-brand').value,
+        maker:
+            document.getElementById('prod-maker')?.value ||
+            document.getElementById('prod-brand').value,
         delivery_time: document.getElementById('prod-del-time')?.value || ''
     };
 
     const btn = productForm.querySelector('button[type="submit"]');
 
-    if (btn) { btn.disabled = true; btn.textContent = 'A guardar...'; }
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'A guardar...';
+    }
 
     try {
         // 1. Upsert Product
@@ -823,52 +886,76 @@ export async function saveProduct() {
         const finalId = productData.id || savedId;
 
         // 2. Upload Gallery/Transit Attachments
-        if (state.pendingAttachments.length > 0) {
+        const pendingQueue = sortProductImagesByOrder(
+            (state.pendingAttachments || []).filter(
+                att => att.persistState !== 'saving' && att.persistState !== 'saved'
+            )
+        );
+        pendingQueue.forEach(att => {
+            att.persistState = 'saving';
+        });
+
+        if (pendingQueue.length > 0) {
             let failCount = 0;
             let firstProductImageUrl = productData.image_url;
-            const pendingQueue = sortProductImagesByOrder([...state.pendingAttachments]);
 
             for (const att of pendingQueue) {
-                const extension = att.type === 'image' ? 'webp' : (att.file.name.split('.').pop() || 'bin');
+                const extension =
+                    att.type === 'image' ? 'webp' : att.file.name.split('.').pop() || 'bin';
                 const fileName = `${att.category}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}.${extension}`;
-                const uploadFile = att.type === 'image' ? await processImageForUpload(att.file) : att.file;
-                const { error: attErr } = await supabase.storage.from('product-images').upload(fileName, uploadFile);
+                const uploadFile =
+                    att.type === 'image' ? await processImageForUpload(att.file) : att.file;
+                const { error: attErr } = await supabase.storage
+                    .from('product-images')
+                    .upload(fileName, uploadFile);
 
                 if (attErr) {
                     console.error('Attachment upload failed for file:', att.file.name, attErr);
+                    att.persistState = 'queued';
                     failCount++;
                     continue;
                 }
 
-                const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
-                const { data: savedAttachment, error: insErr } = await supabase.rpc('secure_add_attachment', {
-                    p_user: state.currentUser.username,
-                    p_pass: state.currentUser.password,
-                    p_data: {
-                        product_id: finalId,
-                        url: publicUrl,
-                        file_type: att.type,
-                        category: att.category,
-                        sort_order: att.sort_order
+                const {
+                    data: { publicUrl }
+                } = supabase.storage.from('product-images').getPublicUrl(fileName);
+                const { data: savedAttachment, error: insErr } = await supabase.rpc(
+                    'secure_add_attachment',
+                    {
+                        p_user: state.currentUser.username,
+                        p_pass: state.currentUser.password,
+                        p_data: {
+                            product_id: finalId,
+                            url: publicUrl,
+                            file_type: att.type,
+                            category: att.category,
+                            sort_order: att.sort_order
+                        }
                     }
-                });
+                );
 
                 if (insErr) console.error('Database insert failed:', insErr);
                 if (savedAttachment) {
+                    att.persistState = 'saved';
                     state.loadedAttachments.push(normalizeAttachment(savedAttachment));
+                } else {
+                    att.persistState = 'queued';
                 }
                 if (!firstProductImageUrl && att.category === 'product' && att.type === 'image') {
                     firstProductImageUrl = publicUrl;
                 }
             }
 
-            state.pendingAttachments = [];
+            state.pendingAttachments = (state.pendingAttachments || []).filter(
+                att => att.persistState !== 'saved'
+            );
 
             if (firstProductImageUrl !== productData.image_url) {
                 await persistPrimaryImage(finalId, firstProductImageUrl || null);
                 state.currentImageUrl = firstProductImageUrl || null;
             }
-            if (failCount > 0) showToast(`${failCount} imagens não foram guardadas (Erro Storage).`, 'warning');
+            if (failCount > 0)
+                showToast(`${failCount} imagens não foram guardadas (Erro Storage).`, 'warning');
         }
 
         await reconcileProductImages();
@@ -881,18 +968,29 @@ export async function saveProduct() {
         await loadDashboard({ forceFetch: true });
         await loadInventory();
         if (state.currentPage === 'transit') import('./transit.js').then(m => m.loadTransitView());
-
     } catch (err) {
         console.error(err);
         showToast('Erro ao guardar: ' + err.message, 'error');
     } finally {
-        if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Guardar';
+        }
     }
 }
 
 async function recordProductMovement(id, data, isEditing) {
     if (state.currentTransitId) {
-        await recordMovement(id, data.quantity, `Receção de Stock: ${data.sales_process || 'N/A'}`, data.cost_price, null, data.sales_process, null, 'IN');
+        await recordMovement(
+            id,
+            data.quantity,
+            `Receção de Stock: ${data.sales_process || 'N/A'}`,
+            data.cost_price,
+            null,
+            data.sales_process,
+            null,
+            'IN'
+        );
     } else if (!isEditing) {
         await recordMovement(id, data.quantity, 'Criação Manual', data.cost_price);
     }
@@ -909,22 +1007,35 @@ function loadHistory(productId) {
     if (!historySection || !historyList) return;
 
     historySection.style.display = 'block';
-    historyList.innerHTML = '<p style="font-size:0.8rem; color:var(--text-secondary);">A carregar...</p>';
+    historyList.innerHTML =
+        '<p style="font-size:0.8rem; color:var(--text-secondary);">A carregar...</p>';
 
-    supabase.rpc('secure_fetch_any', {
-        p_user: state.currentUser.username,
-        p_pass: state.currentUser.password,
-        p_table: 'movements',
-        p_params: { eq: { product_id: productId }, order: { column: 'created_at', ascending: false }, limit: 5 }
-    })
+    supabase
+        .rpc('secure_fetch_any', {
+            p_user: state.currentUser.username,
+            p_pass: state.currentUser.password,
+            p_table: 'movements',
+            p_params: {
+                eq: { product_id: productId },
+                order: { column: 'created_at', ascending: false },
+                limit: 5
+            }
+        })
         .then(({ data }) => {
-            if (!data || !data.length) historyList.innerHTML = '<p style="font-size:0.8rem; color:var(--text-secondary);">Sem histórico.</p>';
-            else historyList.innerHTML = data.map(m => `
+            if (!data || !data.length)
+                historyList.innerHTML =
+                    '<p style="font-size:0.8rem; color:var(--text-secondary);">Sem histórico.</p>';
+            else
+                historyList.innerHTML = data
+                    .map(
+                        m => `
                 <div style="font-size:0.75rem; padding:4px 0; border-bottom:1px dashed #eee; display:flex; justify-content:space-between;">
                     <span><b>${m.type}</b>: ${m.quantity}</span>
                     <span style="color:var(--text-secondary);">${new Date(m.created_at).toLocaleDateString()}</span>
                 </div>
-            `).join('');
+            `
+                    )
+                    .join('');
         });
 }
 
@@ -948,14 +1059,15 @@ export async function updateHeaderImage(src, autoSave = false) {
 
 export async function removeMainImage() {
     const currentViewerItem = state.currentGallery && state.currentGallery[state.galleryIndex];
-    const currentViewerUrl = typeof currentViewerItem === 'string' ? currentViewerItem : currentViewerItem?.url;
+    const currentViewerUrl =
+        typeof currentViewerItem === 'string' ? currentViewerItem : currentViewerItem?.url;
 
     if (!currentViewerUrl) {
         showToast('Nenhuma imagem para remover.', 'info');
         return;
     }
 
-    const currentEntry = buildProductImageEntries().find((entry) => entry.url === currentViewerUrl);
+    const currentEntry = buildProductImageEntries().find(entry => entry.url === currentViewerUrl);
     if (!currentEntry) return showToast('Imagem não encontrada.', 'error');
 
     await removeProductImage(currentEntry);
@@ -982,18 +1094,26 @@ async function removeProductImage(entry) {
                 p_id: entry.attachmentId
             });
             if (error) throw error;
-            state.loadedAttachments = (state.loadedAttachments || []).filter((att) => att.id !== entry.attachmentId);
+            state.loadedAttachments = (state.loadedAttachments || []).filter(
+                att => att.id !== entry.attachmentId
+            );
         }
 
         if (entry.pendingId) {
-            state.pendingAttachments = (state.pendingAttachments || []).filter((att) => att.id !== entry.pendingId);
+            state.pendingAttachments = (state.pendingAttachments || []).filter(
+                att => att.id !== entry.pendingId
+            );
         }
 
         if (removingPrimary) {
-            const remainingEntries = buildProductImageEntries().filter((item) => item.url !== entry.url);
+            const remainingEntries = buildProductImageEntries().filter(
+                item => item.url !== entry.url
+            );
             const nextPrimaryUrl = remainingEntries[0]?.url || null;
             state.currentImageUrl = nextPrimaryUrl;
-            state.mainImageFile = remainingEntries[0]?.pendingId ? remainingEntries[0].file || null : null;
+            state.mainImageFile = remainingEntries[0]?.pendingId
+                ? remainingEntries[0].file || null
+                : null;
 
             if (productId) {
                 await persistPrimaryImage(productId, nextPrimaryUrl);
@@ -1013,7 +1133,13 @@ async function removeProductImage(entry) {
 function syncProductImageReference(newUrl) {
     const productId = getCurrentProductId();
     if (!productId) return;
-    const collections = ['products', 'dashboardProducts', 'transitProducts', 'stockOutProducts', 'logisticsProducts'];
+    const collections = [
+        'products',
+        'dashboardProducts',
+        'transitProducts',
+        'stockOutProducts',
+        'logisticsProducts'
+    ];
     collections.forEach(key => {
         const list = state[key];
         if (!Array.isArray(list)) return;

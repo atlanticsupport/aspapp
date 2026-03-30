@@ -1,315 +1,261 @@
-import { views } from './dom.js';
-import { state } from './state.js';
+import { views } from './core/dom.js';
+import { state } from './core/state.js';
+
+let usageChart = null;
+
+function fmtDate(value) {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '-';
+    return new Intl.DateTimeFormat('pt-PT', {
+        dateStyle: 'short',
+        timeStyle: 'short'
+    }).format(d);
+}
+
+function getBarColor(percentage) {
+    if (percentage >= 80) return '#dc2626';
+    if (percentage >= 50) return '#d97706';
+    if (percentage >= 20) return '#2563eb';
+    return '#0f766e';
+}
+
+function ensureChartJs() {
+    if (window.Chart) return Promise.resolve(window.Chart);
+
+    return new Promise((resolve, reject) => {
+        const existing = document.querySelector('script[data-usage-chart="true"]');
+        if (existing) {
+            existing.addEventListener('load', () => resolve(window.Chart), { once: true });
+            existing.addEventListener('error', reject, { once: true });
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js';
+        script.dataset.usageChart = 'true';
+        script.onload = () => resolve(window.Chart);
+        script.onerror = () => reject(new Error('Falha ao carregar o gráfico.'));
+        document.head.appendChild(script);
+    });
+}
 
 export async function loadUsageView() {
-    // Check if admin (just to be safe)
     if (state.currentUser?.role !== 'admin') {
         const { navigateTo } = await import('./views.js');
         navigateTo('dashboard');
         return;
     }
 
-    // Set Loading State
     views.usage.innerHTML = `
-        <div style="padding: 3rem; text-align: center; animation: fadeIn 0.4s ease-out;">
-            <div class="spinner" style="margin: 0 auto 1.5rem;"></div>
-            <h2 style="color: var(--text-primary); font-size: 1.5rem; font-weight: 700;">A Analisar Consumo Web...</h2>
-            <p style="color: var(--text-secondary);">A carregar dados do Cloudflare Free Tier...</p>
+        <div style="padding: 3rem; text-align: center;">
+            <div class="spinner" style="margin: 0 auto 1rem;"></div>
+            <h2 style="margin:0 0 .5rem;">A carregar uso Cloudflare...</h2>
+            <p style="color: var(--text-secondary);">A preparar métricas do teu tier.</p>
         </div>
     `;
 
     try {
         const response = await fetch('/api/usage');
-        const data = await (response.ok ? response.json() : null);
-
-        if (!data) throw new Error('Falha de resposta do servidor da API de usage.');
-
+        const data = response.ok ? await response.json() : null;
+        if (!data || data.error) throw new Error(data?.error || 'Falha ao carregar métricas.');
         renderUsageDashboard(data);
     } catch (error) {
-        console.error('Usage fetch error:', error);
-    }
-}
-
-function renderUsageDashboard(data) {
-    const supa = data?.supabase || {};
-    const verc = data?.vercel || {};
-
-    const isSupabaseConfigured = supa.status && supa.status !== 'unconfigured';
-    const isVercelConfigured = verc.status && verc.status !== 'unconfigured';
-
-    // Minimal Table Layout Styles
-    const styles = `
-        <style>
-            .usage-dashboard {
-                max-width: 900px;
-                margin: 0 auto;
-                animation: fadeIn 0.4s ease-out;
-            }
-            .usage-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 2rem;
-            }
-            .usage-header h1 {
-                font-size: 1.5rem;
-                font-weight: 700;
-                color: var(--text-primary);
-                margin: 0;
-            }
-            .cycle-badge {
-                font-size: 0.8rem;
-                color: var(--text-secondary);
-                background: rgba(0,0,0,0.05);
-                padding: 6px 12px;
-                border-radius: 6px;
-                border: 1px solid var(--border-color);
-            }
-            .usage-table-container {
-                background: var(--bg-color);
-                border: 1px solid var(--border-color);
-                border-radius: 8px;
-                overflow: hidden;
-                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-            }
-            .usage-table {
-                width: 100%;
-                border-collapse: collapse;
-            }
-            .usage-table th {
-                text-align: left;
-                padding: 1rem 1.5rem;
-                font-size: 0.75rem;
-                font-weight: 600;
-                color: var(--text-secondary);
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-                border-bottom: 1px solid var(--border-color);
-                background: rgba(0,0,0,0.02);
-            }
-            .usage-table th:last-child {
-                text-align: right;
-            }
-            .usage-table td {
-                padding: 1rem 1.5rem;
-                font-size: 0.9rem;
-                color: var(--text-primary);
-                border-bottom: 1px solid var(--border-color);
-                font-weight: 500;
-                vertical-align: middle;
-            }
-            .usage-table tr:last-child td {
-                border-bottom: none;
-            }
-            .usage-table tr:hover {
-                background: rgba(0,0,0,0.015);
-            }
-            .metric-name-cell {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-            }
-            .progress-ring {
-                width: 20px;
-                height: 20px;
-                transform: rotate(-90deg);
-            }
-            .progress-ring-bg {
-                fill: none;
-                stroke: rgba(0,0,0,0.1);
-                stroke-width: 4;
-            }
-            .progress-ring-circle {
-                fill: none;
-                stroke: #3b82f6;
-                stroke-width: 4;
-                stroke-linecap: round;
-                transition: stroke-dashoffset 0.5s ease-in-out;
-            }
-            :root[data-theme="dark"] .progress-ring-bg { stroke: rgba(255,255,255,0.1); }
-
-            .usage-value {
-                text-align: right;
-                font-family: 'Inter', monospace;
-                color: var(--text-primary);
-            }
-            .usage-limit {
-                color: var(--text-secondary);
-                font-weight: 400;
-                margin-left: 4px;
-            }
-            
-            .unconfigured-notice {
-                background: #fffbeb;
-                border: 1px dashed #fbbf24;
-                border-radius: 8px;
-                padding: 1rem;
-                margin-bottom: 2rem;
-                color: #b45309;
-                font-size: 0.85rem;
-            }
-        </style>
-    `;
-
-    // --- Helpers Formatters ---
-    const formatBytes = (bytes, decimals = 2) => {
-        if (!+bytes) return '0 Bytes';
-        const k = 1000; // Vercel and generic network often uses 1000
-        const dm = decimals < 0 ? 0 : decimals;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-    };
-
-    const formatNumber = (num, unit = '') => {
-        if (!num) return '0' + unit;
-        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M' + unit;
-        if (num >= 1000) return (num / 1000).toFixed(1) + 'K' + unit;
-        return new Intl.NumberFormat('pt-PT').format(num) + unit;
-    };
-
-    let errorBanner = '';
-    const hasTokens = data?.config?.hasTokens || false;
-
-    if (!hasTokens) {
-        errorBanner = `
-            <div class="unconfigured-notice" style="background:#f8fafc; border-color:#cbd5e1; color:#475569;">
-                <i class="fa-solid fa-key" style="margin-right:8px; color:var(--primary-color);"></i> 
-                <strong>Métricas limitadas.</strong> Atribua as chaves <code>CF_ACCOUNT_ID</code> e <code>CF_API_TOKEN</code> nas variáveis de ambiente da Cloudflare para monitorização completa.
+        views.usage.innerHTML = `
+            <div style="padding: 3rem; max-width: 760px; margin: 0 auto;">
+                <div class="card" style="padding: 1.5rem;">
+                    <h2 style="margin-top:0;">Uso indisponível</h2>
+                    <p style="color: var(--text-secondary); margin-bottom:1rem;">${error.message}</p>
+                    <button class="btn btn-primary" onclick="window.navigateTo('usage')">Tentar novamente</button>
+                </div>
             </div>
         `;
     }
+}
 
-    // Extended metrics list with real data where possible
-    const d1Size = data?.d1?.sizeBytes || 0;
+async function renderUsageDashboard(data) {
+    await ensureChartJs();
 
-    // Default to '--' visually if lacking tokens, unless it's a metric we can fetch without tokens (like D1 size!)
-    const renderVal = (val, asBytes) => {
-        if (!hasTokens && val === 0) return '--';
-        return asBytes ? formatBytes(val) : formatNumber(val);
-    };
-
-    // Note: D1 size is fetched locally from the SQLite Pragma, so it works even without API tokens!
-    const d1VisualValue = d1Size > 0 ? formatBytes(d1Size) : '--';
-
-    const r2Size = data?.r2?.sizeBytes || 0;
-    const r2Objects = data?.r2?.objects || 0;
-
-    const metricsList = [
-        { name: 'Database Storage (D1 Atual)', rawValue: d1Size, rawLimit: 5 * 1000 * 1000 * 1000, value: d1VisualValue, limit: '5 GB', isBytes: true },
-        { name: 'Storage Size (R2 Cloud)', rawValue: r2Size, rawLimit: 10 * 1000 * 1000 * 1000, value: renderVal(r2Size, true), limit: '10 GB', isBytes: true },
-        { name: 'Total Objects (R2 Cloud)', rawValue: r2Objects, rawLimit: 1000000, value: renderVal(r2Objects, false), limit: '1M Ops/Mês', isBytes: false },
-        { name: 'Fast Data Transfer', rawValue: 0, rawLimit: 100 * 1000 * 1000 * 1000, value: renderVal(0, true), limit: '100 GB', isBytes: true },
-        { name: 'Fast Origin Transfer', rawValue: 0, rawLimit: 10 * 1000 * 1000 * 1000, value: renderVal(0, true), limit: '10 GB', isBytes: true },
-        { name: 'Edge Requests', rawValue: 0, rawLimit: 100000, value: renderVal(0, false), limit: '100K', isBytes: false },
-        { name: 'Observability events', rawValue: 0, rawLimit: 200000, value: renderVal(0, false), limit: '200K', isBytes: false },
-        { name: 'Workers build minutes', rawValue: 0, rawLimit: 3000, value: renderVal(0, false), limit: '3,000', isBytes: false },
-        { name: 'Database Queries (D1)', rawValue: 0, rawLimit: 100000, value: renderVal(0, false), limit: '100K', isBytes: false }
-    ];
-
-    // Calculate percentages and sort descending
-    metricsList.forEach(m => {
-        m.percentage = m.rawLimit > 0 ? (m.rawValue / m.rawLimit) * 100 : 0;
-        if (m.percentage > 100) m.percentage = 100; // Cap visual at 100%
-    });
-
-    metricsList.sort((a, b) => b.percentage - a.percentage);
-
-    // By default hide metrics that are zero (most are irrelevant); allow user to toggle
-    const alwaysShow = ['Database Storage (D1 Atual)', 'Storage Size (R2 Cloud)', 'Total Objects (R2 Cloud)'];
-    let showZeroMetricsDefault = false;
-
-    const generateProgressRing = (percentage) => {
-        const radius = 8;
-        const circumference = radius * 2 * Math.PI;
-        // The stroke-dasharray expects "length, gap", stroke-dashoffset subtracts from length
-        const offset = circumference - (percentage / 100) * circumference;
-
-        let strokeColor = '#3b82f6'; // Blue
-        if (percentage >= 80) strokeColor = '#ef4444'; // Red
-        else if (percentage >= 50) strokeColor = '#f59e0b'; // Yellow/Orange
-
-        return `<svg class="progress-ring" viewBox="0 0 20 20">
-            <circle class="progress-ring-bg" cx="10" cy="10" r="${radius}"></circle>
-            <circle class="progress-ring-circle" stroke="${strokeColor}" cx="10" cy="10" r="${radius}" 
-                stroke-dasharray="${circumference} ${circumference}" 
-                stroke-dashoffset="${offset}"></circle>
-        </svg>`;
-    };
-
-    const rowsFor = (list) => list.map(m => `
-        <tr>
-            <td>
-                <div class="metric-name-cell">
-                    ${generateProgressRing(m.percentage)}
-                    <span>${m.name}</span>
-                </div>
-            </td>
-            <td class="usage-value">
-                ${m.value} <span class="usage-limit">/ ${m.limit}</span>
-                <span style="font-size: 0.75rem; color: ${m.percentage > 80 ? '#ef4444' : 'var(--text-secondary)'}; margin-left: 8px; font-weight: 600;">
-                    (${m.percentage.toFixed(1)}%)
-                </span>
-            </td>
-        </tr>
-    `).join('');
-    // Initial list: hide zeros unless in alwaysShow
-    const initialMetrics = metricsList.filter(m => m.rawValue > 0 || alwaysShow.includes(m.name) || showZeroMetricsDefault);
+    const metrics = data.metrics || [];
+    const labels = metrics.map(metric => metric.label);
+    const values = metrics.map(metric => Number(metric.percentage.toFixed(1)));
+    const colors = metrics.map(metric => getBarColor(metric.percentage));
 
     views.usage.innerHTML = `
-        ${styles}
-        <div class="usage-dashboard">
-            <div class="usage-header">
-                <h1>Cloudflare Free Tier Limits</h1>
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <div class="cycle-badge">
-                        <i class="regular fa-calendar" style="margin-right: 6px;"></i> Part-Number (Plano Gratuito)
-                    </div>
-                    <button id="usage-toggle-zeros" class="btn" style="font-size:0.85rem; padding:6px 10px;">Mostrar métricas vazias</button>
+        <style>
+            .usage-shell {
+                max-width: 1100px;
+                margin: 0 auto;
+                padding: 1.25rem 1.25rem 2rem;
+            }
+            .usage-top {
+                display: flex;
+                justify-content: space-between;
+                gap: 1rem;
+                align-items: start;
+                margin-bottom: 1rem;
+            }
+            .usage-title h1 {
+                margin: 0;
+                font-size: 1.7rem;
+            }
+            .usage-title p {
+                margin: .25rem 0 0;
+                color: var(--text-secondary);
+            }
+            .usage-actions {
+                display: flex;
+                align-items: center;
+                gap: .75rem;
+            }
+            .usage-pill {
+                display: inline-flex;
+                align-items: center;
+                padding: .3rem .65rem;
+                border-radius: 999px;
+                background: #e2e8f0;
+                color: #334155;
+                font-size: .78rem;
+                font-weight: 700;
+            }
+            .usage-card {
+                background: var(--bg-color);
+                border: 1px solid var(--border-color);
+                border-radius: 16px;
+                padding: 1rem;
+                box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+            }
+            .usage-card-head {
+                display: flex;
+                justify-content: space-between;
+                gap: 1rem;
+                align-items: start;
+                margin-bottom: .75rem;
+            }
+            .usage-card-head h2 {
+                margin: 0;
+                font-size: 1rem;
+            }
+            .usage-card-head p {
+                margin: .2rem 0 0;
+                color: var(--text-secondary);
+                font-size: .84rem;
+            }
+            .usage-chart-wrap {
+                height: 360px;
+            }
+            .usage-empty {
+                padding: 1rem;
+                border: 1px dashed var(--border-color);
+                border-radius: 12px;
+                color: var(--text-secondary);
+            }
+            .usage-foot {
+                margin-top: .7rem;
+                display: flex;
+                justify-content: space-between;
+                gap: 1rem;
+                color: var(--text-secondary);
+                font-size: .78rem;
+                flex-wrap: wrap;
+            }
+            @media (max-width: 860px) {
+                .usage-top,
+                .usage-foot {
+                    display: grid;
+                }
+                .usage-chart-wrap {
+                    height: 320px;
+                }
+            }
+        </style>
+        <div class="usage-shell">
+            <div class="usage-top">
+                <div class="usage-title">
+                    <h1>Web Usage</h1>
+                    <p>Uso real do teu tier Cloudflare, em percentagem.</p>
+                </div>
+                <div class="usage-actions">
+                    <span class="usage-pill">Atualizado: ${fmtDate(data.timestamp)}</span>
+                    <button class="btn btn-secondary" onclick="window.navigateTo('usage')">Atualizar</button>
                 </div>
             </div>
-            
-            ${errorBanner}
 
-            <div class="usage-table-container">
-                <table class="usage-table">
-                    <thead>
-                        <tr>
-                            <th>Feature</th>
-                            <th>Free Tier Limit</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rowsFor(initialMetrics)}
-                    </tbody>
-                </table>
-            </div>
-
-            <div style="margin-top: 1.5rem; color: var(--text-secondary); font-size: 0.75rem; display: flex; justify-content: space-between;">
-                <span>* Powered by Cloudflare Platform Analytics</span>
-                <span>Última Verificação: ${new Date(data?.timestamp || Date.now()).toLocaleString('pt-PT')}</span>
-            </div>
+            <section class="usage-card">
+                <div class="usage-card-head">
+                    <div>
+                        <h2>Utilização do plano</h2>
+                <p>${data.plan?.label || 'Cloudflare'} • métricas reais do teu tier</p>
+                    </div>
+                </div>
+                ${metrics.length ? '<div class="usage-chart-wrap"><canvas id="usage-chart"></canvas></div>' : '<div class="usage-empty">Sem métricas com utilização para mostrar.</div>'}
+                <div class="usage-foot">
+                    <span>Mostra as métricas do plano, incluindo 0%</span>
+                    <span>Baseado nas últimas 24h e no storage atual</span>
+                </div>
+            </section>
         </div>
     `;
 
-    // Attach toggle behaviour to show/hide zero metrics without full rerender
-    try {
-        const toggleBtn = document.getElementById('usage-toggle-zeros');
-        const tbody = views.usage.querySelector('.usage-table tbody');
-        let showingZeros = showZeroMetricsDefault;
+    if (!metrics.length) return;
 
-        const renderTbody = () => {
-            const list = metricsList.filter(m => showingZeros || m.rawValue > 0 || alwaysShow.includes(m.name));
-            tbody.innerHTML = rowsFor(list);
-            toggleBtn.textContent = showingZeros ? 'Ocultar métricas vazias' : 'Mostrar métricas vazias';
-        };
+    const canvas = document.getElementById('usage-chart');
+    if (!canvas) return;
 
-        toggleBtn.addEventListener('click', () => {
-            showingZeros = !showingZeros;
-            renderTbody();
-        });
-    } catch (err) {
-        // Non-fatal if DOM not as expected
-        console.warn('Usage toggle setup failed', err);
+    if (usageChart) {
+        usageChart.destroy();
+        usageChart = null;
     }
+
+    usageChart = new window.Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+                    datasets: [
+                        {
+                            data: values,
+                            backgroundColor: colors,
+                            borderWidth: 0,
+                            borderRadius: 10,
+                            barThickness: 18,
+                            maxBarThickness: 24,
+                            minBarLength: 8
+                        }
+                    ]
+                },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label(context) {
+                            const metric = metrics[context.dataIndex];
+                            return `${metric.currentLabel} / ${metric.limitLabel} (${metric.percentage.toFixed(1)}%)`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: value => `${value}%`
+                    },
+                    grid: {
+                        color: 'rgba(148, 163, 184, 0.18)'
+                    }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: {
+                        color: 'inherit'
+                    }
+                }
+            }
+        }
+    });
 }

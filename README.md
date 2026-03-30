@@ -22,14 +22,14 @@ Sistema de gestão de inventário e logística desenvolvido para Cloudflare Page
 
 ## 🚀 Tecnologias
 
-| Camada | Tecnologia | Detalhes |
-|--------|-----------|----------|
-| **Frontend** | Vanilla JavaScript (ES6) | Sem build step, módulos nativos |
-| **Backend** | Cloudflare Pages Functions | Edge computing, low latency |
-| **Database** | Cloudflare D1 (SQLite) | Managed, 5.89 MB atual |
-| **Storage** | Cloudflare R2 | Backups e ficheiros |
-| **Auth** | JWT (HS256) | Token-based, stateless |
-| **Deploy** | Cloudflare Pages | Git-integrated CI/CD |
+| Camada       | Tecnologia                        | Detalhes                                   |
+| ------------ | --------------------------------- | ------------------------------------------ |
+| **Frontend** | Vanilla JavaScript (ES6)          | Sem build step, módulos nativos            |
+| **Backend**  | Cloudflare Pages Functions        | Edge computing, low latency                |
+| **Database** | Cloudflare D1 (SQLite)            | Managed, 5.89 MB atual                     |
+| **Storage**  | Cloudflare R2                     | Backups e ficheiros                        |
+| **Auth**     | JWT (HS256)                       | Token-based, stateless                     |
+| **Deploy**   | Cloudflare Pages + GitHub Actions | Branch-based CI/CD para `main` e `staging` |
 
 ---
 
@@ -60,11 +60,13 @@ npm run dev
 ### ⚠️ Variáveis de Ambiente OBRIGATÓRIAS
 
 **Desenvolvimento Local** (.env.local):
+
 ```bash
 JWT_SECRET=seu-secret-aqui-gerado-com-openssl
 ```
 
 **Produção** (Cloudflare Dashboard):
+
 ```
 Pages > asp-app > Settings > Environment Variables
 
@@ -101,14 +103,14 @@ Status:     ✅ Healthy
 
 ### Tabelas Principais
 
-| Tabela | Descrição | Records |
-|--------|-----------|---------|
-| `products` | Inventário | 12 |
-| `app_users` | Utilizadores | 2 |
-| `movements` | Histórico de movimentos | 1+ |
-| `logistics_items` | Itens logísticos | ? |
-| `import_history` | Histórico de imports | ? |
-| `phc` | Dados PHC-Sync | ? |
+| Tabela            | Descrição               | Records |
+| ----------------- | ----------------------- | ------- |
+| `products`        | Inventário              | 12      |
+| `app_users`       | Utilizadores            | 2       |
+| `movements`       | Histórico de movimentos | 1+      |
+| `logistics_items` | Itens logísticos        | ?       |
+| `import_history`  | Histórico de imports    | ?       |
+| `phc`             | Dados PHC-Sync          | ?       |
 
 ### Database Backups
 
@@ -131,16 +133,21 @@ cat BACKUP_RECOVERY.md
 ### Opção 1: Automático (Git Push)
 
 ```bash
+git push origin staging
+# Deploy automático para https://asp-app-staging.pages.dev
+
 git push origin main
-# Cloudflare Pages faz deploy automaticamente
-# Dashboard: https://dash.cloudflare.com/
+# Deploy automático para https://asp-app.pages.dev
 ```
 
 ### Opção 2: Manual
 
 ```bash
-npm run deploy
+npm run deploy:staging
+npm run deploy:prod
 ```
+
+O ficheiro de referência para deploy por branch é [`.github/workflows/pages-deploy.yml`](.github/workflows/pages-deploy.yml).
 
 ### Checklist Pré-Deploy
 
@@ -224,10 +231,10 @@ npm run format  # Format code
 // ... já tem console.time/timeEnd
 
 // Ver estado global
-window.state
+window.state;
 
 // Ver dados do utilizador
-window.state.currentUser
+window.state.currentUser;
 ```
 
 ### Testes (Future)
@@ -307,22 +314,26 @@ kill -9 <PID>
 ## 🎯 Roadmap
 
 ### Phase 1: Code Quality ✅ (Em progresso)
+
 - [x] Security fixes (JWT_SECRET)
 - [x] Remove duplicates
 - [x] Setup ESLint + Prettier
 - [ ] Fix window pollution
 
 ### Phase 2: Documentation (Próxima)
+
 - [ ] JSDoc comments
 - [ ] API documentation
 - [ ] Architecture diagram
 
 ### Phase 3: Testing (Em planeamento)
+
 - [ ] Unit tests
 - [ ] Integration tests
 - [ ] E2E tests
 
 ### Phase 4: Performance
+
 - [ ] Bundle optimization
 - [ ] Code splitting
 - [ ] Caching strategy
@@ -343,15 +354,20 @@ Ver [REFACTORING_PLAN.md](REFACTORING_PLAN.md) para detalhes completos.
 ## 📝 License
 
 UNLICENSED - Internal use only
+
 # Aplicar índices (já aplicado)
+
 npm run db:migrate
 
 # Executar query customizada
-npm run db:query -- --command "SELECT * FROM app_users"
+
+npm run db:query -- --command "SELECT \* FROM app_users"
 
 # Criar backup
+
 npm run db:backup
-```
+
+````
 
 ## 📊 Estrutura da Database
 
@@ -397,7 +413,7 @@ wrangler d1 execute aspstock-db --command "SELECT COUNT(*) FROM products" --remo
 
 # Backup manual
 wrangler d1 backup create aspstock-db
-```
+````
 
 ## 📝 Migrations Disponíveis
 
@@ -424,20 +440,24 @@ O sistema inclui auto-migrações que ocorrem automaticamente:
 ## 🐛 Troubleshooting
 
 ### Erro: "Configuração de segurança inválida"
+
 - Verifique se `JWT_SECRET` está definido no Cloudflare Pages
 - Redeploy após adicionar a variável
 
 ### Erro: "Sessão expirada"
+
 - Tokens JWT expiram após 24h
 - Faça logout e login novamente
 
 ### Database locked
+
 - D1 não suporta transações longas
 - Use batch operations para imports grandes
 
 ## 📞 Suporte
 
 Para questões técnicas, consulte a documentação do Cloudflare:
+
 - [D1 Documentation](https://developers.cloudflare.com/d1/)
 - [Pages Functions](https://developers.cloudflare.com/pages/functions/)
 - [R2 Storage](https://developers.cloudflare.com/r2/)

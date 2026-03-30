@@ -1,1211 +1,2353 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>ASP App | Sistema Unificado</title>
+        <link rel="icon" type="image/x-icon" href="logo.ico" />
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ASP App | Sistema Unificado</title>
-    <link rel="icon" type="image/x-icon" href="logo.ico">
+        <!-- Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        <!-- Icons -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
 
-    <!-- Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <!-- Custom CSS Modules -->
+        <link rel="stylesheet" href="css/modules/variables.css" />
+        <link rel="stylesheet" href="css/modules/base.css" />
+        <link rel="stylesheet" href="css/modules/layout.css" />
+        <link rel="stylesheet" href="css/modules/components.css" />
+        <link rel="stylesheet" href="css/modules/dashboard.css" />
+        <link rel="stylesheet" href="css/modules/inventory.css" />
+        <link rel="stylesheet" href="css/modules/history.css" />
+        <link rel="stylesheet" href="css/modules/logistics.css" />
+        <link rel="stylesheet" href="css/modules/transit.css" />
+        <link rel="stylesheet" href="css/modules/admin.css" />
+        <link rel="stylesheet" href="css/modules/dialogs.css" />
 
-    <!-- Custom CSS Modules -->
-    <link rel="stylesheet" href="css/modules/variables.css">
-    <link rel="stylesheet" href="css/modules/base.css">
-    <link rel="stylesheet" href="css/modules/layout.css">
-    <link rel="stylesheet" href="css/modules/components.css">
-    <link rel="stylesheet" href="css/modules/dashboard.css">
-    <link rel="stylesheet" href="css/modules/inventory.css">
-    <link rel="stylesheet" href="css/modules/history.css">
-    <link rel="stylesheet" href="css/modules/logistics.css">
-    <link rel="stylesheet" href="css/modules/transit.css">
-    <link rel="stylesheet" href="css/modules/admin.css">
-    <link rel="stylesheet" href="css/modules/dialogs.css">
+        <!-- Utilities -->
+        <link rel="stylesheet" href="css/autocomplete.css" />
+        <link rel="stylesheet" href="css/image-viewer.css" />
 
-    <!-- Utilities -->
-    <link rel="stylesheet" href="css/autocomplete.css">
-    <link rel="stylesheet" href="css/image-viewer.css">
+        <!-- Dependencies -->
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    </head>
 
-    <!-- Dependencies -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <!-- jQuery + jsTree for gallery file-tree -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@zurmokeeper/exceljs@4.4.1/dist/exceljs.min.js"></script>
-    <script>
-        // Initialize PDF.js worker
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    </script>
-</head>
-
-<body>
-
-    <div class="app-container">
-        <!-- Mobile Header (Floating/Top) -->
-        <header class="mobile-top-bar show-mobile">
-            <button id="btn-toggle-sidebar" class="btn-icon">
-                <i class="fa-solid fa-bars"></i>
-            </button>
-            <div class="mobile-brand">
-                <img src="logowhite.svg" style="height: 32px; width: auto; object-fit: contain;">
-            </div>
-            <div style="width: 40px;"></div> <!-- Spacer for centering -->
-        </header>
-
-        <!-- Sidebar Overlay -->
-        <div id="sidebar-overlay" class="sidebar-overlay"></div>
-
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="brand">
-                <div class="brand-logo" style="background: none; width: 100%; justify-content: center;">
-                    <img src="logowhite.svg" style="height: 48px; width: auto; object-fit: contain;">
-                </div>
-            </div>
-
-            <nav class="nav-menu">
-                <!-- Folder: Inventário -->
-                <div class="nav-folder expanded" id="folder-inventory" draggable="true">
-                    <div class="nav-folder-header">
-                        <i class="fa-solid fa-folder-open"></i>
-                        <span>Gestão Inventário</span>
-                        <i class="fa-solid fa-chevron-down folder-arrow"></i>
-                    </div>
-                    <div class="nav-folder-content">
-                        <a href="#" class="nav-item active" data-page="dashboard" draggable="true">
-                            <i class="fa-solid fa-chart-pie"></i>
-                            <span>Dashboard</span>
-                        </a>
-                        <a href="#" class="nav-item" data-page="inventory" draggable="true">
-                            <i class="fa-solid fa-boxes-stacked"></i>
-                            <span>Artigos em Stock</span>
-                        </a>
-                        <a href="#" class="nav-item" data-page="transit" draggable="true">
-                            <i class="fa-solid fa-truck-fast"></i>
-                            <span>Chegadas Stock</span>
-                        </a>
-                        <a href="#" class="nav-item" data-page="stock-out" draggable="true">
-                            <i class="fa-solid fa-truck-pickup"></i>
-                            <span>Saídas Stock</span>
-                        </a>
-                    </div>
-                </div>
-
-                <div class="nav-folder" id="folder-logistics" draggable="true">
-                    <div class="nav-folder-header">
-                        <i class="fa-solid fa-folder"></i>
-                        <span>Logística</span>
-                        <i class="fa-solid fa-chevron-down folder-arrow"></i>
-                    </div>
-                    <div class="nav-folder-content">
-                        <a href="#" class="nav-item" data-page="logistics" draggable="true">
-                            <i class="fa-solid fa-clipboard-list"></i>
-                            <span>Encomendas</span>
-                        </a>
-                    </div>
-                </div>
-
-                <div class="nav-folder" id="folder-admin" draggable="true">
-                    <div class="nav-folder-header">
-                        <i class="fa-solid fa-folder"></i>
-                        <span>Administração</span>
-                        <i class="fa-solid fa-chevron-down folder-arrow"></i>
-                    </div>
-                    <div class="nav-folder-content">
-                        <a href="#" class="nav-item" data-page="history" draggable="true">
-                            <i class="fa-solid fa-clock-rotate-left"></i>
-                            <span>Histórico Global</span>
-                        </a>
-                        <a href="#" class="nav-item" id="nav-item-admin" style="display:none;" data-page="admin"
-                            draggable="true">
-                            <i class="fa-solid fa-user-shield"></i>
-                            <span>Admin Panel</span>
-                        </a>
-                        <a href="#" class="nav-item" id="nav-item-usage" style="display:none;" data-page="usage"
-                            draggable="true">
-                            <i class="fa-solid fa-server"></i>
-                            <span>Web Usage</span>
-                        </a>
-                        <a href="#" class="nav-item" id="nav-item-backups" style="display:none;" data-page="backups"
-                            draggable="true">
-                            <i class="fa-solid fa-cloud-arrow-up"></i>
-                            <span>Gestão de Backups</span>
-                        </a>
-                        <a href="#" class="nav-item" data-page="settings" draggable="true">
-                            <i class="fa-solid fa-gear"></i>
-                            <span>Definições</span>
-                        </a>
-                        <a href="#" class="nav-item" id="nav-item-gallery" data-page="gallery" draggable="true">
-                            <i class="fa-solid fa-image"></i>
-                            <span>Galeria de Imagens</span>
-                        </a>
-                    </div>
-                </div>
-            </nav>
-
-            <div class="user-profile">
-                <div class="avatar">
-                    <i class="fa-solid fa-user"></i>
-                </div>
-                <div class="user-info">
-                    <p id="current-user-name">Guest</p>
-                    <span id="current-user-role">Atlantic Spare Parts</span>
-                </div>
-                <button id="btn-logout" title="Sair"
-                    style="margin-left:auto; background:none; border:none; color:#94a3b8; cursor:pointer; font-size:1.1rem;">
-                    <i class="fa-solid fa-right-from-bracket"></i>
+    <body>
+        <div class="app-container">
+            <!-- Mobile Header (Floating/Top) -->
+            <header class="mobile-top-bar show-mobile">
+                <button id="btn-toggle-sidebar" class="btn-icon">
+                    <i class="fa-solid fa-bars"></i>
                 </button>
-            </div>
-        </aside>
+                <div class="mobile-brand">
+                    <img
+                        src="logowhite.svg"
+                        style="height: 32px; width: auto; object-fit: contain"
+                    />
+                </div>
+                <div style="width: 40px"></div>
+                <!-- Spacer for centering -->
+            </header>
 
-        <!-- Main Content -->
-        <main class="main-content">
+            <!-- Sidebar Overlay -->
+            <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
-            <!-- View: Dashboard -->
-            <div id="view-dashboard" class="view-section">
-                <!-- Content injected via JS -->
-            </div>
-
-            <!-- View: Inventory -->
-            <div id="view-inventory" class="view-section" style="animation: fadeIn 0.4s ease-out;">
-                <header class="top-bar">
-                    <div class="view-header" style="margin-bottom: 0;">
-                        <i class="fa-solid fa-boxes-stacked"></i>
-                        <h2 id="page-title">Inventário</h2>
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="brand">
+                    <div
+                        class="brand-logo"
+                        style="background: none; width: 100%; justify-content: center"
+                    >
+                        <img
+                            src="logowhite.svg"
+                            style="height: 48px; width: auto; object-fit: contain"
+                        />
                     </div>
-                    <div class="actions">
-                        <button class="btn btn-secondary trigger-phc-import" id="btn-import-phc"
-                            title="Importar Processo PHC">
-                            <i class="fa-solid fa-cloud-arrow-down" style="color:#0ea5e9;"></i>
-                        </button>
-                        <button class="btn btn-secondary" id="btn-export-excel" title="Exportar para Excel Otimizado">
-                            <i class="fa-solid fa-file-excel" style="color:#10b981;"></i>
-                        </button>
-                        <button class="btn btn-primary" id="btn-add-product">
-                            <i class="fa-solid fa-plus"></i> Novo Produto
-                        </button>
-                    </div>
-                </header>
-                <!-- Filters Bar (Intelligent) -->
-                <div id="filter-bar" class="filter-bar">
-                    <div class="search-row">
-                        <div class="search-container">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" autocomplete="off" id="global-search" placeholder="Procurar produtos..."
-                                autocomplete="off">
+                </div>
 
-                            <button id="btn-scan-qr" title="Scan Barcode" class="scan-btn">
-                                <i class="fa-solid fa-barcode"></i>
-                            </button>
+                <nav class="nav-menu">
+                    <!-- Folder: Inventário -->
+                    <div class="nav-folder expanded" id="folder-inventory" draggable="true">
+                        <div class="nav-folder-header">
+                            <i class="fa-solid fa-folder-open"></i>
+                            <span>Gestão Inventário</span>
+                            <i class="fa-solid fa-chevron-down folder-arrow"></i>
                         </div>
-                        <button class="trigger-phc-import show-mobile" title="Importar Processo PHC"
-                            style="border:none; background:none; color:#0ea5e9; font-size:1.1rem; cursor:pointer; padding:0 8px;">
-                            <i class="fa-solid fa-cloud-arrow-down"></i>
-                        </button>
-                        <button id="btn-add-product-mobile" class="show-mobile" title="Novo Produto">
-                            <i class="fa-solid fa-plus"></i>
-                        </button>
+                        <div class="nav-folder-content">
+                            <a
+                                href="#"
+                                class="nav-item active"
+                                data-page="dashboard"
+                                draggable="true"
+                            >
+                                <i class="fa-solid fa-chart-pie"></i>
+                                <span>Dashboard</span>
+                            </a>
+                            <a href="#" class="nav-item" data-page="inventory" draggable="true">
+                                <i class="fa-solid fa-boxes-stacked"></i>
+                                <span>Artigos em Stock</span>
+                            </a>
+                            <a
+                                href="#"
+                                class="nav-item"
+                                id="nav-item-gallery"
+                                data-page="gallery"
+                                draggable="true"
+                            >
+                                <i class="fa-solid fa-images"></i>
+                                <span>Galeria de Imagens</span>
+                            </a>
+                            <a href="#" class="nav-item" data-page="transit" draggable="true">
+                                <i class="fa-solid fa-truck-fast"></i>
+                                <span>Chegadas Stock</span>
+                            </a>
+                            <a href="#" class="nav-item" data-page="stock-out" draggable="true">
+                                <i class="fa-solid fa-truck-pickup"></i>
+                                <span>Saídas Stock</span>
+                            </a>
+                        </div>
                     </div>
 
-                    <div class="filters-row">
-                        <div class="filter-group" id="group-status">
-                            <div class="filter-dot"></div>
-                            <i class="fa-solid fa-layer-group"></i>
-                            <span class="filter-label" id="label-status">Todos os Estados</span>
-                            <i class="fa-solid fa-chevron-down"></i>
-                            <div class="filter-dropdown" id="dropdown-status">
-                                <div class="dropdown-options" id="options-status">
-                                    <div class="dropdown-item selected" data-value="all"><i
-                                            class="fa-solid fa-list-check"
-                                            style="margin-right:8px; color:var(--primary-color);"></i>Todos os Estados
-                                    </div>
-                                    <div class="dropdown-item" data-value="low"><i
-                                            class="fa-solid fa-triangle-exclamation"
-                                            style="margin-right:8px; color:#eab308;"></i>Stock Baixo</div>
-                                    <div class="dropdown-item" data-value="out"><i class="fa-solid fa-circle-xmark"
-                                            style="margin-right:8px; color:#ef4444;"></i>Sem Stock</div>
-                                    <div class="dropdown-item" data-value="positive"><i class="fa-solid fa-circle-check"
-                                            style="margin-right:8px; color:#10b981;"></i>Em Stock</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="filter-group" id="group-category">
-                            <div class="filter-dot"></div>
+                    <div class="nav-folder" id="folder-logistics" draggable="true">
+                        <div class="nav-folder-header">
                             <i class="fa-solid fa-folder"></i>
-                            <span class="filter-label" id="label-category">Todos os Modelos</span>
-                            <i class="fa-solid fa-chevron-down"></i>
-                            <div class="filter-dropdown" id="dropdown-category">
-                                <div class="dropdown-search"><input type="text" autocomplete="off"
-                                        placeholder="Procurar Type..." autocomplete="off">
-                                </div>
-                                <div class="dropdown-options" id="options-category"></div>
-                            </div>
+                            <span>Logística</span>
+                            <i class="fa-solid fa-chevron-down folder-arrow"></i>
                         </div>
-
-                        <div class="filter-group" id="group-box">
-                            <div class="filter-dot"></div>
-                            <i class="fa-solid fa-box-open"></i>
-                            <span class="filter-label" id="label-box">Todas as Caixas</span>
-                            <button id="btn-print-box" title="Imprimir Etiqueta da Caixa"
-                                style="display: none; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; background: #fef2f2; border: 1px solid #fee2e2; color: #ef4444; cursor: pointer; margin-left: 4px; font-size: 0.95rem; transition: all 0.2s; flex-shrink: 0;">
-                                <i class="fa-solid fa-print"></i>
-                            </button>
-                            <i class="fa-solid fa-chevron-down"></i>
-                            <div class="filter-dropdown" id="dropdown-box">
-                                <div class="dropdown-search"><input type="text" autocomplete="off"
-                                        placeholder="Procurar Caixa..." autocomplete="off">
-                                </div>
-                                <div class="dropdown-options" id="options-box"></div>
-                            </div>
-                        </div>
-
-                        <div class="filter-group" id="group-pallet">
-                            <div class="filter-dot"></div>
-                            <i class="fa-solid fa-box"></i>
-                            <span class="filter-label" id="label-pallet">Todas as Paletes</span>
-                            <button id="btn-print-pallet" title="Imprimir Etiqueta da Palete">
-                                <i class="fa-solid fa-print"></i>
-                            </button>
-                            <i class="fa-solid fa-chevron-down"></i>
-                            <div class="filter-dropdown" id="dropdown-pallet">
-                                <div class="dropdown-search"><input type="text" autocomplete="off"
-                                        placeholder="Procurar palete...">
-                                </div>
-                                <div class="dropdown-options" id="options-pallet"></div>
-                            </div>
+                        <div class="nav-folder-content">
+                            <a href="#" class="nav-item" data-page="logistics" draggable="true">
+                                <i class="fa-solid fa-clipboard-list"></i>
+                                <span>Encomendas</span>
+                            </a>
                         </div>
                     </div>
-                </div>
 
-                <div id="inventory-content">
-                    <div class="loading-state" style="padding: 2rem; text-align: center;">
-                        <div class="spinner"></div>
-                        <p>A carregar dados...</p>
+                    <div class="nav-folder" id="folder-admin" draggable="true">
+                        <div class="nav-folder-header">
+                            <i class="fa-solid fa-folder"></i>
+                            <span>Administração</span>
+                            <i class="fa-solid fa-chevron-down folder-arrow"></i>
+                        </div>
+                        <div class="nav-folder-content">
+                            <a href="#" class="nav-item" data-page="history" draggable="true">
+                                <i class="fa-solid fa-clock-rotate-left"></i>
+                                <span>Histórico Global</span>
+                            </a>
+                            <a
+                                href="#"
+                                class="nav-item"
+                                id="nav-item-admin"
+                                style="display: none"
+                                data-page="admin"
+                                draggable="true"
+                            >
+                                <i class="fa-solid fa-user-shield"></i>
+                                <span>Admin Panel</span>
+                            </a>
+                            <a
+                                href="#"
+                                class="nav-item"
+                                id="nav-item-usage"
+                                style="display: none"
+                                data-page="usage"
+                                draggable="true"
+                            >
+                                <i class="fa-solid fa-server"></i>
+                                <span>Web Usage</span>
+                            </a>
+                            <a
+                                href="#"
+                                class="nav-item"
+                                id="nav-item-backups"
+                                style="display: none"
+                                data-page="backups"
+                                draggable="true"
+                            >
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                <span>Gestão de Backups</span>
+                            </a>
+                            <a href="#" class="nav-item" data-page="settings" draggable="true">
+                                <i class="fa-solid fa-gear"></i>
+                                <span>Definições</span>
+                            </a>
+                        </div>
                     </div>
-                </div>
-            </div>
+                </nav>
 
-            <!-- View: History -->
-            <div id="view-history" class="view-section"></div>
-
-            <!-- View: Admin -->
-            <div id="view-admin" class="view-section"></div>
-
-            <!-- View: Usage -->
-            <div id="view-usage" class="view-section" style="padding: 2rem;"></div>
-            <!-- View: Gallery -->
-            <div id="view-gallery" class="view-section" style="padding: 1rem; display:none;"></div>
-
-            <!-- View: Backups -->
-            <div id="view-backups" class="view-section"></div>
-
-            <!-- View: Transit -->
-            <div id="view-transit" class="view-section"></div>
-
-            <!-- View: Stock Out -->
-            <div id="view-stock-out" class="view-section"></div>
-
-            <!-- View: Logistics -->
-            <div id="view-logistics" class="view-section"></div>
-
-            <!-- View: Settings -->
-            <div id="view-settings" class="view-section"></div>
-
-            <!-- Notification Container -->
-            <div id="toast-container"></div>
-
-            <!-- Old Page Content Placeholder to prevent JS errors before update -->
-            <!-- <div id="page-content" class="page-content" style="display:none;"></div> -->
-            <!-- I will update JS so I don't need this -->
-
-        </main>
-    </div>
-
-    <!-- Scanner Modal -->
-    <div id="scanner-modal" class="modal">
-        <div class="modal-content" style="width:500px;">
-            <div class="modal-header">
-                <h2>Scan Código de Barras</h2>
-                <button class="close-modal" id="close-scanner"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="modal-body" style="text-align:center;">
-                <div id="reader" style="width: 100%;"></div>
-                <p style="margin-top:1rem; color:var(--text-secondary);">Aponte a câmara para o código</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Print Choice Modal -->
-    <div id="print-choice-modal" class="modal">
-        <div class="modal-content" style="width:380px; text-align:left;">
-            <div class="modal-header">
-                <h2 id="print-choice-title">Imprimir</h2>
-                <button class="close-modal" id="print-choice-close"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="modal-body">
-                <p id="print-choice-name" style="font-weight:600;"></p>
-
-                <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px;">
-                    <label><input type="radio" name="print-choice" id="print-choice-single" checked> Imprimir etiqueta da caixa/palete (única)</label>
-                    <label><input type="radio" name="print-choice" id="print-choice-bulk"> Imprimir etiquetas dos produtos dentro (bulk)</label>
-                </div>
-            </div>
-            <div class="modal-footer" style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
-                <button class="btn btn-secondary" id="print-choice-cancel">Cancelar</button>
-                <button class="btn btn-primary" id="print-choice-confirm">Imprimir</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Image Viewer Overlay -->
-    <div id="image-viewer" class="image-viewer-overlay">
-        <button id="btn-close-viewer-top" class="viewer-close-btn">&times;</button>
-
-        <div class="viewer-content">
-            <button id="viewer-prev" class="viewer-nav prev"><i class="fa-solid fa-chevron-left"></i></button>
-            <button id="viewer-next" class="viewer-nav next"><i class="fa-solid fa-chevron-right"></i></button>
-
-            <div class="viewer-image-box">
-                <img id="viewer-img" src="" alt="Produto">
-
-                <!-- Float Actions on Image -->
-                <div class="viewer-actions-minimal collapsed" id="viewer-actions-minimal">
-                    <button type="button" class="btn-eye-action viewer-actions-toggle" id="btn-toggle-viewer-actions" title="Expandir ações" aria-expanded="false">
-                        <i class="fa-solid fa-ellipsis"></i>
+                <div class="user-profile">
+                    <div class="avatar">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <div class="user-info">
+                        <p id="current-user-name">Guest</p>
+                        <span id="current-user-role">Atlantic Spare Parts</span>
+                    </div>
+                    <button
+                        id="btn-logout"
+                        title="Sair"
+                        style="
+                            margin-left: auto;
+                            background: none;
+                            border: none;
+                            color: #94a3b8;
+                            cursor: pointer;
+                            font-size: 1.1rem;
+                        "
+                    >
+                        <i class="fa-solid fa-right-from-bracket"></i>
                     </button>
-                    <div class="viewer-actions-panel" id="viewer-actions-panel">
-                        <button type="button" class="btn-eye-action" id="btn-move-image-left" title="Mover para trás">
-                            <i class="fa-solid fa-arrow-left"></i>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="main-content">
+                <!-- View: Dashboard -->
+                <div id="view-dashboard" class="view-section">
+                    <!-- Content injected via JS -->
+                </div>
+
+                <!-- View: Inventory -->
+                <div
+                    id="view-inventory"
+                    class="view-section"
+                    style="animation: fadeIn 0.4s ease-out"
+                >
+                    <header class="top-bar">
+                        <div class="view-header" style="margin-bottom: 0">
+                            <i class="fa-solid fa-boxes-stacked"></i>
+                            <h2 id="page-title">Inventário</h2>
+                        </div>
+                        <div class="actions">
+                            <button
+                                class="btn btn-secondary trigger-phc-import"
+                                id="btn-import-phc"
+                                title="Importar Processo PHC"
+                            >
+                                <i class="fa-solid fa-cloud-arrow-down" style="color: #0ea5e9"></i>
+                            </button>
+                            <button
+                                class="btn btn-secondary"
+                                id="btn-export-excel"
+                                title="Exportar para Excel Otimizado"
+                            >
+                                <i class="fa-solid fa-file-excel" style="color: #10b981"></i>
+                            </button>
+                            <button class="btn btn-primary" id="btn-add-product">
+                                <i class="fa-solid fa-plus"></i> Novo Produto
+                            </button>
+                        </div>
+                    </header>
+                    <!-- Filters Bar (Intelligent) -->
+                    <div id="filter-bar" class="filter-bar">
+                        <div class="search-row">
+                            <div class="search-container">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="global-search"
+                                    placeholder="Procurar produtos..."
+                                    autocomplete="off"
+                                />
+
+                                <button id="btn-scan-qr" title="Scan Barcode" class="scan-btn">
+                                    <i class="fa-solid fa-barcode"></i>
+                                </button>
+                            </div>
+                            <button
+                                class="trigger-phc-import show-mobile"
+                                title="Importar Processo PHC"
+                                style="
+                                    border: none;
+                                    background: none;
+                                    color: #0ea5e9;
+                                    font-size: 1.1rem;
+                                    cursor: pointer;
+                                    padding: 0 8px;
+                                "
+                            >
+                                <i class="fa-solid fa-cloud-arrow-down"></i>
+                            </button>
+                            <button
+                                id="btn-add-product-mobile"
+                                class="show-mobile"
+                                title="Novo Produto"
+                            >
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
+
+                        <div class="filters-row">
+                            <div class="filter-group" id="group-status">
+                                <div class="filter-dot"></div>
+                                <i class="fa-solid fa-layer-group"></i>
+                                <span class="filter-label" id="label-status">Todos os Estados</span>
+                                <i class="fa-solid fa-chevron-down"></i>
+                                <div class="filter-dropdown" id="dropdown-status">
+                                    <div class="dropdown-options" id="options-status">
+                                        <div class="dropdown-item selected" data-value="all">
+                                            <i
+                                                class="fa-solid fa-list-check"
+                                                style="
+                                                    margin-right: 8px;
+                                                    color: var(--primary-color);
+                                                "
+                                            ></i
+                                            >Todos os Estados
+                                        </div>
+                                        <div class="dropdown-item" data-value="low">
+                                            <i
+                                                class="fa-solid fa-triangle-exclamation"
+                                                style="margin-right: 8px; color: #eab308"
+                                            ></i
+                                            >Stock Baixo
+                                        </div>
+                                        <div class="dropdown-item" data-value="out">
+                                            <i
+                                                class="fa-solid fa-circle-xmark"
+                                                style="margin-right: 8px; color: #ef4444"
+                                            ></i
+                                            >Sem Stock
+                                        </div>
+                                        <div class="dropdown-item" data-value="positive">
+                                            <i
+                                                class="fa-solid fa-circle-check"
+                                                style="margin-right: 8px; color: #10b981"
+                                            ></i
+                                            >Em Stock
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="filter-group" id="group-category">
+                                <div class="filter-dot"></div>
+                                <i class="fa-solid fa-folder"></i>
+                                <span class="filter-label" id="label-category"
+                                    >Todos os Modelos</span
+                                >
+                                <i class="fa-solid fa-chevron-down"></i>
+                                <div class="filter-dropdown" id="dropdown-category">
+                                    <div class="dropdown-search">
+                                        <input
+                                            type="text"
+                                            autocomplete="off"
+                                            placeholder="Procurar Type..."
+                                            autocomplete="off"
+                                        />
+                                    </div>
+                                    <div class="dropdown-options" id="options-category"></div>
+                                </div>
+                            </div>
+
+                            <div class="filter-group" id="group-box">
+                                <div class="filter-dot"></div>
+                                <i class="fa-solid fa-box-open"></i>
+                                <span class="filter-label" id="label-box">Todas as Caixas</span>
+                                <button
+                                    id="btn-print-box"
+                                    title="Imprimir Etiqueta da Caixa"
+                                    style="
+                                        display: none;
+                                        align-items: center;
+                                        justify-content: center;
+                                        width: 28px;
+                                        height: 28px;
+                                        border-radius: 6px;
+                                        background: #fef2f2;
+                                        border: 1px solid #fee2e2;
+                                        color: #ef4444;
+                                        cursor: pointer;
+                                        margin-left: 4px;
+                                        font-size: 0.95rem;
+                                        transition: all 0.2s;
+                                        flex-shrink: 0;
+                                    "
+                                >
+                                    <i class="fa-solid fa-print"></i>
+                                </button>
+                                <i class="fa-solid fa-chevron-down"></i>
+                                <div class="filter-dropdown" id="dropdown-box">
+                                    <div class="dropdown-search">
+                                        <input
+                                            type="text"
+                                            autocomplete="off"
+                                            placeholder="Procurar Caixa..."
+                                            autocomplete="off"
+                                        />
+                                    </div>
+                                    <div class="dropdown-options" id="options-box"></div>
+                                </div>
+                            </div>
+
+                            <div class="filter-group" id="group-pallet">
+                                <div class="filter-dot"></div>
+                                <i class="fa-solid fa-box"></i>
+                                <span class="filter-label" id="label-pallet">Todas as Paletes</span>
+                                <button id="btn-print-pallet" title="Imprimir Etiqueta da Palete">
+                                    <i class="fa-solid fa-print"></i>
+                                </button>
+                                <i class="fa-solid fa-chevron-down"></i>
+                                <div class="filter-dropdown" id="dropdown-pallet">
+                                    <div class="dropdown-search">
+                                        <input
+                                            type="text"
+                                            autocomplete="off"
+                                            placeholder="Procurar palete..."
+                                        />
+                                    </div>
+                                    <div class="dropdown-options" id="options-pallet"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="inventory-content">
+                        <div class="loading-state" style="padding: 2rem; text-align: center">
+                            <div class="spinner"></div>
+                            <p>A carregar dados...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- View: History -->
+                <div id="view-history" class="view-section"></div>
+
+                <!-- View: Admin -->
+                <div id="view-admin" class="view-section"></div>
+
+                <!-- View: Usage -->
+                <div id="view-usage" class="view-section" style="padding: 2rem"></div>
+
+                <!-- View: Gallery -->
+                <div id="view-gallery" class="view-section"></div>
+
+                <!-- View: Backups -->
+                <div id="view-backups" class="view-section"></div>
+
+                <!-- View: Transit -->
+                <div id="view-transit" class="view-section"></div>
+
+                <!-- View: Stock Out -->
+                <div id="view-stock-out" class="view-section"></div>
+
+                <!-- View: Logistics -->
+                <div id="view-logistics" class="view-section"></div>
+
+                <!-- View: Settings -->
+                <div id="view-settings" class="view-section"></div>
+
+                <!-- Notification Container -->
+                <div id="toast-container"></div>
+
+                <!-- Old Page Content Placeholder to prevent JS errors before update -->
+                <!-- <div id="page-content" class="page-content" style="display:none;"></div> -->
+                <!-- I will update JS so I don't need this -->
+            </main>
+        </div>
+
+        <!-- Scanner Modal -->
+        <div id="scanner-modal" class="modal">
+            <div class="modal-content" style="width: 500px">
+                <div class="modal-header">
+                    <h2>Scan Código de Barras</h2>
+                    <button class="close-modal" id="close-scanner">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="modal-body" style="text-align: center">
+                    <div id="reader" style="width: 100%"></div>
+                    <p style="margin-top: 1rem; color: var(--text-secondary)">
+                        Aponte a câmara para o código
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Print Choice Modal -->
+        <div id="print-choice-modal" class="modal">
+            <div class="modal-content" style="width: 380px; text-align: left">
+                <div class="modal-header">
+                    <h2 id="print-choice-title">Imprimir</h2>
+                    <button class="close-modal" id="print-choice-close">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="print-choice-name" style="font-weight: 600"></p>
+
+                    <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px">
+                        <label
+                            ><input
+                                type="radio"
+                                name="print-choice"
+                                id="print-choice-single"
+                                checked
+                            />
+                            Imprimir etiqueta da caixa/palete (única)</label
+                        >
+                        <label
+                            ><input type="radio" name="print-choice" id="print-choice-bulk" />
+                            Imprimir etiquetas dos produtos dentro (bulk)</label
+                        >
+                    </div>
+                </div>
+                <div
+                    class="modal-footer"
+                    style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px"
+                >
+                    <button class="btn btn-secondary" id="print-choice-cancel">Cancelar</button>
+                    <button class="btn btn-primary" id="print-choice-confirm">Imprimir</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Viewer Overlay -->
+        <div id="image-viewer" class="image-viewer-overlay">
+            <button id="btn-close-viewer-top" class="viewer-close-btn">&times;</button>
+
+            <div class="viewer-content">
+                <button id="viewer-prev" class="viewer-nav prev">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <button id="viewer-next" class="viewer-nav next">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+
+                <div class="viewer-image-box">
+                    <img id="viewer-img" src="" alt="Produto" />
+
+                    <!-- Float Actions on Image -->
+                    <div class="viewer-actions-minimal collapsed" id="viewer-actions-minimal">
+                        <button
+                            type="button"
+                            class="btn-eye-action viewer-actions-toggle"
+                            id="btn-toggle-viewer-actions"
+                            title="Expandir ações"
+                            aria-expanded="false"
+                        >
+                            <i class="fa-solid fa-ellipsis"></i>
                         </button>
-                        <button type="button" class="btn-eye-action" id="btn-move-image-right" title="Mover para a frente">
-                            <i class="fa-solid fa-arrow-right"></i>
-                        </button>
-                        <button type="button" class="btn-eye-action" id="btn-take-photo" title="Tirar Foto">
+                        <div class="viewer-actions-panel" id="viewer-actions-panel">
+                            <button
+                                type="button"
+                                class="btn-eye-action"
+                                id="btn-move-image-left"
+                                title="Mover para trás"
+                            >
+                                <i class="fa-solid fa-arrow-left"></i>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn-eye-action"
+                                id="btn-move-image-right"
+                                title="Mover para a frente"
+                            >
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn-eye-action"
+                                id="btn-take-photo"
+                                title="Tirar Foto"
+                            >
+                                <i class="fa-solid fa-camera"></i>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn-eye-action"
+                                id="btn-change-image"
+                                title="Adicionar Media"
+                            >
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn-eye-action"
+                                id="btn-delete-image"
+                                title="Apagar Imagem"
+                            >
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn-eye-action"
+                                id="btn-close-viewer-x"
+                                title="Fechar"
+                            >
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="viewer-counter" class="viewer-counter">1 / 1</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for Add/Edit Product -->
+        <div id="product-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="header-left">
+                        <div
+                            id="header-image-container"
+                            class="header-image-container"
+                            title="Gerir imagem"
+                        >
                             <i class="fa-solid fa-camera"></i>
+                        </div>
+                        <input
+                            type="file"
+                            id="prod-image"
+                            multiple
+                            accept="image/*,video/*"
+                            style="
+                                opacity: 0;
+                                position: absolute;
+                                width: 1px;
+                                height: 1px;
+                                overflow: hidden;
+                                z-index: -1;
+                            "
+                        />
+                        <input
+                            type="file"
+                            id="prod-camera-input"
+                            name="prod-camera-input"
+                            accept="image/*"
+                            capture="environment"
+                            style="
+                                opacity: 0;
+                                position: absolute;
+                                width: 1px;
+                                height: 1px;
+                                overflow: hidden;
+                                z-index: -1;
+                            "
+                        />
+                        <h2 id="modal-title">Adicionar Produto</h2>
+                    </div>
+                    <div class="actions" style="display: flex; gap: 0.5rem; align-items: center">
+                        <button
+                            type="button"
+                            class="btn btn-secondary"
+                            id="btn-header-print"
+                            title="Imprimir Etiqueta"
+                            style="padding: 6px 10px"
+                        >
+                            <i class="fa-solid fa-print"></i>
                         </button>
-                        <button type="button" class="btn-eye-action" id="btn-change-image" title="Adicionar Media">
-                            <i class="fa-solid fa-plus"></i>
+                        <button
+                            type="button"
+                            class="btn btn-primary"
+                            id="btn-header-save"
+                            title="Guardar Rapidamente"
+                            style="padding: 6px 12px"
+                        >
+                            <i class="fa-solid fa-floppy-disk"></i>
                         </button>
-                        <button type="button" class="btn-eye-action" id="btn-delete-image" title="Apagar Imagem">
-                            <i class="fa-solid fa-trash-can"></i>
+                        <button class="close-modal">&times;</button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <form id="product-form">
+                        <input type="hidden" id="prod-id" />
+
+                        <!-- Main Identification (Now at Top) -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="prod-name">Descrição</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="prod-name"
+                                    required
+                                    placeholder="Ex: CYLINDER LINER O-RING"
+                                    autocomplete="off"
+                                />
+                            </div>
+                            <div class="form-group" style="position: relative">
+                                <label for="prod-part-number">Part-Number</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="prod-part-number"
+                                    required
+                                    placeholder="Ex: 319740"
+                                    autocomplete="off"
+                                />
+                                <div
+                                    id="part-number-suggestions"
+                                    class="autocomplete-suggestions"
+                                ></div>
+                            </div>
+                        </div>
+
+                        <!-- Logistics Fields -->
+                        <div
+                            class="form-row divider"
+                            style="
+                                border-top: 1px solid var(--border-color);
+                                margin: 1rem 0;
+                                padding-top: 1rem;
+                            "
+                        >
+                            <div class="form-group">
+                                <label for="prod-qty">Quantidade</label>
+                                <input
+                                    type="number"
+                                    autocomplete="off"
+                                    id="prod-qty"
+                                    min="0"
+                                    required
+                                    placeholder="0"
+                                />
+                            </div>
+                            <div class="form-group" style="position: relative">
+                                <label for="prod-box">Caixa / Célula</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="prod-box"
+                                    placeholder="Ex: 05"
+                                    autocomplete="off"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group" style="position: relative">
+                                <label for="prod-pallet">Palete</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="prod-pallet"
+                                    placeholder="Ex: 01"
+                                    autocomplete="off"
+                                />
+                                <div id="pallet-suggestions" class="autocomplete-suggestions"></div>
+                            </div>
+                            <div class="form-group" style="position: relative">
+                                <label for="prod-location">Nave</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="prod-location"
+                                    placeholder="Ex: 1"
+                                    autocomplete="off"
+                                />
+                                <div
+                                    id="location-suggestions"
+                                    class="autocomplete-suggestions"
+                                ></div>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="prod-brand">Fornecedor / Marca</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="prod-brand"
+                                    required
+                                    placeholder="Ex: G.E., Waukesha"
+                                    autocomplete="off"
+                                />
+                                <!-- Hidden input for specific maker if needed distinct from brand -->
+                                <input type="hidden" id="prod-maker" />
+                            </div>
+                            <div class="form-group" style="position: relative">
+                                <label for="prod-category">Modelo (Model)</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="prod-category"
+                                    placeholder="Ex: SERIE 3"
+                                    autocomplete="off"
+                                />
+                                <div
+                                    id="category-suggestions"
+                                    class="autocomplete-suggestions"
+                                ></div>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="prod-equipment">Equipment</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="prod-equipment"
+                                    placeholder="Ex: ENGINE"
+                                    autocomplete="off"
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label for="prod-ship-plant">Ship / Plant</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="prod-ship-plant"
+                                    placeholder="Ex: OEM"
+                                    autocomplete="off"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="prod-order-to">Order To (Supplier)</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="prod-order-to"
+                                    placeholder="Ex: Ultranav"
+                                    autocomplete="off"
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label for="prod-order-date">Date (Order)</label>
+                                <input type="date" id="prod-order-date" />
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="prod-cost-price">U.Price € (Custo)</label>
+                                <input
+                                    type="number"
+                                    autocomplete="off"
+                                    id="prod-cost-price"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="0.00"
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label for="prod-min-qty">Min Qty</label>
+                                <input
+                                    type="number"
+                                    autocomplete="off"
+                                    id="prod-min-qty"
+                                    min="0"
+                                    required
+                                    value="0"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="prod-desc">Comentários</label>
+                            <textarea
+                                id="prod-desc"
+                                rows="3"
+                                placeholder="Notas, observações ou qualquer informação extra sobre o item..."
+                            ></textarea>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="prod-process">STK / Processo</label>
+                            <textarea
+                                id="prod-process"
+                                rows="2"
+                                placeholder="STK/2026.1002..."
+                            ></textarea>
+                        </div>
+
+                        <!-- Arrival Media Section (Photos/Videos) -->
+                        <div
+                            id="transit-attachments-section"
+                            style="
+                                display: none;
+                                margin-top: 1.5rem;
+                                border-top: 1px solid var(--border-color);
+                                padding-top: 1rem;
+                                background: #fbfcfe;
+                                padding: 1rem;
+                                border-radius: 8px;
+                                border: 1px dashed #e2e8f0;
+                            "
+                        >
+                            <div
+                                style="
+                                    display: flex;
+                                    justify-content: space-between;
+                                    align-items: center;
+                                    margin-bottom: 0.75rem;
+                                "
+                            >
+                                <h3 style="font-size: 0.95rem; margin: 0; color: #1e40af">
+                                    <i class="fa-solid fa-video"></i> Media de Receção Stock
+                                </h3>
+                                <button
+                                    type="button"
+                                    class="btn btn-secondary"
+                                    onclick="
+                                        document.getElementById('transit-media-upload').click()
+                                    "
+                                    style="padding: 4px 12px; font-size: 0.8rem"
+                                >
+                                    <i class="fa-solid fa-camera"></i> Anexar Media
+                                </button>
+                            </div>
+                            <div id="transit-attachments-list" class="attachment-grid">
+                                <!-- Injected JS -->
+                            </div>
+                            <input
+                                type="file"
+                                id="transit-media-upload"
+                                multiple
+                                accept="image/*,video/*"
+                                style="display: none"
+                            />
+                            <p
+                                style="
+                                    font-size: 0.75rem;
+                                    color: var(--text-secondary);
+                                    margin-top: 0.5rem;
+                                    font-style: italic;
+                                "
+                            >
+                                Use esta secção para documentar o estado da chegada, guias ou vídeos
+                                de unboxing.
+                            </p>
+                        </div>
+
+                        <!-- Product History Section (New) -->
+                        <div
+                            id="product-history-section"
+                            style="
+                                display: none;
+                                margin-top: 1.5rem;
+                                border-top: 1px solid var(--border-color);
+                                padding-top: 1rem;
+                            "
+                        >
+                            <h3
+                                style="
+                                    font-size: 1rem;
+                                    margin-bottom: 0.5rem;
+                                    color: var(--text-secondary);
+                                "
+                            >
+                                Últimos Movimentos
+                            </h3>
+                            <div
+                                id="product-history-list"
+                                style="max-height: 150px; overflow-y: auto; font-size: 0.85rem"
+                            >
+                                <!-- Injected JS -->
+                            </div>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary close-modal">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary">Guardar Produto</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Excel Import Mapping Modal -->
+        <div id="modal-excel-import" class="modal">
+            <div class="modal-content" style="max-width: 550px; height: auto; max-height: 90vh">
+                <div class="modal-header">
+                    <div class="header-left">
+                        <i class="fa-solid fa-file-import" style="color: var(--primary-color)"></i>
+                        <h2 style="font-size: 1.1rem; color: var(--text-secondary)">
+                            Mapeamento de Colunas (Excel)
+                        </h2>
+                    </div>
+                    <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body" style="padding: 1.5rem">
+                    <p
+                        style="
+                            font-size: 0.85rem;
+                            color: var(--text-secondary);
+                            margin-bottom: 1.5rem;
+                            background: #f8fafc;
+                            padding: 10px;
+                            border-radius: 8px;
+                            border-left: 4px solid var(--primary-color);
+                        "
+                    >
+                        <i class="fa-solid fa-circle-info" style="margin-right: 5px"></i> Selecione
+                        a correspondência correta para cada coluna. Campos com
+                        <strong>*</strong> são obrigatórios.
+                    </p>
+                    <div
+                        id="excel-mapping-list"
+                        style="
+                            display: flex;
+                            flex-direction: column;
+                            gap: 0.75rem;
+                            max-height: 400px;
+                            overflow-y: auto;
+                            padding-right: 5px;
+                        "
+                    >
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
+                <div class="modal-actions" style="padding: 1rem 1.5rem">
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button
+                        id="btn-confirm-import"
+                        class="btn btn-primary"
+                        style="flex: 1; justify-content: center"
+                    >
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Iniciar Importação
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Scan Modal -->
+        <div class="modal" id="quick-scan-modal">
+            <div class="modal-content" style="max-width: 500px; height: auto; max-height: 90vh">
+                <div class="modal-header" style="border-bottom: none; padding-bottom: 0">
+                    <div class="header-left">
+                        <h2 style="font-size: 1.1rem; color: var(--text-secondary)">
+                            Leitura de Produto
+                        </h2>
+                    </div>
+                    <button class="close-modal" id="close-quick-scan">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="modal-body" style="padding: 1rem 1.5rem 2rem">
+                    <div
+                        id="qs-product-header"
+                        style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem"
+                    >
+                        <div
+                            id="qs-img-placeholder"
+                            style="
+                                width: 80px;
+                                height: 80px;
+                                background: #f1f5f9;
+                                border-radius: 8px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                flex-shrink: 0;
+                            "
+                        >
+                            <i
+                                class="fa-solid fa-image"
+                                style="color: #cbd5e1; font-size: 1.5rem"
+                            ></i>
+                        </div>
+                        <div>
+                            <div
+                                id="qs-part-number"
+                                style="
+                                    font-family: monospace;
+                                    color: var(--text-secondary);
+                                    font-size: 0.9rem;
+                                "
+                            ></div>
+                            <h3
+                                id="qs-name"
+                                style="margin: 0; font-size: 1.3rem; line-height: 1.2"
+                            ></h3>
+                            <div
+                                id="qs-brand"
+                                style="
+                                    font-size: 0.9rem;
+                                    color: var(--text-secondary);
+                                    margin-top: 2px;
+                                "
+                            ></div>
+                        </div>
+                    </div>
+
+                    <!-- Stock Control -->
+                    <div
+                        style="
+                            background: #f8fafc;
+                            border-radius: 12px;
+                            padding: 1.5rem;
+                            text-align: center;
+                            margin-bottom: 1.5rem;
+                            border: 1px solid var(--border-color);
+                        "
+                    >
+                        <div
+                            style="
+                                font-size: 0.9rem;
+                                color: var(--text-secondary);
+                                margin-bottom: 0.5rem;
+                            "
+                        >
+                            Stock Atual
+                        </div>
+                        <div
+                            style="
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                gap: 1rem;
+                                margin-bottom: 1rem;
+                            "
+                        >
+                            <div
+                                id="qs-qty-display"
+                                style="
+                                    font-size: 3.5rem;
+                                    font-weight: 700;
+                                    color: var(--text-primary);
+                                    line-height: 1;
+                                "
+                            ></div>
+                        </div>
+
+                        <div
+                            style="
+                                display: grid;
+                                grid-template-columns: repeat(4, 1fr);
+                                gap: 0.5rem;
+                            "
+                        >
+                            <button
+                                class="btn-quick-stock"
+                                data-delta="-10"
+                                style="background: #fee2e2; color: #991b1b"
+                            >
+                                -10
+                            </button>
+                            <button
+                                class="btn-quick-stock"
+                                data-delta="-1"
+                                style="background: #fee2e2; color: #991b1b"
+                            >
+                                -1
+                            </button>
+                            <button
+                                class="btn-quick-stock"
+                                data-delta="1"
+                                style="background: #dcfce7; color: #166534"
+                            >
+                                +1
+                            </button>
+                            <button
+                                class="btn-quick-stock"
+                                data-delta="10"
+                                style="background: #dcfce7; color: #166534"
+                            >
+                                +10
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Location & Info -->
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 1rem">
+                        <!-- Location (Editable) -->
+                        <div
+                            style="
+                                background: white;
+                                border: 1px solid var(--border-color);
+                                border-radius: 8px;
+                                padding: 0.75rem;
+                                display: flex;
+                                align-items: center;
+                                gap: 0.75rem;
+                            "
+                        >
+                            <i
+                                class="fa-solid fa-location-dot"
+                                style="color: var(--primary-color)"
+                            ></i>
+                            <div style="flex: 1">
+                                <div style="font-size: 0.75rem; color: var(--text-secondary)">
+                                    Localização
+                                </div>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="qs-location"
+                                    style="
+                                        border: none;
+                                        width: 100%;
+                                        font-weight: 600;
+                                        font-size: 1rem;
+                                        padding: 0;
+                                        outline: none;
+                                    "
+                                    placeholder="Sem loc."
+                                />
+                            </div>
+                            <button
+                                id="qs-btn-save-loc"
+                                style="
+                                    background: none;
+                                    border: none;
+                                    color: var(--primary-color);
+                                    cursor: pointer;
+                                "
+                            >
+                                <i class="fa-solid fa-check"></i>
+                            </button>
+                        </div>
+
+                        <!-- Read Only Details -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem">
+                            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 8px">
+                                <div style="font-size: 0.75rem; color: var(--text-secondary)">
+                                    Modelo
+                                </div>
+                                <div id="qs-category" style="font-weight: 600">-</div>
+                            </div>
+                            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 8px">
+                                <div style="font-size: 0.75rem; color: var(--text-secondary)">
+                                    Preço Custo
+                                </div>
+                                <div
+                                    id="qs-cost"
+                                    style="font-weight: 600; color: var(--primary-color)"
+                                >
+                                    0.00€
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Supplier & Transaction Data (Interactive) -->
+                        <div
+                            class="form-row"
+                            style="
+                                margin-top: 0.5rem;
+                                display: grid;
+                                grid-template-columns: 1fr 1fr;
+                                gap: 0.75rem;
+                            "
+                        >
+                            <div class="form-group">
+                                <label
+                                    style="
+                                        font-size: 0.75rem;
+                                        color: var(--text-secondary);
+                                        margin-bottom: 2px;
+                                        display: block;
+                                    "
+                                    >Fornecedor</label
+                                >
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="qs-supplier"
+                                    style="
+                                        width: 100%;
+                                        padding: 0.5rem;
+                                        border: 1px solid var(--border-color);
+                                        border-radius: 6px;
+                                        font-size: 14px;
+                                    "
+                                    placeholder="Opcional"
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label
+                                    style="
+                                        font-size: 0.75rem;
+                                        color: var(--text-secondary);
+                                        margin-bottom: 2px;
+                                        display: block;
+                                    "
+                                    >Preço Unit. €</label
+                                >
+                                <input
+                                    type="number"
+                                    autocomplete="off"
+                                    id="qs-unit-price"
+                                    step="0.01"
+                                    style="
+                                        width: 100%;
+                                        padding: 0.5rem;
+                                        border: 1px solid var(--border-color);
+                                        border-radius: 6px;
+                                        font-size: 14px;
+                                    "
+                                    placeholder="0.00"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1.5rem; text-align: center">
+                        <button
+                            id="qs-btn-full-edit"
+                            style="
+                                background: none;
+                                border: none;
+                                color: var(--text-secondary);
+                                text-decoration: underline;
+                                cursor: pointer;
+                            "
+                        >
+                            Ver Detalhes Completos / Editar Tudo
                         </button>
-                        <button type="button" class="btn-eye-action" id="btn-close-viewer-x" title="Fechar">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pallet Manifest Modal -->
+        <div id="pallet-manifest-modal" class="modal">
+            <div class="modal-content" style="max-width: 900px; height: auto; max-height: 90vh">
+                <div class="modal-header">
+                    <div class="header-left">
+                        <h2 id="manifest-title" style="margin: 0">Conteúdo da Palete</h2>
+                        <p
+                            id="manifest-count"
+                            style="margin: 0; font-size: 0.9rem; color: var(--text-secondary)"
+                        ></p>
+                    </div>
+                    <div style="display: flex; gap: 1rem; align-items: center">
+                        <button class="btn btn-secondary" id="btn-manifest-print">
+                            <i class="fa-solid fa-print"></i> Imprimir Guia
+                        </button>
+                        <button class="close-modal" id="close-manifest-modal">
                             <i class="fa-solid fa-xmark"></i>
                         </button>
                     </div>
                 </div>
-
-                <div id="viewer-counter" class="viewer-counter">1 / 1</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal for Add/Edit Product -->
-    <div id="product-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="header-left">
-                    <div id="header-image-container" class="header-image-container" title="Gerir imagem">
-                        <i class="fa-solid fa-camera"></i>
-                    </div>
-                    <input type="file" id="prod-image" multiple accept="image/*,video/*"
-                        style="opacity:0; position:absolute; width:1px; height:1px; overflow:hidden; z-index:-1;">
-                    <input type="file" id="prod-camera-input" name="prod-camera-input" accept="image/*"
-                        capture="environment"
-                        style="opacity:0; position:absolute; width:1px; height:1px; overflow:hidden; z-index:-1;">
-                    <h2 id="modal-title">Adicionar Produto</h2>
-                </div>
-                <div class="actions" style="display: flex; gap: 0.5rem; align-items: center;">
-                    <button type="button" class="btn btn-secondary" id="btn-header-print" title="Imprimir Etiqueta"
-                        style="padding: 6px 10px;">
-                        <i class="fa-solid fa-print"></i>
-                    </button>
-                    <button type="button" class="btn btn-primary" id="btn-header-save" title="Guardar Rapidamente"
-                        style="padding: 6px 12px;">
-                        <i class="fa-solid fa-floppy-disk"></i>
-                    </button>
-                    <button class="close-modal">&times;</button>
-                </div>
-            </div>
-            <div class="modal-body">
-                <form id="product-form">
-                    <input type="hidden" id="prod-id">
-
-                    <!-- Main Identification (Now at Top) -->
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="prod-name">Descrição</label>
-                            <input type="text" autocomplete="off" id="prod-name" required
-                                placeholder="Ex: CYLINDER LINER O-RING" autocomplete="off">
-                        </div>
-                        <div class="form-group" style="position:relative;">
-                            <label for="prod-part-number">Part-Number</label>
-                            <input type="text" autocomplete="off" id="prod-part-number" required
-                                placeholder="Ex: 319740" autocomplete="off">
-                            <div id="part-number-suggestions" class="autocomplete-suggestions"></div>
-                        </div>
-                    </div>
-
-                    <!-- Logistics Fields -->
-                    <div class="form-row divider"
-                        style="border-top: 1px solid var(--border-color); margin: 1rem 0; padding-top:1rem;">
-                        <div class="form-group">
-                            <label for="prod-qty">Quantidade</label>
-                            <input type="number" autocomplete="off" id="prod-qty" min="0" required placeholder="0">
-                        </div>
-                        <div class="form-group" style="position:relative;">
-                            <label for="prod-box">Caixa / Célula</label>
-                            <input type="text" autocomplete="off" id="prod-box" placeholder="Ex: 05" autocomplete="off">
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group" style="position:relative;">
-                            <label for="prod-pallet">Palete</label>
-                            <input type="text" autocomplete="off" id="prod-pallet" placeholder="Ex: 01"
-                                autocomplete="off">
-                            <div id="pallet-suggestions" class="autocomplete-suggestions"></div>
-                        </div>
-                        <div class="form-group" style="position:relative;">
-                            <label for="prod-location">Nave</label>
-                            <input type="text" autocomplete="off" id="prod-location" placeholder="Ex: 1"
-                                autocomplete="off">
-                            <div id="location-suggestions" class="autocomplete-suggestions"></div>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="prod-brand">Fornecedor / Marca</label>
-                            <input type="text" autocomplete="off" id="prod-brand" required
-                                placeholder="Ex: G.E., Waukesha" autocomplete="off">
-                            <!-- Hidden input for specific maker if needed distinct from brand -->
-                            <input type="hidden" id="prod-maker">
-                        </div>
-                        <div class="form-group" style="position:relative;">
-                            <label for="prod-category">Modelo (Model)</label>
-                            <input type="text" autocomplete="off" id="prod-category" placeholder="Ex: SERIE 3"
-                                autocomplete="off">
-                            <div id="category-suggestions" class="autocomplete-suggestions"></div>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="prod-equipment">Equipment</label>
-                            <input type="text" autocomplete="off" id="prod-equipment" placeholder="Ex: ENGINE"
-                                autocomplete="off">
-                        </div>
-                        <div class="form-group">
-                            <label for="prod-ship-plant">Ship / Plant</label>
-                            <input type="text" autocomplete="off" id="prod-ship-plant" placeholder="Ex: OEM"
-                                autocomplete="off">
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="prod-order-to">Order To (Supplier)</label>
-                            <input type="text" autocomplete="off" id="prod-order-to" placeholder="Ex: Ultranav"
-                                autocomplete="off">
-                        </div>
-                        <div class="form-group">
-                            <label for="prod-order-date">Date (Order)</label>
-                            <input type="date" id="prod-order-date">
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="prod-cost-price">U.Price € (Custo)</label>
-                            <input type="number" autocomplete="off" id="prod-cost-price" step="0.01" min="0"
-                                placeholder="0.00">
-                        </div>
-                        <div class="form-group">
-                            <label for="prod-min-qty">Min Qty</label>
-                            <input type="number" autocomplete="off" id="prod-min-qty" min="0" required value="0">
-                        </div>
-                    </div>
-
-                    <div class="form-group full-width">
-                        <label for="prod-desc">Comentários</label>
-                        <textarea id="prod-desc" rows="3"
-                            placeholder="Notas, observações ou qualquer informação extra sobre o item..."></textarea>
-                    </div>
-
-                    <div class="form-group full-width">
-                        <label for="prod-process">STK / Processo</label>
-                        <textarea id="prod-process" rows="2" placeholder="STK/2026.1002..."></textarea>
-                    </div>
-
-                    <!-- Product Media Gallery -->
-                    <div id="product-gallery-section"
-                        style="margin-top:1.5rem; border-top:1px solid var(--border-color); padding-top:1rem;">
-                        <div
-                            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
-                            <h3 style="font-size:0.95rem; margin:0; color:var(--text-secondary);">Galeria do Produto
-                            </h3>
-                            <button type="button" class="btn btn-secondary"
-                                onclick="document.getElementById('gallery-upload').click()"
-                                style="padding: 4px 12px; font-size: 0.8rem;">
-                                <i class="fa-solid fa-plus"></i> Adicionar
-                            </button>
-                        </div>
-                        <div id="product-gallery-list" class="attachment-grid"></div>
-                        <input type="file" id="gallery-upload" multiple accept="image/*,video/*" style="display: none;">
-                    </div>
-
-                    <!-- Arrival Media Section (Photos/Videos) -->
-                    <div id="transit-attachments-section"
-                        style="display:none; margin-top:1.5rem; border-top:1px solid var(--border-color); padding-top:1rem; background: #fbfcfe; padding: 1rem; border-radius: 8px; border: 1px dashed #e2e8f0;">
-                        <div
-                            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
-                            <h3 style="font-size:0.95rem; margin:0; color:#1e40af;"><i class="fa-solid fa-video"></i>
-                                Media de Receção Stock</h3>
-                            <button type="button" class="btn btn-secondary"
-                                onclick="document.getElementById('transit-media-upload').click()"
-                                style="padding: 4px 12px; font-size: 0.8rem;">
-                                <i class="fa-solid fa-camera"></i> Anexar Media
-                            </button>
-                        </div>
-                        <div id="transit-attachments-list" class="attachment-grid">
-                            <!-- Injected JS -->
-                        </div>
-                        <input type="file" id="transit-media-upload" multiple accept="image/*,video/*"
-                            style="display: none;">
-                        <p
-                            style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.5rem; font-style:italic;">
-                            Use esta secção para documentar o estado da chegada, guias ou vídeos de unboxing.</p>
-                    </div>
-
-                    <!-- Product History Section (New) -->
-                    <div id="product-history-section"
-                        style="display:none; margin-top:1.5rem; border-top:1px solid var(--border-color); padding-top:1rem;">
-                        <h3 style="font-size:1rem; margin-bottom:0.5rem; color:var(--text-secondary);">Últimos
-                            Movimentos</h3>
-                        <div id="product-history-list" style="max-height:150px; overflow-y:auto; font-size:0.85rem;">
-                            <!-- Injected JS -->
-                        </div>
-                    </div>
-
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Guardar Produto</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Excel Import Mapping Modal -->
-    <div id="modal-excel-import" class="modal">
-        <div class="modal-content" style="max-width: 550px; height: auto; max-height: 90vh;">
-            <div class="modal-header">
-                <div class="header-left">
-                    <i class="fa-solid fa-file-import" style="color:var(--primary-color);"></i>
-                    <h2 style="font-size:1.1rem; color:var(--text-secondary);">Mapeamento de Colunas (Excel)</h2>
-                </div>
-                <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="modal-body" style="padding: 1.5rem;">
-                <p
-                    style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem; background: #f8fafc; padding: 10px; border-radius: 8px; border-left: 4px solid var(--primary-color);">
-                    <i class="fa-solid fa-circle-info" style="margin-right:5px;"></i> Selecione a correspondência
-                    correta para cada coluna. Campos com <strong>*</strong> são obrigatórios.
-                </p>
-                <div id="excel-mapping-list"
-                    style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 400px; overflow-y: auto; padding-right: 5px;">
-                    <!-- Injected via JS -->
-                </div>
-            </div>
-            <div class="modal-actions" style="padding: 1rem 1.5rem;">
-                <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
-                <button id="btn-confirm-import" class="btn btn-primary" style="flex: 1; justify-content:center;">
-                    <i class="fa-solid fa-cloud-arrow-up"></i> Iniciar Importação
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Scan Modal -->
-    <div class="modal" id="quick-scan-modal">
-        <div class="modal-content" style="max-width: 500px; height: auto; max-height: 90vh;">
-            <div class="modal-header" style="border-bottom:none; padding-bottom:0;">
-                <div class="header-left">
-                    <h2 style="font-size:1.1rem; color:var(--text-secondary);">Leitura de Produto</h2>
-                </div>
-                <button class="close-modal" id="close-quick-scan"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="modal-body" style="padding: 1rem 1.5rem 2rem;">
-                <div id="qs-product-header" style="display:flex; gap:1rem; align-items:center; margin-bottom:1.5rem;">
-                    <div id="qs-img-placeholder"
-                        style="width:80px; height:80px; background:#f1f5f9; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        <i class="fa-solid fa-image" style="color:#cbd5e1; font-size:1.5rem;"></i>
-                    </div>
-                    <div>
-                        <div id="qs-part-number"
-                            style="font-family:monospace; color:var(--text-secondary); font-size:0.9rem;"></div>
-                        <h3 id="qs-name" style="margin:0; font-size:1.3rem; line-height:1.2;"></h3>
-                        <div id="qs-brand" style="font-size:0.9rem; color:var(--text-secondary); margin-top:2px;"></div>
-                    </div>
-                </div>
-
-                <!-- Stock Control -->
-                <div
-                    style="background:#f8fafc; border-radius:12px; padding:1.5rem; text-align:center; margin-bottom:1.5rem; border:1px solid var(--border-color);">
-                    <div style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:0.5rem;">Stock Atual</div>
-                    <div
-                        style="display:flex; align-items:center; justify-content:center; gap:1rem; margin-bottom:1rem;">
-                        <div id="qs-qty-display"
-                            style="font-size:3.5rem; font-weight:700; color:var(--text-primary); line-height:1;"></div>
-                    </div>
-
-                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:0.5rem;">
-                        <button class="btn-quick-stock" data-delta="-10"
-                            style="background:#fee2e2; color:#991b1b;">-10</button>
-                        <button class="btn-quick-stock" data-delta="-1"
-                            style="background:#fee2e2; color:#991b1b;">-1</button>
-                        <button class="btn-quick-stock" data-delta="1"
-                            style="background:#dcfce7; color:#166534;">+1</button>
-                        <button class="btn-quick-stock" data-delta="10"
-                            style="background:#dcfce7; color:#166534;">+10</button>
-                    </div>
-                </div>
-
-                <!-- Location & Info -->
-                <div style="display:grid; grid-template-columns: 1fr; gap:1rem;">
-                    <!-- Location (Editable) -->
-                    <div
-                        style="background:white; border:1px solid var(--border-color); border-radius:8px; padding:0.75rem; display:flex; align-items:center; gap:0.75rem;">
-                        <i class="fa-solid fa-location-dot" style="color:var(--primary-color);"></i>
-                        <div style="flex:1;">
-                            <div style="font-size:0.75rem; color:var(--text-secondary);">Localização</div>
-                            <input type="text" autocomplete="off" id="qs-location"
-                                style="border:none; width:100%; font-weight:600; font-size:1rem; padding:0; outline:none;"
-                                placeholder="Sem loc.">
-                        </div>
-                        <button id="qs-btn-save-loc"
-                            style="background:none; border:none; color:var(--primary-color); cursor:pointer;"><i
-                                class="fa-solid fa-check"></i></button>
-                    </div>
-
-                    <!-- Read Only Details -->
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
-                        <div style="background:#f8fafc; padding:0.75rem; border-radius:8px;">
-                            <div style="font-size:0.75rem; color:var(--text-secondary);">Modelo</div>
-                            <div id="qs-category" style="font-weight:600;">-</div>
-                        </div>
-                        <div style="background:#f8fafc; padding:0.75rem; border-radius:8px;">
-                            <div style="font-size:0.75rem; color:var(--text-secondary);">Preço Custo</div>
-                            <div id="qs-cost" style="font-weight:600; color:var(--primary-color);">0.00€</div>
-                        </div>
-                    </div>
-
-                    <!-- Supplier & Transaction Data (Interactive) -->
-                    <div class="form-row"
-                        style="margin-top:0.5rem; display:grid; grid-template-columns: 1fr 1fr; gap:0.75rem;">
-                        <div class="form-group">
-                            <label
-                                style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:2px; display:block;">Fornecedor</label>
-                            <input type="text" autocomplete="off" id="qs-supplier"
-                                style="width:100%; padding:0.5rem; border:1px solid var(--border-color); border-radius:6px; font-size:14px;"
-                                placeholder="Opcional">
-                        </div>
-                        <div class="form-group">
-                            <label
-                                style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:2px; display:block;">Preço
-                                Unit. €</label>
-                            <input type="number" autocomplete="off" id="qs-unit-price" step="0.01"
-                                style="width:100%; padding:0.5rem; border:1px solid var(--border-color); border-radius:6px; font-size:14px;"
-                                placeholder="0.00">
-                        </div>
-                    </div>
-                </div>
-
-                <div style="margin-top:1.5rem; text-align:center;">
-                    <button id="qs-btn-full-edit"
-                        style="background:none; border:none; color:var(--text-secondary); text-decoration:underline; cursor:pointer;">Ver
-                        Detalhes Completos / Editar Tudo</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Pallet Manifest Modal -->
-    <div id="pallet-manifest-modal" class="modal">
-        <div class="modal-content" style="max-width: 900px; height: auto; max-height: 90vh;">
-            <div class="modal-header">
-                <div class="header-left">
-                    <h2 id="manifest-title" style="margin:0;">Conteúdo da Palete</h2>
-                    <p id="manifest-count" style="margin:0; font-size:0.9rem; color:var(--text-secondary);"></p>
-                </div>
-                <div style="display:flex; gap:1rem; align-items:center;">
-                    <button class="btn btn-secondary" id="btn-manifest-print"><i class="fa-solid fa-print"></i> Imprimir
-                        Guia</button>
-                    <button class="close-modal" id="close-manifest-modal"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-            </div>
-            <div class="modal-body" style="padding: 1rem 0; overflow-y: auto;">
-                <div class="table-wrapper">
-                    <table class="data-table" id="manifest-table">
-                        <thead>
-                            <tr>
-                                <th>Part-Number</th>
-                                <th>Descrição</th>
-                                <th>Marca</th>
-                                <th style="text-align:center;">Stock</th>
-                                <th style="text-align:right;">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="manifest-body">
-                            <!-- Injected via JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- PHC Import Modal (New) -->
-    <div id="phc-import-modal" class="modal">
-        <div class="modal-content" style="max-width: 1100px; width: 95%;">
-            <div class="modal-header">
-                <h2>Importar Processo PHC</h2>
-                <button class="close-modal" id="close-phc-modal"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="modal-body">
-                <!-- Import Section -->
-                <div id="phc-input-section"
-                    style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border-color);">
-                    <h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-primary);">Sincronizar via PHC
-                    </h3>
-                    <div class="phc-search-wrapper" style="display: flex; gap: 0.5rem;">
-                        <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                            <input type="text" autocomplete="off" id="phc-process-input"
-                                placeholder="Processo (Ex: ASP/2025.1234)"
-                                autocomplete="off">
-                        </div>
-                        <button id="btn-phc-fetch" class="btn btn-primary"
-                            style="display: flex; align-items: center; gap: 0.5rem;">
-                            <i class="fa-solid fa-rotate"></i> Carregar
-                        </button>
-                    </div>
-                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
-                        Pesquisa na tabela 'phc' do Supabase pelo ID do Processo.
-                    </p>
-                </div>
-
-                <!-- Preview Section -->
-                <div id="phc-preview-container" style="display: none;">
-
-
-                    <h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-primary);">
-                        <i class="fa-solid fa-cart-shopping" style="color:var(--primary-color);"></i> Itens Detetados
-                    </h3>
-
-                    <!-- Meta Data -->
-                    <div class="phc-meta-grid">
-                        <div>
-                            <label class="meta-label">Processo / P.O.</label>
-                            <input type="text" autocomplete="off" id="phc-meta-po" class="meta-input">
-                        </div>
-                        <div>
-                            <label class="meta-label">Fornecedor</label>
-                            <input type="text" autocomplete="off" id="phc-meta-maker" class="meta-input">
-                        </div>
-                        <div>
-                            <label class="meta-label">Ship / Plant</label>
-                            <input type="text" autocomplete="off" id="phc-meta-ship" class="meta-input">
-                        </div>
-                        <div>
-                            <label class="meta-label">Equipment</label>
-                            <input type="text" autocomplete="off" id="phc-meta-equipment" class="meta-input">
-                        </div>
-                        <div>
-                            <label class="meta-label">Type</label>
-                            <input type="text" autocomplete="off" id="phc-meta-engine-type" class="meta-input">
-                        </div>
-                        <div>
-                            <label class="meta-label">Cliente Final</label>
-                            <input type="text" autocomplete="off" id="phc-meta-client-final" class="meta-input">
-                        </div>
-                        <!-- Global Location Fields (Inventory Only) -->
-                        <div id="phc-global-pallet-group" style="display: none;">
-                            <label class="meta-label">Palete</label>
-                            <div style="position: relative;">
-                                <input type="text" autocomplete="off" id="phc-global-pallet" class="meta-input">
-                                <div id="phc-global-pallet-suggestions" class="autocomplete-box"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="table-wrapper"
-                        style="max-height: 400px; overflow-x: auto; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px;">
-                        <table class="data-table" id="phc-preview-table"
-                            style="min-width: 100%; border-collapse: collapse; table-layout: auto;">
+                <div class="modal-body" style="padding: 1rem 0; overflow-y: auto">
+                    <div class="table-wrapper">
+                        <table class="data-table" id="manifest-table">
                             <thead>
-                                <tr><!-- Injected via JS --></tr>
+                                <tr>
+                                    <th>Part-Number</th>
+                                    <th>Descrição</th>
+                                    <th>Marca</th>
+                                    <th style="text-align: center">Stock</th>
+                                    <th style="text-align: right">Ações</th>
+                                </tr>
                             </thead>
-                            <tbody><!-- Injected via JS --></tbody>
+                            <tbody id="manifest-body">
+                                <!-- Injected via JS -->
+                            </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
 
+        <!-- PHC Import Modal (New) -->
+        <div id="phc-import-modal" class="modal">
+            <div class="modal-content" style="max-width: 1100px; width: 95%">
+                <div class="modal-header">
+                    <h2>Importar Processo PHC</h2>
+                    <button class="close-modal" id="close-phc-modal">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <!-- Import Section -->
                     <div
-                        style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem; flex-wrap: wrap;">
-                        <button id="btn-phc-back" class="btn btn-secondary">Voltar à Pesquisa</button>
-                        <button class="btn btn-secondary close-modal">Cancelar</button>
-                        <button id="btn-confirm-phc-import" class="btn btn-primary">
-                            Confirmar Importação
+                        id="phc-input-section"
+                        style="
+                            margin-bottom: 2rem;
+                            padding-bottom: 2rem;
+                            border-bottom: 1px solid var(--border-color);
+                        "
+                    >
+                        <h3
+                            style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-primary)"
+                        >
+                            Sincronizar via PHC
+                        </h3>
+                        <div class="phc-search-wrapper" style="display: flex; gap: 0.5rem">
+                            <div class="form-group" style="flex: 1; margin-bottom: 0">
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="phc-process-input"
+                                    placeholder="Processo (Ex: ASP/2025.1234)"
+                                    autocomplete="off"
+                                />
+                            </div>
+                            <button
+                                id="btn-phc-fetch"
+                                class="btn btn-primary"
+                                style="display: flex; align-items: center; gap: 0.5rem"
+                            >
+                                <i class="fa-solid fa-rotate"></i> Carregar
+                            </button>
+                        </div>
+                        <p
+                            style="
+                                font-size: 0.85rem;
+                                color: var(--text-secondary);
+                                margin-top: 0.5rem;
+                            "
+                        >
+                            Pesquisa na tabela 'phc' do Supabase pelo ID do Processo.
+                        </p>
+                    </div>
+
+                    <!-- Preview Section -->
+                    <div id="phc-preview-container" style="display: none">
+                        <h3
+                            style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-primary)"
+                        >
+                            <i
+                                class="fa-solid fa-cart-shopping"
+                                style="color: var(--primary-color)"
+                            ></i>
+                            Itens Detetados
+                        </h3>
+
+                        <!-- Meta Data -->
+                        <div class="phc-meta-grid">
+                            <div>
+                                <label class="meta-label">Processo / P.O.</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="phc-meta-po"
+                                    class="meta-input"
+                                />
+                            </div>
+                            <div>
+                                <label class="meta-label">Fornecedor</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="phc-meta-maker"
+                                    class="meta-input"
+                                />
+                            </div>
+                            <div>
+                                <label class="meta-label">Ship / Plant</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="phc-meta-ship"
+                                    class="meta-input"
+                                />
+                            </div>
+                            <div>
+                                <label class="meta-label">Equipment</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="phc-meta-equipment"
+                                    class="meta-input"
+                                />
+                            </div>
+                            <div>
+                                <label class="meta-label">Type</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="phc-meta-engine-type"
+                                    class="meta-input"
+                                />
+                            </div>
+                            <div>
+                                <label class="meta-label">Cliente Final</label>
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="phc-meta-client-final"
+                                    class="meta-input"
+                                />
+                            </div>
+                            <!-- Global Location Fields (Inventory Only) -->
+                            <div id="phc-global-pallet-group" style="display: none">
+                                <label class="meta-label">Palete</label>
+                                <div style="position: relative">
+                                    <input
+                                        type="text"
+                                        autocomplete="off"
+                                        id="phc-global-pallet"
+                                        class="meta-input"
+                                    />
+                                    <div
+                                        id="phc-global-pallet-suggestions"
+                                        class="autocomplete-box"
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="table-wrapper"
+                            style="
+                                max-height: 400px;
+                                overflow-x: auto;
+                                overflow-y: auto;
+                                border: 1px solid var(--border-color);
+                                border-radius: 8px;
+                            "
+                        >
+                            <table
+                                class="data-table"
+                                id="phc-preview-table"
+                                style="
+                                    min-width: 100%;
+                                    border-collapse: collapse;
+                                    table-layout: auto;
+                                "
+                            >
+                                <thead>
+                                    <tr>
+                                        <!-- Injected via JS -->
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Injected via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div
+                            style="
+                                margin-top: 1.5rem;
+                                display: flex;
+                                justify-content: flex-end;
+                                gap: 1rem;
+                                flex-wrap: wrap;
+                            "
+                        >
+                            <button id="btn-phc-back" class="btn btn-secondary">
+                                Voltar à Pesquisa
+                            </button>
+                            <button class="btn btn-secondary close-modal">Cancelar</button>
+                            <button id="btn-confirm-phc-import" class="btn btn-primary">
+                                Confirmar Importação
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stock Out Picking Modal (New) -->
+        <div id="modal-stock-out-pick" class="modal">
+            <div class="modal-content" style="max-width: 800px; width: 95%">
+                <div class="modal-header">
+                    <div class="header-left">
+                        <i class="fa-solid fa-hand-pointer" style="color: var(--primary-color)"></i>
+                        <h2 id="sop-title">Associar Item de Inventário</h2>
+                    </div>
+                    <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div
+                        id="sop-demand-info"
+                        style="
+                            background: #f1f5f9;
+                            padding: 1rem;
+                            border-radius: 8px;
+                            margin-bottom: 1.5rem;
+                            display: flex;
+                            gap: 1.5rem;
+                            border-left: 4px solid var(--primary-color);
+                        "
+                    >
+                        <!-- Injected via JS -->
+                    </div>
+
+                    <div style="margin-bottom: 1.5rem; display: flex; gap: 0.75rem">
+                        <div class="search-container" style="flex: 1">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input
+                                type="text"
+                                id="sop-manual-search"
+                                placeholder="Procurar manualmente outro Part-Number..."
+                                style="
+                                    width: 100%;
+                                    border: 1px solid var(--border-color);
+                                    border-radius: 10px;
+                                    padding: 0.6rem 1rem 0.6rem 2.5rem;
+                                    height: auto;
+                                "
+                            />
+                        </div>
+                        <button
+                            id="sop-btn-search"
+                            class="btn btn-primary"
+                            style="padding: 0 1.25rem"
+                        >
+                            <i class="fa-solid fa-search"></i>
                         </button>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Stock Out Picking Modal (New) -->
-    <div id="modal-stock-out-pick" class="modal">
-        <div class="modal-content" style="max-width: 800px; width: 95%;">
-            <div class="modal-header">
-                <div class="header-left">
-                    <i class="fa-solid fa-hand-pointer" style="color:var(--primary-color);"></i>
-                    <h2 id="sop-title">Associar Item de Inventário</h2>
-                </div>
-                <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="modal-body">
-                <div id="sop-demand-info"
-                    style="background: #f1f5f9; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; display: flex; gap: 1.5rem; border-left: 4px solid var(--primary-color);">
-                    <!-- Injected via JS -->
-                </div>
+                    <h3
+                        id="sop-selection-header"
+                        style="
+                            font-size: 0.95rem;
+                            color: var(--text-secondary);
+                            margin-bottom: 1rem;
+                        "
+                    >
+                        Selecione a localização física para retirada:
+                    </h3>
 
-                <div style="margin-bottom: 1.5rem; display: flex; gap: 0.75rem;">
-                    <div class="search-container" style="flex:1;">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="text" id="sop-manual-search" placeholder="Procurar manualmente outro Part-Number..."
-                            style="width:100%; border:1px solid var(--border-color); border-radius:10px; padding:0.6rem 1rem 0.6rem 2.5rem; height:auto;">
+                    <div class="table-wrapper" style="max-height: 400px; overflow-y: auto">
+                        <table class="data-table" id="sop-table">
+                            <thead>
+                                <tr>
+                                    <th>Localização / Nave</th>
+                                    <th>Palete / Caixa</th>
+                                    <th style="text-align: center">Qtd Disponível</th>
+                                    <th style="text-align: right">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sop-body">
+                                <!-- Injected via JS -->
+                            </tbody>
+                        </table>
                     </div>
-                    <button id="sop-btn-search" class="btn btn-primary" style="padding: 0 1.25rem;"><i
-                            class="fa-solid fa-search"></i></button>
-                </div>
-
-                <h3 id="sop-selection-header"
-                    style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1rem;">Selecione a
-                    localização física para retirada:</h3>
-
-                <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
-                    <table class="data-table" id="sop-table">
-                        <thead>
-                            <tr>
-                                <th>Localização / Nave</th>
-                                <th>Palete / Caixa</th>
-                                <th style="text-align:center;">Qtd Disponível</th>
-                                <th style="text-align:right;">Ação</th>
-                            </tr>
-                        </thead>
-                        <tbody id="sop-body">
-                            <!-- Injected via JS -->
-                        </tbody>
-                    </table>
-                </div>
-                <div id="sop-empty"
-                    style="display:none; text-align:center; padding: 2rem; color: var(--text-secondary);">
-                    <i class="fa-solid fa-circle-exclamation"
-                        style="font-size: 2rem; margin-bottom: 1rem; color: #ef4444;"></i>
-                    <p>Nenhum item físico disponível em stock para este Part-Number.</p>
+                    <div
+                        id="sop-empty"
+                        style="
+                            display: none;
+                            text-align: center;
+                            padding: 2rem;
+                            color: var(--text-secondary);
+                        "
+                    >
+                        <i
+                            class="fa-solid fa-circle-exclamation"
+                            style="font-size: 2rem; margin-bottom: 1rem; color: #ef4444"
+                        ></i>
+                        <p>Nenhum item físico disponível em stock para este Part-Number.</p>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- App Loading Screen (Premium Design) -->
-    <div id="app-loader"
-        style="position:fixed; top:0; left:0; width:100%; height:100%; background: radial-gradient(circle at center, #1e293b 0%, #020617 100%); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); cursor: wait; opacity: 1;">
-        <div style="position:relative; width:100px; height:100px; margin-bottom: 2rem;">
-            <!-- Main Spinner -->
-            <div
-                style="position:absolute; inset:0; border: 3px solid rgba(99, 102, 241, 0.1); border-top: 3px solid #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite;">
+        <!-- App Loading Screen (Premium Design) -->
+        <div
+            id="app-loader"
+            style="
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+                z-index: 10000;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+                cursor: wait;
+                opacity: 1;
+            "
+        >
+            <div style="position: relative; width: 100px; height: 100px; margin-bottom: 2rem">
+                <!-- Main Spinner -->
+                <div
+                    style="
+                        position: absolute;
+                        inset: 0;
+                        border: 3px solid rgba(99, 102, 241, 0.1);
+                        border-top: 3px solid #6366f1;
+                        border-radius: 50%;
+                        animation: spin 0.8s linear infinite;
+                    "
+                ></div>
+                <!-- Secondary Spinner -->
+                <div
+                    style="
+                        position: absolute;
+                        inset: 10px;
+                        border: 3px solid rgba(139, 92, 246, 0.1);
+                        border-bottom: 3px solid #8b5cf6;
+                        border-radius: 50%;
+                        animation: spin 1.2s linear reverse infinite;
+                    "
+                ></div>
+                <!-- App Icon with Pulse -->
+                <div
+                    style="
+                        position: absolute;
+                        inset: 0;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        animation: pulse 2s ease-in-out infinite;
+                    "
+                >
+                    <img
+                        src="logowhite.svg"
+                        style="
+                            width: 50px;
+                            height: auto;
+                            filter: drop-shadow(0 0 15px rgba(99, 102, 241, 0.6));
+                        "
+                    />
+                </div>
             </div>
-            <!-- Secondary Spinner -->
-            <div
-                style="position:absolute; inset:10px; border: 3px solid rgba(139, 92, 246, 0.1); border-bottom: 3px solid #8b5cf6; border-radius: 50%; animation: spin 1.2s linear reverse infinite;">
+
+            <h2
+                style="
+                    color: white;
+                    margin-bottom: 0.5rem;
+                    font-weight: 700;
+                    letter-spacing: 4px;
+                    font-family: 'Inter', sans-serif;
+                    text-transform: uppercase;
+                    font-size: 1.2rem;
+                    text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+                "
+            >
+                ASP APP
+            </h2>
+            <div style="display: flex; align-items: center; gap: 8px">
+                <div
+                    id="loading-indicator"
+                    style="
+                        width: 12px;
+                        height: 12px;
+                        background: #6366f1;
+                        border-radius: 50%;
+                        animation: pulse 1s infinite alternate;
+                    "
+                ></div>
+                <p
+                    id="loading-text"
+                    style="
+                        color: #94a3b8;
+                        font-size: 0.85rem;
+                        font-family: 'Inter', sans-serif;
+                        font-weight: 500;
+                        min-width: 150px;
+                    "
+                >
+                    A preparar sistema...
+                </p>
             </div>
-            <!-- App Icon with Pulse -->
-            <div
-                style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; animation: pulse 2s ease-in-out infinite;">
-                <img src="logowhite.svg"
-                    style="width: 50px; height: auto; filter: drop-shadow(0 0 15px rgba(99, 102, 241, 0.6));">
-            </div>
+
+            <style>
+                @keyframes spin {
+                    from {
+                        transform: rotate(0deg);
+                    }
+
+                    to {
+                        transform: rotate(360deg);
+                    }
+                }
+
+                @keyframes pulse {
+                    0% {
+                        opacity: 0.6;
+                        transform: scale(0.95);
+                    }
+
+                    50% {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+
+                    100% {
+                        opacity: 0.6;
+                        transform: scale(0.95);
+                    }
+                }
+            </style>
         </div>
 
-        <h2
-            style="color: white; margin-bottom: 0.5rem; font-weight: 700; letter-spacing: 4px; font-family: 'Inter', sans-serif; text-transform: uppercase; font-size: 1.2rem; text-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-            ASP APP</h2>
-        <div style="display:flex; align-items:center; gap:8px;">
-            <div id="loading-indicator"
-                style="width:12px; height:12px; background:#6366f1; border-radius:50%; animation: pulse 1s infinite alternate;">
+        <!-- Login Overlay (Modern Light Theme) -->
+        <div
+            id="login-overlay"
+            class="modal"
+            style="
+                z-index: 9000;
+                background: #f8fafc;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                position: fixed;
+                inset: 0;
+            "
+        >
+            <!-- Subtle Background Decoration -->
+            <div
+                style="
+                    position: absolute;
+                    width: 100%;
+                    height: 100%;
+                    overflow: hidden;
+                    pointer-events: none;
+                "
+            >
+                <div
+                    style="
+                        position: absolute;
+                        top: -10%;
+                        right: -10%;
+                        width: 40%;
+                        height: 60%;
+                        background: radial-gradient(
+                            circle,
+                            rgba(239, 68, 68, 0.05) 0%,
+                            transparent 70%
+                        );
+                        border-radius: 50%;
+                    "
+                ></div>
+                <div
+                    style="
+                        position: absolute;
+                        bottom: -10%;
+                        left: -10%;
+                        width: 50%;
+                        height: 70%;
+                        background: radial-gradient(
+                            circle,
+                            rgba(14, 165, 233, 0.05) 0%,
+                            transparent 70%
+                        );
+                        border-radius: 50%;
+                    "
+                ></div>
             </div>
-            <p id="loading-text"
-                style="color: #94a3b8; font-size: 0.85rem; font-family: 'Inter', sans-serif; font-weight: 500; min-width: 150px;">
-                A preparar sistema...</p>
+
+            <div
+                class="login-box"
+                style="
+                    background: white;
+                    padding: 3rem;
+                    border-radius: 24px;
+                    width: 420px;
+                    box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.1);
+                    text-align: center;
+                    position: relative;
+                    z-index: 1;
+                    border: 1px solid rgba(0, 0, 0, 0.03);
+                "
+            >
+                <div class="login-logo-container" style="margin-bottom: 2.5rem">
+                    <div
+                        style="
+                            width: 80px;
+                            height: 80px;
+                            background: #fff1f2;
+                            border-radius: 20px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            margin: 0 auto 1.5rem;
+                            box-shadow: 0 10px 20px -5px rgba(239, 68, 68, 0.2);
+                        "
+                    >
+                        <img src="logo.svg" style="width: 60%; height: auto; object-fit: contain" />
+                    </div>
+                    <h1
+                        style="
+                            font-size: 1.85rem;
+                            font-weight: 800;
+                            color: #1e293b;
+                            margin: 0;
+                            letter-spacing: -0.5px;
+                        "
+                    >
+                        ASP App
+                    </h1>
+                    <p
+                        style="
+                            font-size: 0.9rem;
+                            color: #64748b;
+                            margin-top: 0.5rem;
+                            font-weight: 500;
+                        "
+                    ></p>
+                </div>
+
+                <form id="login-form">
+                    <div style="margin-bottom: 1.25rem; text-align: left">
+                        <label
+                            style="
+                                display: block;
+                                font-size: 0.8rem;
+                                font-weight: 700;
+                                margin-bottom: 0.5rem;
+                                color: #475569;
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                            "
+                            >Utilizador</label
+                        >
+                        <div style="position: relative">
+                            <i
+                                class="fa-solid fa-user"
+                                style="
+                                    position: absolute;
+                                    left: 1rem;
+                                    top: 50%;
+                                    transform: translateY(-50%);
+                                    color: #94a3b8;
+                                    font-size: 0.9rem;
+                                "
+                            ></i>
+                            <input
+                                type="text"
+                                autocomplete="off"
+                                id="login-username"
+                                required
+                                placeholder="Digite o seu username"
+                                style="
+                                    width: 100%;
+                                    padding: 0.9rem 1rem 0.9rem 2.8rem;
+                                    border: 2px solid #f1f5f9;
+                                    border-radius: 12px;
+                                    font-size: 1rem;
+                                    outline: none;
+                                    transition: all 0.2s;
+                                    color: #1e293b;
+                                    background: #f8fafc;
+                                "
+                            />
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 2rem; text-align: left">
+                        <label
+                            style="
+                                display: block;
+                                font-size: 0.8rem;
+                                font-weight: 700;
+                                margin-bottom: 0.5rem;
+                                color: #475569;
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                            "
+                            >Palavra-passe</label
+                        >
+                        <div style="position: relative">
+                            <i
+                                class="fa-solid fa-lock"
+                                style="
+                                    position: absolute;
+                                    left: 1rem;
+                                    top: 50%;
+                                    transform: translateY(-50%);
+                                    color: #94a3b8;
+                                    font-size: 0.9rem;
+                                "
+                            ></i>
+                            <input
+                                type="password"
+                                autocomplete="off"
+                                id="login-password"
+                                required
+                                placeholder="••••••••"
+                                style="
+                                    width: 100%;
+                                    padding: 0.9rem 1rem 0.9rem 2.8rem;
+                                    border: 2px solid #f1f5f9;
+                                    border-radius: 12px;
+                                    font-size: 1rem;
+                                    outline: none;
+                                    transition: all 0.2s;
+                                    color: #1e293b;
+                                    background: #f8fafc;
+                                "
+                            />
+                        </div>
+                    </div>
+                    <button
+                        type="submit"
+                        class="btn-primary"
+                        style="
+                            width: 100%;
+                            padding: 1.1rem;
+                            border-radius: 14px;
+                            border: none;
+                            background: #ef4444;
+                            color: white;
+                            font-weight: 700;
+                            font-size: 1.1rem;
+                            cursor: pointer;
+                            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                            box-shadow: 0 15px 30px -10px rgba(239, 68, 68, 0.4);
+                        "
+                    >
+                        Aceder ao Painel
+                    </button>
+                </form>
+
+                <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #f1f5f9">
+                    <p style="font-size: 0.75rem; color: #94a3b8; line-height: 1.5">
+                        © 2026 ASP App - Todos os direitos reservados.
+                    </p>
+                    <div style="display: flex; justify-content: center; gap: 15px; margin-top: 5px">
+                        <span style="font-size: 0.7rem; color: #cbd5e1; font-weight: 600"
+                            >v3.0b</span
+                        >
+                        <span style="font-size: 0.7rem; color: #cbd5e1; font-weight: 600"
+                            >PLATAFORMA SEGURA</span
+                        >
+                    </div>
+                </div>
+            </div>
         </div>
 
         <style>
-            @keyframes spin {
-                from {
-                    transform: rotate(0deg);
-                }
-
-                to {
-                    transform: rotate(360deg);
-                }
+            #login-overlay input:focus {
+                border-color: #ef4444 !important;
+                background: #fff !important;
+                box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
             }
 
-            @keyframes pulse {
-                0% {
-                    opacity: 0.6;
-                    transform: scale(0.95);
-                }
+            #login-overlay .btn-primary:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 20px 40px -12px rgba(239, 68, 68, 0.5);
+                background: #dc2626;
+            }
 
-                50% {
-                    opacity: 1;
-                    transform: scale(1);
-                }
-
-                100% {
-                    opacity: 0.6;
-                    transform: scale(0.95);
-                }
+            #login-overlay .btn-primary:active {
+                transform: translateY(0);
             }
         </style>
-    </div>
 
-    <!-- Login Overlay (Modern Light Theme) -->
-    <div id="login-overlay" class="modal"
-        style="z-index: 9000; background: #f8fafc; display: none; align-items: center; justify-content: center; position: fixed; inset: 0;">
+        <div id="user-modal" class="modal" style="z-index: 5000">
+            <div class="modal-content" style="max-width: 650px">
+                <div class="modal-header">
+                    <div style="display: flex; flex-direction: column">
+                        <h2 style="margin: 0">Gestão de Utilizador</h2>
+                        <span
+                            style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px"
+                            >Configuração modular de acessos e visibilidade</span
+                        >
+                    </div>
+                    <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body" style="padding: 1.5rem 2rem 2rem 2rem">
+                    <form id="user-admin-form">
+                        <input type="hidden" id="user-id" />
 
-        <!-- Subtle Background Decoration -->
-        <div style="position: absolute; width: 100%; height: 100%; overflow: hidden; pointer-events: none;">
-            <div
-                style="position: absolute; top: -10%; right: -10%; width: 40%; height: 60%; background: radial-gradient(circle, rgba(239,68,68,0.05) 0%, transparent 70%); border-radius: 50%;">
-            </div>
-            <div
-                style="position: absolute; bottom: -10%; left: -10%; width: 50%; height: 70%; background: radial-gradient(circle, rgba(14,165,233,0.05) 0%, transparent 70%); border-radius: 50%;">
+                        <!-- User Identity Section -->
+                        <div
+                            style="
+                                display: grid;
+                                grid-template-columns: 1fr 1fr;
+                                gap: 1rem;
+                                margin-bottom: 1.5rem;
+                            "
+                        >
+                            <div class="form-group" style="margin: 0">
+                                <label
+                                    style="
+                                        font-weight: 600;
+                                        font-size: 0.85rem;
+                                        color: var(--text-secondary);
+                                    "
+                                    >UTILIZADOR</label
+                                >
+                                <input
+                                    type="text"
+                                    autocomplete="off"
+                                    id="user-username"
+                                    required
+                                    placeholder="Ex: joao.silva"
+                                    style="
+                                        padding: 0.75rem;
+                                        border-radius: 8px;
+                                        border: 1px solid #e2e8f0;
+                                        width: 100%;
+                                        font-weight: 600;
+                                    "
+                                />
+                            </div>
+                            <div class="form-group" style="margin: 0">
+                                <label
+                                    style="
+                                        font-weight: 600;
+                                        font-size: 0.85rem;
+                                        color: var(--text-secondary);
+                                    "
+                                    >PALAVRA-PASSE</label
+                                >
+                                <input
+                                    type="password"
+                                    autocomplete="off"
+                                    id="user-password"
+                                    placeholder="Definir nova"
+                                    style="
+                                        padding: 0.75rem;
+                                        border-radius: 8px;
+                                        border: 1px solid #e2e8f0;
+                                        width: 100%;
+                                    "
+                                />
+                            </div>
+                        </div>
+
+                        <!-- Global Config / Admin -->
+                        <div
+                            style="
+                                background: #f1f5f9;
+                                padding: 1rem;
+                                border-radius: 12px;
+                                margin-bottom: 1.5rem;
+                                display: flex;
+                                align-items: center;
+                                justify-content: space-between;
+                                border: 1px solid #e2e8f0;
+                            "
+                        >
+                            <div style="display: flex; align-items: center; gap: 1rem">
+                                <div
+                                    style="
+                                        width: 40px;
+                                        height: 40px;
+                                        border-radius: 10px;
+                                        background: #4338ca;
+                                        color: white;
+                                        display: flex;
+                                        align-items: center;
+                                        justify-content: center;
+                                        font-size: 1.2rem;
+                                        flex-shrink: 0;
+                                    "
+                                >
+                                    <i class="fa-solid fa-shield-halved"></i>
+                                </div>
+                                <div>
+                                    <h4 style="margin: 0; font-size: 0.9rem">
+                                        Administrador Geral
+                                    </h4>
+                                    <p
+                                        style="
+                                            margin: 0;
+                                            font-size: 0.75rem;
+                                            color: var(--text-secondary);
+                                        "
+                                    >
+                                        Acesso total a todas as funções e configurações
+                                    </p>
+                                </div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="perm-admin" />
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+
+                        <!-- Modular Permissions Matrix -->
+                        <h3
+                            style="
+                                font-size: 0.75rem;
+                                text-transform: uppercase;
+                                color: var(--text-secondary);
+                                margin-bottom: 0.75rem;
+                                letter-spacing: 0.05em;
+                                font-weight: 700;
+                            "
+                        >
+                            CONTROLO POR MÓDULO
+                        </h3>
+                        <div
+                            id="permission-matrix"
+                            style="
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                                margin-bottom: 2rem;
+                            "
+                        >
+                            <!-- Dynamically populated by admin.js -->
+                        </div>
+
+                        <!-- Legacy/Compatibility Hidden Inputs -->
+                        <div style="display: none">
+                            <input type="checkbox" id="perm-read" />
+                            <input type="checkbox" id="perm-create" />
+                            <input type="checkbox" id="perm-update" />
+                            <input type="checkbox" id="perm-delete" />
+                            <input type="checkbox" id="perm-prices" />
+                            <select id="perm-inv-access"></select>
+                        </div>
+                        <div style="display: flex; gap: 1rem">
+                            <button
+                                type="button"
+                                id="btn-save-user"
+                                class="btn btn-primary"
+                                style="
+                                    flex: 2;
+                                    padding: 1rem;
+                                    border-radius: 12px;
+                                    font-weight: 700;
+                                    font-size: 1rem;
+                                    gap: 10px;
+                                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                                "
+                            >
+                                <i class="fa-solid fa-floppy-disk"></i> Guardar Alterações
+                            </button>
+                            <button
+                                type="button"
+                                id="btn-delete-user"
+                                class="btn btn-danger"
+                                style="
+                                    flex: 0 0 60px;
+                                    display: none;
+                                    border-radius: 12px;
+                                    background: #fee2e2;
+                                    color: #dc2626;
+                                    border: 1px solid #fecaca;
+                                    justify-content: center;
+                                "
+                            >
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
-        <div class="login-box"
-            style="background: white; padding: 3rem; border-radius: 24px; width: 420px; box-shadow: 0 40px 100px -20px rgba(0,0,0,0.1); text-align: center; position: relative; z-index: 1; border: 1px solid rgba(0,0,0,0.03);">
+        <!-- Image Source Modal (Camera vs Gallery Choice) -->
+        <div id="image-source-modal" class="modal" style="z-index: 9999">
+            <div
+                class="modal-content"
+                style="
+                    max-width: 320px;
+                    padding: 1.5rem;
+                    text-align: center;
+                    border-radius: 12px;
+                    height: auto;
+                "
+            >
+                <h3
+                    style="
+                        margin-bottom: 1.5rem;
+                        color: var(--text-primary);
+                        font-size: 1.1rem;
+                        font-weight: 600;
+                    "
+                >
+                    Adicionar Imagem
+                </h3>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem">
+                    <button
+                        type="button"
+                        id="btn-source-camera"
+                        class="btn btn-primary"
+                        style="
+                            padding: 12px;
+                            justify-content: center;
+                            font-size: 1rem;
+                            border-radius: 8px;
+                        "
+                    >
+                        <i class="fa-solid fa-camera" style="margin-right: 8px"></i> Tirar Foto
+                    </button>
+                    <button
+                        type="button"
+                        id="btn-source-gallery"
+                        class="btn btn-secondary"
+                        style="
+                            padding: 12px;
+                            justify-content: center;
+                            font-size: 1rem;
+                            background: #e2e8f0;
+                            color: #334155;
+                            border: none;
+                            border-radius: 8px;
+                        "
+                    >
+                        <i class="fa-solid fa-image" style="margin-right: 8px"></i> Galeria
+                    </button>
+                    <button
+                        type="button"
+                        class="btn-text close-source-modal"
+                        style="
+                            margin-top: 0.5rem;
+                            color: var(--text-secondary);
+                            background: none;
+                            border: none;
+                            padding: 8px;
+                            cursor: pointer;
+                        "
+                    >
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
 
-            <div class="login-logo-container" style="margin-bottom: 2.5rem;">
+        <!-- Search Settings Modal -->
+        <div id="search-config-modal" class="modal" style="z-index: 10000">
+            <div
+                class="modal-content"
+                style="max-width: 400px; padding: 0; border-radius: 12px; overflow: hidden"
+            >
                 <div
-                    style="width: 80px; height: 80px; background: #fff1f2; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; box-shadow: 0 10px 20px -5px rgba(239,68,68,0.2);">
-                    <img src="logo.svg" style="width: 60%; height: auto; object-fit: contain;">
+                    class="modal-header"
+                    style="background: var(--primary-color); padding: 1rem 1.5rem; color: white"
+                >
+                    <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600">Onde pesquisar?</h3>
+                    <button
+                        class="close-search-config"
+                        style="
+                            background: none;
+                            border: none;
+                            color: white;
+                            cursor: pointer;
+                            font-size: 1.2rem;
+                        "
+                    >
+                        &times;
+                    </button>
                 </div>
-                <h1 style="font-size: 1.85rem; font-weight: 800; color: #1e293b; margin: 0; letter-spacing: -0.5px;">ASP
-                    App</h1>
-                <p style="font-size: 0.9rem; color: #64748b; margin-top: 0.5rem; font-weight: 500;"></p>
-            </div>
-
-            <form id="login-form">
-                <div style="margin-bottom: 1.25rem; text-align: left;">
-                    <label
-                        style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.5rem; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Utilizador</label>
-                    <div style="position: relative;">
-                        <i class="fa-solid fa-user"
-                            style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.9rem;"></i>
-                        <input type="text" autocomplete="off" id="login-username" required
-                            placeholder="Digite o seu username"
-                            style="width: 100%; padding: 0.9rem 1rem 0.9rem 2.8rem; border: 2px solid #f1f5f9; border-radius: 12px; font-size: 1rem; outline: none; transition: all 0.2s; color: #1e293b; background: #f8fafc;">
-                    </div>
-                </div>
-                <div style="margin-bottom: 2rem; text-align: left;">
-                    <label
-                        style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.5rem; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Palavra-passe</label>
-                    <div style="position: relative;">
-                        <i class="fa-solid fa-lock"
-                            style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.9rem;"></i>
-                        <input type="password" autocomplete="off" id="login-password" required placeholder="••••••••"
-                            style="width: 100%; padding: 0.9rem 1rem 0.9rem 2.8rem; border: 2px solid #f1f5f9; border-radius: 12px; font-size: 1rem; outline: none; transition: all 0.2s; color: #1e293b; background: #f8fafc;">
-                    </div>
-                </div>
-                <button type="submit" class="btn-primary"
-                    style="width: 100%; padding: 1.1rem; border-radius: 14px; border: none; background: #ef4444; color: white; font-weight: 700; font-size: 1.1rem; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 15px 30px -10px rgba(239, 68, 68, 0.4);">
-                    Aceder ao Painel
-                </button>
-            </form>
-
-            <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #f1f5f9;">
-                <p style="font-size: 0.75rem; color: #94a3b8; line-height: 1.5;">© 2026 ASP App - Todos os direitos
-                    reservados. </p>
-                <div style="display: flex; justify-content: center; gap: 15px; margin-top: 5px;">
-                    <span style="font-size: 0.7rem; color: #cbd5e1; font-weight: 600;">v3.0b</span>
-                    <span style="font-size: 0.7rem; color: #cbd5e1; font-weight: 600;">PLATAFORMA SEGURA</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <style>
-        #login-overlay input:focus {
-            border-color: #ef4444 !important;
-            background: #fff !important;
-            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
-        }
-
-        #login-overlay .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 20px 40px -12px rgba(239, 68, 68, 0.5);
-            background: #dc2626;
-        }
-
-        #login-overlay .btn-primary:active {
-            transform: translateY(0);
-        }
-    </style>
-
-    <div id="user-modal" class="modal" style="z-index: 5000;">
-        <div class="modal-content" style="max-width: 650px;">
-            <div class="modal-header">
-                <div style="display: flex; flex-direction: column;">
-                    <h2 style="margin: 0;">Gestão de Utilizador</h2>
-                    <span style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Configuração modular
-                        de acessos e visibilidade</span>
-                </div>
-                <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="modal-body" style="padding: 1.5rem 2rem 2rem 2rem;">
-                <form id="user-admin-form">
-                    <input type="hidden" id="user-id">
-
-                    <!-- User Identity Section -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                        <div class="form-group" style="margin: 0;">
-                            <label
-                                style="font-weight: 600; font-size: 0.85rem; color: var(--text-secondary);">UTILIZADOR</label>
-                            <input type="text" autocomplete="off" id="user-username" required
-                                placeholder="Ex: joao.silva"
-                                style="padding: 0.75rem; border-radius: 8px; border: 1px solid #e2e8f0; width: 100%; font-weight: 600;">
-                        </div>
-                        <div class="form-group" style="margin: 0;">
-                            <label
-                                style="font-weight: 600; font-size: 0.85rem; color: var(--text-secondary);">PALAVRA-PASSE</label>
-                            <input type="password" autocomplete="off" id="user-password" placeholder="Definir nova"
-                                style="padding: 0.75rem; border-radius: 8px; border: 1px solid #e2e8f0; width: 100%;">
-                        </div>
-                    </div>
-
-                    <!-- Global Config / Admin -->
+                <div class="modal-body" style="padding: 1.5rem">
+                    <p
+                        style="
+                            font-size: 0.85rem;
+                            color: var(--text-secondary);
+                            margin-bottom: 1.25rem;
+                        "
+                    >
+                        Selecione os campos a incluir na barra de pesquisa global.
+                    </p>
                     <div
-                        style="background: #f1f5f9; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; border: 1px solid #e2e8f0;">
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <div
-                                style="width: 40px; height: 40px; border-radius: 10px; background: #4338ca; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;">
-                                <i class="fa-solid fa-shield-halved"></i>
-                            </div>
-                            <div>
-                                <h4 style="margin: 0; font-size: 0.9rem;">Administrador Geral</h4>
-                                <p style="margin: 0; font-size: 0.75rem; color: var(--text-secondary);">Acesso total a
-                                    todas as funções e configurações</p>
-                            </div>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" id="perm-admin">
-                            <span class="slider round"></span>
-                        </label>
+                        id="search-fields-list"
+                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem"
+                    >
+                        <!-- Injected via JS -->
                     </div>
-
-                    <!-- Modular Permissions Matrix -->
-                    <h3
-                        style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 0.75rem; letter-spacing: 0.05em; font-weight: 700;">
-                        CONTROLO POR MÓDULO
-                    </h3>
-                    <div id="permission-matrix"
-                        style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 2rem;">
-                        <!-- Dynamically populated by admin.js -->
-                    </div>
-
-                    <!-- Legacy/Compatibility Hidden Inputs -->
-                    <div style="display: none;">
-                        <input type="checkbox" id="perm-read">
-                        <input type="checkbox" id="perm-create">
-                        <input type="checkbox" id="perm-update">
-                        <input type="checkbox" id="perm-delete">
-                        <input type="checkbox" id="perm-prices">
-                        <select id="perm-inv-access"></select>
-                    </div>
-                    <div style="display: flex; gap: 1rem;">
-                        <button type="button" id="btn-save-user" class="btn btn-primary"
-                            style="flex: 2; padding: 1rem; border-radius: 12px; font-weight: 700; font-size: 1rem; gap: 10px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                            <i class="fa-solid fa-floppy-disk"></i> Guardar Alterações
-                        </button>
-                        <button type="button" id="btn-delete-user" class="btn btn-danger"
-                            style="flex: 0 0 60px; display:none; border-radius: 12px; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; justify-content: center;">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Image Source Modal (Camera vs Gallery Choice) -->
-    <div id="image-source-modal" class="modal" style="z-index: 9999;">
-        <div class="modal-content"
-            style="max-width: 320px; padding: 1.5rem; text-align: center; border-radius: 12px; height: auto;">
-            <h3 style="margin-bottom: 1.5rem; color: var(--text-primary); font-size: 1.1rem; font-weight: 600;">
-                Adicionar Imagem</h3>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                <button type="button" id="btn-source-camera" class="btn btn-primary"
-                    style="padding: 12px; justify-content: center; font-size: 1rem; border-radius: 8px;">
-                    <i class="fa-solid fa-camera" style="margin-right: 8px;"></i> Tirar Foto
-                </button>
-                <button type="button" id="btn-source-gallery" class="btn btn-secondary"
-                    style="padding: 12px; justify-content: center; font-size: 1rem; background: #e2e8f0; color: #334155; border: none; border-radius: 8px;">
-                    <i class="fa-solid fa-image" style="margin-right: 8px;"></i> Galeria
-                </button>
-                <button type="button" class="btn-text close-source-modal"
-                    style="margin-top: 0.5rem; color: var(--text-secondary); background:none; border:none; padding:8px; cursor:pointer;">Cancelar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Search Settings Modal -->
-    <div id="search-config-modal" class="modal" style="z-index: 10000;">
-        <div class="modal-content" style="max-width: 400px; padding: 0; border-radius: 12px; overflow: hidden;">
-            <div class="modal-header" style="background: var(--primary-color); padding: 1rem 1.5rem; color: white;">
-                <h3 style="margin:0; font-size: 1.1rem; font-weight: 600;">Onde pesquisar?</h3>
-                <button class="close-search-config"
-                    style="background:none; border:none; color:white; cursor:pointer; font-size:1.2rem;">&times;</button>
-            </div>
-            <div class="modal-body" style="padding: 1.5rem;">
-                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1.25rem;">Selecione os campos a
-                    incluir na barra de pesquisa global.</p>
-                <div id="search-fields-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                    <!-- Injected via JS -->
+                </div>
+                <div
+                    class="modal-actions"
+                    style="
+                        padding: 1rem 1.5rem;
+                        background: #f8fafc;
+                        border-top: 1px solid var(--border-color);
+                        display: flex;
+                        justify-content: flex-end;
+                    "
+                >
+                    <button class="btn btn-primary close-search-config" style="padding: 8px 20px">
+                        Concluído
+                    </button>
                 </div>
             </div>
-            <div class="modal-actions"
-                style="padding: 1rem 1.5rem; background: #f8fafc; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
-                <button class="btn btn-primary close-search-config" style="padding: 8px 20px;">Concluído</button>
-            </div>
         </div>
-    </div>
 
-    <script type="module" src="js/app.js"></script>
-</body>
-
+        <script type="module" src="js/app.js"></script>
+    </body>
 </html>

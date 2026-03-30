@@ -2,14 +2,21 @@
 
 ## Overview
 
-A aplicação ASP Stock Management tem **2 ambientes isolados** gerenciados através de Git branches:
+A aplicação ASP Stock Management tem **2 ambientes isolados** geridos através de Git branches e de um único workflow de deploy no GitHub Actions:
 
-| Ambiente | Git Branch | URL | Banco de Dados | Auto-deploy |
-|----------|-----------|-----|---|---------|
-| **Production** | `main` | https://asp-app.pages.dev | `aspstock-db` | ✅ Sim |
-| **Staging** | `staging` | https://staging.asp-app.pages.dev | `aspstock-staging` | ✅ Sim |
+| Ambiente       | Git Branch | URL                               | Banco de Dados     | Auto-deploy |
+| -------------- | ---------- | --------------------------------- | ------------------ | ----------- |
+| **Production** | `main`     | https://asp-app.pages.dev         | `aspstock-db`      | ✅ Sim      |
+| **Staging**    | `staging`  | https://asp-app-staging.pages.dev | `aspstock-staging` | ✅ Sim      |
 
-Cada push a uma branch é automaticamente deployado pelo Cloudflare Pages no seu respetivo ambiente.
+Cada push para `main` ou `staging` é deployado pelo ficheiro [`.github/workflows/pages-deploy.yml`](.github/workflows/pages-deploy.yml).
+
+Fonte de verdade do deploy:
+
+- `main` -> projeto Cloudflare Pages `asp-app`
+- `staging` -> projeto Cloudflare Pages `asp-app-staging`
+
+Se a integração Git nativa do Cloudflare Pages continuar ativa no dashboard, trata-a como secundária ou desativa-a para evitar previews/deploys duplicados.
 
 ---
 
@@ -25,6 +32,7 @@ git push -u origin staging
 ```
 
 Pronto! Agora tens:
+
 - `main` → produção (asp-app.pages.dev)
 - `staging` → teste (staging.asp-app.pages.dev)
 
@@ -37,8 +45,8 @@ git add -A
 git commit -m "feature: ..."
 git push origin staging
 
-# Cloudflare redeploy automático em ~1-2 min
-# → Testa em https://staging.asp-app.pages.dev
+# GitHub Actions redeploy automático em ~1-2 min
+# → Testa em https://asp-app-staging.pages.dev
 ```
 
 ### 3️⃣ Levar para produção:
@@ -48,7 +56,7 @@ git checkout main
 git merge staging
 git push origin main
 
-# Cloudflare redeploy automático
+# GitHub Actions redeploy automático
 # → Produção atualizada em https://asp-app.pages.dev
 ```
 
@@ -81,8 +89,8 @@ git push origin main
                         ↓
 ┌─────────────────────────────────────────────────────────┐
 │ 5. Merge para staging branch                            │
-│    Cloudflare auto-deploy para staging.asp-app...      │
-│    https://staging.asp-app.pages.dev                    │
+│    GitHub Actions deploy para asp-app-staging          │
+│    https://asp-app-staging.pages.dev                    │
 └─────────────────────────────────────────────────────────┘
                         ↓
 ┌─────────────────────────────────────────────────────────┐
@@ -97,7 +105,7 @@ git push origin main
 └─────────────────────────────────────────────────────────┘
                         ↓
 ┌─────────────────────────────────────────────────────────┐
-│ 8. Cloudflare auto-deploy para produção                 │
+│ 8. GitHub Actions deploy para produção                  │
 │    https://asp-app.pages.dev (VIVO!)                    │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -118,6 +126,7 @@ hotfix/*          ← Emergency fixes para production
 ```
 
 **Exemplos de feature branches:**
+
 - `feature/inventory-dashboard`
 - `feature/phc-import-system`
 - `bugfix/password-reset`
@@ -154,7 +163,7 @@ git pull origin staging                        # Atualizar staging
 git checkout -b feature/my-feature             # Criar feature branch
 git add -A && git commit -m "message"          # Commit
 git push origin feature/my-feature             # Push
-git pull request                               # Criar PR (GitHub)
+gh pr create                                   # Criar PR (GitHub)
 git checkout main && git merge staging         # Merge para main
 git push origin main                           # Deploy produção
 ```
@@ -164,6 +173,7 @@ git push origin main                           # Deploy produção
 ## Environment Database Setup
 
 As duas BDs estão prontas:
+
 - **Production:** `aspstock-db` (id: 8c0bd9de-e51a-46a2-8ba3-112ce6034e86)
 - **Staging:** `aspstock-staging` (id: 39db27e3-c119-4545-b6f4-a7a6eeb2cce4)
 
@@ -186,13 +196,16 @@ Cria manualmente em [Cloudflare R2 Dashboard](https://dash.cloudflare.com):
 1. **Production:** `asp-stock-backups-30d` (já existe)
 2. **Staging:** `asp-stock-backups-staging` (criar)
 
-Localização em `wrangler.toml`:
+Localização nos ficheiros dedicados:
+
 ```toml
+# wrangler.production.toml
 [[r2_buckets]]
 binding = "BACKUP_BUCKET"
 bucket_name = "asp-stock-backups-30d"
 
-[[env.staging.r2_buckets]]
+# wrangler.staging.toml
+[[r2_buckets]]
 binding = "BACKUP_BUCKET"
 bucket_name = "asp-stock-backups-staging"
 ```
@@ -204,14 +217,17 @@ bucket_name = "asp-stock-backups-staging"
 Configura em Cloudflare Pages Dashboard:
 
 **Para Production:**
+
 1. Cloudflare Dashboard → Pages → asp-app-prod
 2. Settings → Environment variables
 
 **Para Staging:**
+
 1. Cloudflare Dashboard → Pages → asp-app-staging
 2. Settings → Environment variables
 
 **Variáveis importantes:**
+
 - `JWT_SECRET` (use different secrets para segurança)
 - `BACKUP_TOKEN`
 - `PHC_API_KEY`
@@ -240,16 +256,19 @@ git push origin main           # Redeploy produção
 ## Troubleshooting
 
 ### "Branch não encontrado"
+
 ```bash
 git fetch origin           # Download all branches
 git branch -a             # List all branches
 ```
 
 ### Staging não atualiza após push
-- Cloudflare demora 1-3 min a compilar
-- Check Deployments tab em Cloudflare Pages para status
+
+- Confirma o run em GitHub Actions
+- Depois valida o deployment no Cloudflare Pages
 
 ### BD staging não existe
+
 ```bash
 npm run db:list                                  # Verifica
 wrangler d1 create aspstock-staging              # Cria se necessário
@@ -257,6 +276,7 @@ npm run db:migrate:staging                       # Aplica migrations
 ```
 
 ### Erro "database not found"
+
 - Verifica `database_id` em `wrangler.toml`
 - Confirma que a BD existe em Cloudflare Dashboard
 
@@ -265,6 +285,7 @@ npm run db:migrate:staging                       # Aplica migrations
 ## Best Practices
 
 ✅ **DO:**
+
 - Sempre testa em staging antes de main
 - Usa branches feature para isolação
 - Faz commits pequenos e descritivos
@@ -272,6 +293,7 @@ npm run db:migrate:staging                       # Aplica migrations
 - Código review antes de merge para main
 
 ❌ **DON'T:**
+
 - Diretos commits para main (sem teste staging)
 - Force push a main/staging
 - Mude secrets em Git (estão em Cloudflare)
