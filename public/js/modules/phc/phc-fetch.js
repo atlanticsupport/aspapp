@@ -144,7 +144,7 @@ export async function handlePhcFetch(processId) {
         if (filteredDocs.length === 0) {
             const msg = state.currentPage === 'logistics' ?
                 'Nenhum documento de Venda (OC) encontrado.' :
-                'Nenhum documento de Compra (PO) encontrado.';
+                'Nenhum documento de Compra (PO/PBS) encontrado.';
             showToast(msg, 'warning');
             btn.disabled = false;
             btn.innerHTML = originalText;
@@ -180,11 +180,42 @@ function filterDocuments(docs, currentPage, record) {
     const isLogistics = currentPage === 'logistics';
     const isStockOut = currentPage === 'stock-out';
 
+    const normalize = (value) => String(value || '').trim().toUpperCase();
+
+    const getDocType = (info) => normalize(
+        info.tipo ||
+        info.doc_type ||
+        info.document_type ||
+        info.tipo_documento ||
+        info.type
+    );
+
+    const isPurchaseLikeDocument = (docType, info, docRecord) => {
+        const combined = [
+            docType,
+            normalize(info.referencia),
+            normalize(info.documento),
+            normalize(info.descricao),
+            normalize(docRecord?.processo_id)
+        ].join(' ');
+
+        const hasWord = (word) => new RegExp(`(^|[^A-Z0-9])${word}([^A-Z0-9]|$)`).test(combined);
+
+        return (
+            combined.includes('PURCHASE ORDER') ||
+            combined.includes('ORDER CONFIRMATION') ||
+            hasWord('PBS') ||
+            hasWord('PO') ||
+            combined.includes('COMPRA') ||
+            combined.includes('ENCOMENDA')
+        );
+    };
+
     return docs.filter(d => {
         const info = d.info || d.dossier_info || d;
-        const type = info.tipo?.toUpperCase() || '';
-        const isPO = type.includes('PURCHASE ORDER');
-        const isOC = type.includes('ORDER CONFIRMATION');
+        const type = getDocType(info);
+        const isPO = isPurchaseLikeDocument(type, info, record);
+        const isOC = type.includes('ORDER CONFIRMATION') || type.includes('VENDA') || type.includes('SALE');
 
         // Detect if this is STOCK fulfillment
         const isStockClient =
