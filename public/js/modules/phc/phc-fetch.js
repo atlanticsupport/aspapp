@@ -142,9 +142,9 @@ export async function handlePhcFetch(processId) {
         const filteredDocs = filterDocuments(docs, state.currentPage, record);
 
         if (filteredDocs.length === 0) {
-            const msg = state.currentPage === 'logistics' ?
-                'Nenhum documento de Venda (OC) encontrado.' :
-                'Nenhum documento de Compra (PO/PBS) encontrado.';
+            const msg = state.currentPage === 'logistics' || state.currentPage === 'stock-out' ?
+                'Nenhum documento de Venda correspondente encontrado.' :
+                'Nenhum documento de Compra correspondente encontrado.';
             showToast(msg, 'warning');
             btn.disabled = false;
             btn.innerHTML = originalText;
@@ -190,48 +190,54 @@ function filterDocuments(docs, currentPage, record) {
         info.type
     );
 
-    const isPurchaseLikeDocument = (docType, info, docRecord) => {
-        const combined = [
-            docType,
-            normalize(info.referencia),
-            normalize(info.documento),
-            normalize(info.descricao),
-            normalize(docRecord?.processo_id)
-        ].join(' ');
+    const getDocCategory = (info) => normalize(info.categoria || info.category || info.type_category);
 
-        const hasWord = (word) => new RegExp(`(^|[^A-Z0-9])${word}([^A-Z0-9]|$)`).test(combined);
+    const isPurchaseLikeDocument = (docType, docCategory, info) => {
+        const combined = `${docType} ${docCategory} ${normalize(info.referencia)} ${normalize(info.documento)} ${normalize(info.descricao)}`;
 
         return (
             combined.includes('PURCHASE ORDER') ||
-            combined.includes('ORDER CONFIRMATION') ||
-            hasWord('PBS') ||
-            hasWord('PO') ||
             combined.includes('COMPRA') ||
-            combined.includes('ENCOMENDA')
+            combined.includes('ENCOMENDA') ||
+            combined.includes('PURCHASE') ||
+            combined.includes('BUY')
+        );
+    };
+
+    const isSaleLikeDocument = (docType, docCategory, info) => {
+        const combined = `${docType} ${docCategory} ${normalize(info.referencia)} ${normalize(info.documento)} ${normalize(info.descricao)}`;
+
+        return (
+            combined.includes('QUOTATION') ||
+            combined.includes('ORDER CONFIRMATION') ||
+            combined.includes('VENDA') ||
+            combined.includes('SALE') ||
+            combined.includes('PBS')
         );
     };
 
     return docs.filter(d => {
         const info = d.info || d.dossier_info || d;
         const type = getDocType(info);
-        const isPO = isPurchaseLikeDocument(type, info, record);
-        const isOC = type.includes('ORDER CONFIRMATION') || type.includes('VENDA') || type.includes('SALE');
+        const category = getDocCategory(info);
+        const isPO = isPurchaseLikeDocument(type, category, info);
+        const isSale = isSaleLikeDocument(type, category, info);
 
         // Detect if this is STOCK fulfillment
         const isStockClient =
-            (info.entidade?.toUpperCase().includes('STOCK')) ||
-            (info.client_name?.toUpperCase().includes('STOCK')) ||
-            (info.client?.toUpperCase().includes('STOCK')) ||
-            (info.pagamento?.toUpperCase().includes('STOCK')) ||
-            (record.cliente_principal?.toUpperCase().includes('STOCK')) ||
-            (record.cliente_final?.toUpperCase().includes('STOCK')) ||
+            normalize(info.entidade).includes('STOCK') ||
+            normalize(info.client_name).includes('STOCK') ||
+            normalize(info.client).includes('STOCK') ||
+            normalize(info.pagamento).includes('STOCK') ||
+            normalize(record.cliente_principal).includes('STOCK') ||
+            normalize(record.cliente_final).includes('STOCK') ||
             (d.items && Array.isArray(d.items) && d.items.some(it =>
-                (it.prazo?.toUpperCase() === 'STOCK') ||
-                (it.status?.toUpperCase() === 'STOCK')
+                normalize(it.prazo) === 'STOCK' ||
+                normalize(it.status) === 'STOCK'
             ));
 
-        if (isLogistics) return isOC;
-        if (isStockOut) return isPO && isStockClient;
+        if (isLogistics) return isSale;
+        if (isStockOut) return isSale && isStockClient;
         return isPO && !isStockClient;
     });
 }
@@ -246,7 +252,15 @@ function processAndMergeItems(filteredDocs, record) {
 
         docItems.forEach(item => {
             const pn = (item.pn || item.part_number || '').trim().toUpperCase();
-            if (pn === 'PACKING' || pn === 'PORTES') return;
+            const desc = (item.desc || item.description || '').trim().toUpperCase();
+            const isChargeLine =
+                ['PACKING', 'PORTES', 'FRETE-IMP', 'FRETE-EXP', 'DELIVERY'].includes(pn) ||
+                desc.includes('PACKING') ||
+                desc.includes('HANDLING') ||
+                desc.includes('FRETE') ||
+                desc.includes('DELIVERY COST') ||
+                desc.includes('PORTES');
+            if (isChargeLine) return;
 
             const qty = parseFloat(item.qty || item.quantity || 0);
 
