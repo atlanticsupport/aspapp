@@ -22,10 +22,13 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
     const h = parseFloat(settings.height) || 10;
 
     // Adaptive sizing logic directly in JS (safe for 0x0 hidden iframe printing viewports)
-    const titleSize = type === 'item' ? (w < 8 ? '10pt' : '16pt') : w < 8 ? '12pt' : '20pt';
-    const footerSize = w < 8 ? '8pt' : '11pt';
+    const isItem = type === 'item';
+    const titleSize = isItem ? (w < 8 ? '8pt' : '11pt') : w < 8 ? '12pt' : '20pt';
+    const footerSize = isItem ? (w < 8 ? '6.5pt' : '8pt') : w < 8 ? '8pt' : '11pt';
     const logoHeight = h < 6 ? '6mm' : '12mm';
-    const padding = w < 8 ? '1.5mm' : '3mm';
+    const padding = isItem ? (w < 8 ? '1mm' : '1.8mm') : w < 8 ? '1.5mm' : '3mm';
+    const barcodeHeight = isItem ? (h < 6 ? 220 : 260) : 140;
+    const barcodeWidth = isItem ? (w < 8 ? 3.1 : 3.8) : 3.5;
 
     return `
         <!DOCTYPE html>
@@ -61,13 +64,13 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
                         display: flex;
                         flex-direction: column;
                         align-items: center;
-                        margin-bottom: 2mm;
+                        margin-bottom: ${isItem ? '0.8mm' : '2mm'};
                     }
                     .logo-header {
                         width: 100%;
                         display: flex;
                         justify-content: center;
-                        margin-bottom: 1.5mm;
+                        margin-bottom: ${isItem ? '0.5mm' : '1.5mm'};
                     }
                     .logo-header img {
                         height: ${logoHeight};
@@ -79,40 +82,40 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
                         font-size: ${titleSize};
                         font-weight: 800;
                         text-align: center;
-                        line-height: 1.25;
+                        line-height: 1.1;
                         width: 100%;
                         color: #000;
                         overflow: hidden;
                         display: -webkit-box;
-                        -webkit-line-clamp: 2; /* Garante que títulos gigantes não invadem o barcode */
+                        -webkit-line-clamp: ${isItem ? 1 : 2};
                         -webkit-box-orient: vertical;
                     }
                     .barcode-area {
-                        flex: 1; /* Domina todo o espaço vertical livre */
+                        flex: ${isItem ? 5 : 1}; /* Barcode domina a etiqueta */
                         width: 100%;
                         display: flex;
                         align-items: center;
                         justify-content: center;
                         min-height: 0; /* Vital para o flex shrink impedir colapsos */
-                        padding: 1.5mm 0;
+                        padding: ${isItem ? '0.5mm 0 0.2mm' : '1.5mm 0'};
                     }
                     .barcode-svg {
                         width: 100%;
                         height: 100%;
-                        max-width: 95%; /* Impede que toque fisicamente nas margens da impressão */
+                        max-width: ${isItem ? '100%' : '95%'}; /* Impede que toque fisicamente nas margens da impressão */
                         object-fit: contain; /* Estica responsivamente e preserva o Aspect Ratio */
                     }
                     .footer-info {
                         width: 100%;
                         font-size: ${footerSize};
-                        font-weight: 600;
+                        font-weight: ${isItem ? 500 : 600};
                         text-align: center;
                         color: #444;
                         white-space: nowrap;
                         overflow: hidden;
                         text-overflow: ellipsis;
-                        border-top: 0.1mm dashed #ccc;
-                        padding-top: 1mm;
+                        border-top: ${isItem ? 'none' : '0.1mm dashed #ccc'};
+                        padding-top: ${isItem ? '0.2mm' : '1mm'};
                     }
                 </style>
             </head>
@@ -134,13 +137,13 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
                     <script>
                         JsBarcode("#barcode", "${barcodeValue}", {
                             format: "CODE128",
-                            height: 140, /* Resolução Interna Esticada do Barcode */
-                            width: 3.5,  /* Barras internas generosamente visíveis */
-                            displayValue: true,
-                            fontSize: 22,
+                            height: ${barcodeHeight}, /* Barcode é o elemento principal */
+                            width: ${barcodeWidth},  /* Barras visíveis e largas */
+                            displayValue: ${isItem ? 'false' : 'true'},
+                            fontSize: ${isItem ? 0 : 22},
                             font: "Inter",
                             fontOptions: "bold",
-                            textMargin: 6,
+                            textMargin: ${isItem ? 0 : 6},
                             margin: 0,
                             background: "transparent",
                             lineColor: "#000"
@@ -190,10 +193,13 @@ function getBatchLabelHTML(labels = []) {
             const subtitle = label.subtitle || '';
             const barcodeValue = String(label.barcodeValue || '');
             const type = label.type || 'item';
-            const titleSize = type === 'item' ? (w < 8 ? '10pt' : '16pt') : w < 8 ? '12pt' : '20pt';
-            const footerSize = w < 8 ? '8pt' : '11pt';
+            const isItem = type === 'item';
+            const titleSize = isItem ? (w < 8 ? '8pt' : '11pt') : w < 8 ? '12pt' : '20pt';
+            const footerSize = isItem ? (w < 8 ? '6.5pt' : '8pt') : w < 8 ? '8pt' : '11pt';
             const logoHeight = h < 6 ? '6mm' : '12mm';
-            const padding = w < 8 ? '1.5mm' : '3mm';
+            const padding = isItem ? (w < 8 ? '1mm' : '1.8mm') : w < 8 ? '1.5mm' : '3mm';
+            const barcodeHeight = isItem ? (h < 6 ? 220 : 260) : 140;
+            const barcodeWidth = isItem ? (w < 8 ? 3.1 : 3.8) : 3.5;
 
             return `
                 <section class="label-page${index === normalizedLabels.length - 1 ? '' : ' page-break'}">
@@ -221,13 +227,13 @@ function getBatchLabelHTML(labels = []) {
                             display: flex;
                             flex-direction: column;
                             align-items: center;
-                            margin-bottom: 2mm;
+                            margin-bottom: ${isItem ? '0.8mm' : '2mm'};
                         }
                         .label-page .logo-header {
                             width: 100%;
                             display: flex;
                             justify-content: center;
-                            margin-bottom: 1.5mm;
+                            margin-bottom: ${isItem ? '0.5mm' : '1.5mm'};
                         }
                         .label-page .logo-header img {
                             height: ${logoHeight};
@@ -239,40 +245,40 @@ function getBatchLabelHTML(labels = []) {
                             font-size: ${titleSize};
                             font-weight: 800;
                             text-align: center;
-                            line-height: 1.25;
+                            line-height: 1.1;
                             width: 100%;
                             color: #000;
                             overflow: hidden;
                             display: -webkit-box;
-                            -webkit-line-clamp: 2;
+                            -webkit-line-clamp: ${isItem ? 1 : 2};
                             -webkit-box-orient: vertical;
                         }
                         .label-page .barcode-area {
-                            flex: 1;
+                            flex: ${isItem ? 5 : 1};
                             width: 100%;
                             display: flex;
                             align-items: center;
                             justify-content: center;
                             min-height: 0;
-                            padding: 1.5mm 0;
+                            padding: ${isItem ? '0.5mm 0 0.2mm' : '1.5mm 0'};
                         }
                         .label-page .barcode-svg {
                             width: 100%;
                             height: 100%;
-                            max-width: 95%;
+                            max-width: ${isItem ? '100%' : '95%'};
                             object-fit: contain;
                         }
                         .label-page .footer-info {
                             width: 100%;
                             font-size: ${footerSize};
-                            font-weight: 600;
+                            font-weight: ${isItem ? 500 : 600};
                             text-align: center;
                             color: #444;
                             white-space: nowrap;
                             overflow: hidden;
                             text-overflow: ellipsis;
-                            border-top: 0.1mm dashed #ccc;
-                            padding-top: 1mm;
+                            border-top: ${isItem ? 'none' : '0.1mm dashed #ccc'};
+                            padding-top: ${isItem ? '0.2mm' : '1mm'};
                         }
                     </style>
                     <div class="label-wrapper">
@@ -299,13 +305,13 @@ function getBatchLabelHTML(labels = []) {
             (label, index) => `
                 JsBarcode("#barcode-${index}", ${JSON.stringify(String(label.barcodeValue || ''))}, {
                     format: "CODE128",
-                    height: 140,
-                    width: 3.5,
-                    displayValue: true,
-                    fontSize: 22,
+                    height: ${barcodeHeight},
+                    width: ${barcodeWidth},
+                    displayValue: ${isItem ? 'false' : 'true'},
+                    fontSize: ${isItem ? 0 : 22},
                     font: "Inter",
                     fontOptions: "bold",
-                    textMargin: 6,
+                    textMargin: ${isItem ? 0 : 6},
                     margin: 0,
                     background: "transparent",
                     lineColor: "#000"
