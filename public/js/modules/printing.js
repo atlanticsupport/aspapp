@@ -16,6 +16,18 @@ export function buildItemLabelSubtitle(product = {}) {
     return parts.join(' | ');
 }
 
+function getBarcodeDimensions(type, w, h) {
+    const isItem = type === 'item';
+    return {
+        titleSize: isItem ? (w < 8 ? '8pt' : '11pt') : w < 8 ? '12pt' : '20pt',
+        footerSize: isItem ? (w < 8 ? '6.5pt' : '8pt') : w < 8 ? '8pt' : '11pt',
+        logoHeight: h < 6 ? '6mm' : '12mm',
+        padding: isItem ? (w < 8 ? '1mm' : '1.8mm') : w < 8 ? '1.5mm' : '3mm',
+        barcodeHeight: isItem ? (h < 6 ? 145 : 175) : 140,
+        barcodeWidth: isItem ? (w < 8 ? 4.1 : 4.8) : 3.5
+    };
+}
+
 function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
     const settings = JSON.parse(localStorage.getItem('labelSettings')) || { width: 5, height: 3 };
     const w = parseFloat(settings.width) || 15;
@@ -23,12 +35,8 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
 
     // Adaptive sizing logic directly in JS (safe for 0x0 hidden iframe printing viewports)
     const isItem = type === 'item';
-    const titleSize = isItem ? (w < 8 ? '8pt' : '11pt') : w < 8 ? '12pt' : '20pt';
-    const footerSize = isItem ? (w < 8 ? '6.5pt' : '8pt') : w < 8 ? '8pt' : '11pt';
-    const logoHeight = h < 6 ? '6mm' : '12mm';
-    const padding = isItem ? (w < 8 ? '1mm' : '1.8mm') : w < 8 ? '1.5mm' : '3mm';
-    const barcodeHeight = isItem ? (h < 6 ? 160 : 190) : 140;
-    const barcodeWidth = isItem ? (w < 8 ? 3.8 : 4.4) : 3.5;
+    const { titleSize, footerSize, logoHeight, padding, barcodeHeight, barcodeWidth } =
+        getBarcodeDimensions(type, w, h);
 
     return `
         <!DOCTYPE html>
@@ -111,11 +119,13 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
                         font-weight: ${isItem ? 500 : 600};
                         text-align: center;
                         color: #444;
-                        white-space: nowrap;
+                        white-space: ${isItem ? 'normal' : 'nowrap'};
+                        line-height: 1.1;
                         overflow: hidden;
-                        text-overflow: ellipsis;
+                        text-overflow: ${isItem ? 'clip' : 'ellipsis'};
                         border-top: ${isItem ? 'none' : '0.1mm dashed #ccc'};
-                        padding-top: ${isItem ? '0.2mm' : '1mm'};
+                        padding-top: ${isItem ? '0.1mm' : '1mm'};
+                        max-height: ${isItem ? '9mm' : 'auto'};
                     }
                 </style>
             </head>
@@ -194,12 +204,8 @@ function getBatchLabelHTML(labels = []) {
             const barcodeValue = String(label.barcodeValue || '');
             const type = label.type || 'item';
             const isItem = type === 'item';
-            const titleSize = isItem ? (w < 8 ? '8pt' : '11pt') : w < 8 ? '12pt' : '20pt';
-            const footerSize = isItem ? (w < 8 ? '6.5pt' : '8pt') : w < 8 ? '8pt' : '11pt';
-            const logoHeight = h < 6 ? '6mm' : '12mm';
-            const padding = isItem ? (w < 8 ? '1mm' : '1.8mm') : w < 8 ? '1.5mm' : '3mm';
-            const barcodeHeight = isItem ? (h < 6 ? 160 : 190) : 140;
-            const barcodeWidth = isItem ? (w < 8 ? 3.8 : 4.4) : 3.5;
+            const { titleSize, footerSize, logoHeight, padding, barcodeHeight, barcodeWidth } =
+                getBarcodeDimensions(type, w, h);
 
             return `
                 <section class="label-page${index === normalizedLabels.length - 1 ? '' : ' page-break'}">
@@ -274,11 +280,13 @@ function getBatchLabelHTML(labels = []) {
                             font-weight: ${isItem ? 500 : 600};
                             text-align: center;
                             color: #444;
-                            white-space: nowrap;
+                            white-space: ${isItem ? 'normal' : 'nowrap'};
+                            line-height: 1.1;
                             overflow: hidden;
-                            text-overflow: ellipsis;
+                            text-overflow: ${isItem ? 'clip' : 'ellipsis'};
                             border-top: ${isItem ? 'none' : '0.1mm dashed #ccc'};
-                            padding-top: ${isItem ? '0.2mm' : '1mm'};
+                            padding-top: ${isItem ? '0.1mm' : '1mm'};
+                            max-height: ${isItem ? '9mm' : 'auto'};
                         }
                     </style>
                     <div class="label-wrapper">
