@@ -30,7 +30,7 @@ import {
 } from '../products.js';
 import { closeViewer, openViewer } from '../ag-grid-shim.js';
 import { login, logout } from '../auth.js';
-import { printPalletLabel, printBoxLabel, printLabelBatch } from '../printing.js';
+import { printPalletLabel, printBoxLabel, printLabelBatch, buildItemLabelSubtitle } from '../printing.js';
 import { dialog } from '../ui/dialogs-original.js';
 import { openUserModal } from '../admin.js';
 import { openViewerGallery } from '../gallery.js';
@@ -513,7 +513,7 @@ export function setupEventListeners() {
                 printLabelBatch(
                     products.map(prod => ({
                         title: prod.name,
-                        subtitle: `${prod.brand || ''} | ${prod.part_number || ''}`,
+                        subtitle: buildItemLabelSubtitle(prod),
                         barcodeValue: prod.id,
                         type: 'item'
                     }))
@@ -530,7 +530,7 @@ export function setupEventListeners() {
                 printLabelBatch(
                     products.map(prod => ({
                         title: prod.name,
-                        subtitle: `${prod.brand || ''} | ${prod.part_number || ''}`,
+                        subtitle: buildItemLabelSubtitle(prod),
                         barcodeValue: prod.id,
                         type: 'item'
                     }))

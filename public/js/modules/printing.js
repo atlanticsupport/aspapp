@@ -1,4 +1,21 @@
 // Helper to get stylized label HTML
+function cleanLabelText(value) {
+    return String(value ?? '').trim();
+}
+
+export function buildItemLabelSubtitle(product = {}) {
+    const parts = [];
+    const supplier = cleanLabelText(product.maker || product.order_to || product.supplier);
+    const brand = cleanLabelText(product.brand);
+    const partNumber = cleanLabelText(product.part_number);
+
+    if (supplier) parts.push(`Fornecedor: ${supplier}`);
+    if (brand) parts.push(brand);
+    if (partNumber) parts.push(partNumber);
+
+    return parts.join(' | ');
+}
+
 function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
     const settings = JSON.parse(localStorage.getItem('labelSettings')) || { width: 5, height: 3 };
     const w = parseFloat(settings.width) || 15;
@@ -340,7 +357,7 @@ export function printLabelBatch(labels = []) {
 
 export function printSingleLabel(product) {
     if (!product || !product.id) return showToast('Produto inválido.', 'error');
-    const subtitle = `${product.brand || ''} | ${product.part_number || ''}`;
+    const subtitle = buildItemLabelSubtitle(product);
     const html = getStyledLabelHTML(product.name, subtitle, product.id, 'item');
     sendToPrinter(html);
 }
