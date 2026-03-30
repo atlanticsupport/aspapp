@@ -28,6 +28,22 @@ function getBarcodeDimensions(type, w, h) {
     };
 }
 
+function getFittedFooterFontSize(text, w, baseSize) {
+    const len = String(text ?? '').trim().length;
+    const base = parseFloat(String(baseSize).replace('pt', '')) || 10;
+    const maxSize = w < 8 ? 10.5 : 12.5;
+    const minSize = w < 8 ? 8 : 9.5;
+    let size = base;
+
+    if (len <= 22) size = maxSize;
+    else if (len <= 30) size = maxSize - 0.5;
+    else if (len <= 38) size = maxSize - 1.5;
+    else if (len <= 48) size = maxSize - 2.5;
+    else size = maxSize - 3.5;
+
+    return `${Math.max(minSize, size).toFixed(1).replace(/\.0$/, '')}pt`;
+}
+
 function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
     const settings = JSON.parse(localStorage.getItem('labelSettings')) || { width: 5, height: 3 };
     const w = parseFloat(settings.width) || 15;
@@ -37,6 +53,7 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
     const isItem = type === 'item';
     const { titleSize, footerSize, logoHeight, padding, barcodeHeight, barcodeWidth } =
         getBarcodeDimensions(type, w, h);
+    const footerFontSize = isItem ? getFittedFooterFontSize(subtitle, w, footerSize) : footerSize;
 
     return `
         <!DOCTYPE html>
@@ -115,8 +132,8 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
                     }
                     .footer-info {
                         width: 100%;
-                        font-size: ${footerSize};
-                        font-weight: 600;
+                        font-size: ${footerFontSize};
+                        font-weight: 700;
                         text-align: center;
                         color: #444;
                         white-space: nowrap;
@@ -212,6 +229,7 @@ function getBatchLabelHTML(labels = []) {
                 barcodeHeight,
                 barcodeWidth
             } = getBarcodeDimensions(type, w, h);
+            const footerFontSize = isItem ? getFittedFooterFontSize(subtitle, w, footerSize) : footerSize;
 
             return `
                 <section class="label-page${index === normalizedLabels.length - 1 ? '' : ' page-break'}">
@@ -282,8 +300,8 @@ function getBatchLabelHTML(labels = []) {
                         }
                         .label-page .footer-info {
                             width: 100%;
-                            font-size: ${footerSize};
-                            font-weight: 600;
+                            font-size: ${footerFontSize};
+                            font-weight: 700;
                             text-align: center;
                             color: #444;
                             white-space: nowrap;
