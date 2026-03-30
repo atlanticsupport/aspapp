@@ -20,7 +20,7 @@ function getBarcodeDimensions(type, w, h) {
     const isItem = type === 'item';
     return {
         titleSize: isItem ? (w < 8 ? '8pt' : '11pt') : w < 8 ? '12pt' : '20pt',
-        footerSize: isItem ? (w < 8 ? '6.5pt' : '8pt') : w < 8 ? '8pt' : '11pt',
+        footerSize: isItem ? (w < 8 ? '9pt' : '11pt') : w < 8 ? '8pt' : '11pt',
         logoHeight: h < 6 ? '6mm' : '12mm',
         padding: isItem ? (w < 8 ? '1mm' : '1.8mm') : w < 8 ? '1.5mm' : '3mm',
         barcodeHeight: isItem ? (h < 6 ? 145 : 175) : 140,
@@ -116,16 +116,16 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
                     .footer-info {
                         width: 100%;
                         font-size: ${footerSize};
-                        font-weight: ${isItem ? 500 : 600};
+                        font-weight: 600;
                         text-align: center;
                         color: #444;
-                        white-space: ${isItem ? 'normal' : 'nowrap'};
-                        line-height: 1.1;
-                        overflow: hidden;
-                        text-overflow: ${isItem ? 'clip' : 'ellipsis'};
+                        white-space: nowrap;
+                        line-height: 1;
+                        overflow: visible;
+                        text-overflow: clip;
                         border-top: ${isItem ? 'none' : '0.1mm dashed #ccc'};
                         padding-top: ${isItem ? '0.1mm' : '1mm'};
-                        max-height: ${isItem ? '9mm' : 'auto'};
+                        padding-inline: 1mm;
                     }
                 </style>
             </head>
@@ -283,16 +283,16 @@ function getBatchLabelHTML(labels = []) {
                         .label-page .footer-info {
                             width: 100%;
                             font-size: ${footerSize};
-                            font-weight: ${isItem ? 500 : 600};
+                            font-weight: 600;
                             text-align: center;
                             color: #444;
-                            white-space: ${isItem ? 'normal' : 'nowrap'};
-                            line-height: 1.1;
-                            overflow: hidden;
-                            text-overflow: ${isItem ? 'clip' : 'ellipsis'};
+                            white-space: nowrap;
+                            line-height: 1;
+                            overflow: visible;
+                            text-overflow: clip;
                             border-top: ${isItem ? 'none' : '0.1mm dashed #ccc'};
                             padding-top: ${isItem ? '0.1mm' : '1mm'};
-                            max-height: ${isItem ? '9mm' : 'auto'};
+                            padding-inline: 1mm;
                         }
                     </style>
                     <div class="label-wrapper">
