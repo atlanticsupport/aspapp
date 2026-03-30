@@ -1106,47 +1106,46 @@ async function startScanner() {
         html5QrcodeScanner = html5QrCode;
 
         showToast('A iniciar câmara...', 'info');
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        const config = {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0
+        };
 
-        // Prefer enumerating cameras for better mobile compatibility
-        Html5Qrcode.getCameras()
-            .then(cameras => {
-                if (cameras && cameras.length) {
-                    // prefer back/rear/environment camera when available
-                    const preferred =
-                        cameras.find(c => /back|rear|environment/i.test(c.label)) ||
-                        cameras[cameras.length - 1];
-                    const cameraId = preferred.id || preferred.deviceId || preferred.label;
-                    html5QrCode.start(cameraId, config, onScanSuccess).catch(err => {
-                        console.error('Error starting scanner with cameraId', err);
-                        // fallback to facingMode config
-                        html5QrCode
-                            .start({ facingMode: 'environment' }, config, onScanSuccess)
-                            .catch(err2 => {
-                                console.error('Fallback start failed', err2);
-                                showToast('Erro ao iniciar câmara: ' + err2, 'error');
-                                scannerModal.classList.remove('open');
-                                html5QrcodeScanner = null;
-                            });
-                    });
-                } else {
-                    showToast('Nenhuma câmara encontrada.', 'error');
-                    scannerModal.classList.remove('open');
-                    html5QrcodeScanner = null;
+        const startWithFacingMode = async () => {
+            try {
+                await html5QrCode.start({ facingMode: { ideal: 'environment' } }, config, onScanSuccess);
+                return true;
+            } catch (err) {
+                console.warn('FacingMode scanner start failed', err);
+                return err;
+            }
+        };
+
+        const directStartError = await startWithFacingMode();
+        if (directStartError !== true) {
+            try {
+                const cameras = await Html5Qrcode.getCameras();
+                if (!cameras || cameras.length === 0) {
+                    throw new Error('Nenhuma câmara encontrada.');
                 }
-            })
-            .catch(err => {
-                // getCameras may be blocked by permissions; try direct start with facingMode
-                console.warn('getCameras failed', err);
-                html5QrCode
-                    .start({ facingMode: 'environment' }, config, onScanSuccess)
-                    .catch(err2 => {
-                        console.error('Error starting scanner', err2);
-                        showToast('Erro ao iniciar câmara: ' + err2, 'error');
-                        scannerModal.classList.remove('open');
-                        html5QrcodeScanner = null;
-                    });
-            });
+                const preferred =
+                    cameras.find(c => /back|rear|environment/i.test(c.label)) ||
+                    cameras[0];
+                const cameraId = preferred.id || preferred.deviceId || preferred.label;
+                await html5QrCode.start(cameraId, config, onScanSuccess);
+            } catch (err) {
+                const message = String(err?.message || err || '');
+                console.error('Error starting scanner', err);
+                if (/NotAllowedError|permission/i.test(message)) {
+                    showToast('Permissão da câmara bloqueada. Ativa o acesso à câmara no navegador.', 'error');
+                } else {
+                    showToast('Erro ao iniciar câmara: ' + message, 'error');
+                }
+                scannerModal.classList.remove('open');
+                html5QrcodeScanner = null;
+            }
+        }
     } catch (e) {
         console.error('Scanner Lib Error', e);
         showToast('Erro biblioteca scanner.', 'error');
