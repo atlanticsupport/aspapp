@@ -1744,6 +1744,7 @@ async function showMappingModal(sheet, excelColumns, file) {
         try {
             const batchId = `BATCH-EXCEL-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
             const items = [];
+            let firstImportError = null;
             sheet.eachRow((row, rowNumber) => {
                 if (rowNumber === 1) return; // Skip header
 
@@ -1840,6 +1841,7 @@ async function showMappingModal(sheet, excelColumns, file) {
                     const { data: chunkRes, error: chunkErr } = await supabase.rpc('rpc', params);
                     if (chunkErr) {
                         console.error(`Chunk ${ci} import error:`, chunkErr);
+                        if (!firstImportError) firstImportError = chunkErr.message || String(chunkErr);
                         totalFailed += chunk.length;
                     } else {
                         totalInserted += (chunkRes && chunkRes.inserted) || 0;
@@ -1847,6 +1849,7 @@ async function showMappingModal(sheet, excelColumns, file) {
                     }
                 } catch (e) {
                     console.error(`Chunk ${ci} rpc exception:`, e);
+                    if (!firstImportError) firstImportError = e.message || String(e);
                     totalFailed += chunk.length;
                 }
 
@@ -1855,11 +1858,21 @@ async function showMappingModal(sheet, excelColumns, file) {
                 }
             }
 
-            showToast(
-                `${totalInserted} itens importados com sucesso! (${totalFailed} falhados)`,
-                'success'
-            );
-            setTimeout(() => window.location.reload(), 250);
+            if (totalInserted > 0) {
+                const level = totalFailed > 0 ? 'warning' : 'success';
+                showToast(
+                    `${totalInserted} itens importados com sucesso! (${totalFailed} falhados)`,
+                    level
+                );
+                if (totalFailed === 0) {
+                    setTimeout(() => window.location.reload(), 250);
+                }
+            } else {
+                showToast(
+                    firstImportError || 'Nenhum item foi importado. Verifique o ficheiro e tente novamente.',
+                    'error'
+                );
+            }
         } catch (err) {
             console.error('Import process error:', err);
             showToast('Erro no processamento: ' + err.message, 'error');

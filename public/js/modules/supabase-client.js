@@ -33,8 +33,18 @@ export async function initSupabase() {
                 });
                 const result = await res.json();
 
-                // Only treat 401 as session expiry for authenticated requests.
-                if (res.status === 401 && funcName !== 'rpc_login' && funcName !== 'rpc_initialize_admin') {
+                const innerRpc = params?.rpc;
+                const isImportRpc =
+                    funcName === 'rpc' &&
+                    ['secure_batch_import', 'secure_chunked_import', 'create_import_history', 'finalize_import'].includes(innerRpc);
+
+                // Only treat 401 as session expiry for authenticated requests that are not long-running imports.
+                if (
+                    res.status === 401 &&
+                    funcName !== 'rpc_login' &&
+                    funcName !== 'rpc_initialize_admin' &&
+                    !isImportRpc
+                ) {
                     localStorage.removeItem('aspapp_session');
                     state.currentUser = null;
                     location.reload();
