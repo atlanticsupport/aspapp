@@ -9,9 +9,9 @@ export function buildItemLabelSubtitle(product = {}) {
     const brand = cleanLabelText(product.brand);
     const partNumber = cleanLabelText(product.part_number);
 
-    if (supplier) parts.push(`Fornecedor: ${supplier}`);
     if (brand) parts.push(brand);
     if (partNumber) parts.push(partNumber);
+    if (supplier) parts.push(`Fornecedor: ${supplier}`);
 
     return parts.join(' | ');
 }
@@ -27,8 +27,8 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
     const footerSize = isItem ? (w < 8 ? '6.5pt' : '8pt') : w < 8 ? '8pt' : '11pt';
     const logoHeight = h < 6 ? '6mm' : '12mm';
     const padding = isItem ? (w < 8 ? '1mm' : '1.8mm') : w < 8 ? '1.5mm' : '3mm';
-    const barcodeHeight = isItem ? (h < 6 ? 220 : 260) : 140;
-    const barcodeWidth = isItem ? (w < 8 ? 3.1 : 3.8) : 3.5;
+    const barcodeHeight = isItem ? (h < 6 ? 160 : 190) : 140;
+    const barcodeWidth = isItem ? (w < 8 ? 3.8 : 4.4) : 3.5;
 
     return `
         <!DOCTYPE html>
@@ -91,13 +91,13 @@ function getStyledLabelHTML(title, subtitle, barcodeValue, type = 'item') {
                         -webkit-box-orient: vertical;
                     }
                     .barcode-area {
-                        flex: ${isItem ? 5 : 1}; /* Barcode domina a etiqueta */
+                        flex: ${isItem ? 4 : 1}; /* Barcode domina a etiqueta */
                         width: 100%;
                         display: flex;
                         align-items: center;
                         justify-content: center;
                         min-height: 0; /* Vital para o flex shrink impedir colapsos */
-                        padding: ${isItem ? '0.5mm 0 0.2mm' : '1.5mm 0'};
+                        padding: ${isItem ? '0.2mm 0 0.1mm' : '1.5mm 0'};
                     }
                     .barcode-svg {
                         width: 100%;
@@ -198,8 +198,8 @@ function getBatchLabelHTML(labels = []) {
             const footerSize = isItem ? (w < 8 ? '6.5pt' : '8pt') : w < 8 ? '8pt' : '11pt';
             const logoHeight = h < 6 ? '6mm' : '12mm';
             const padding = isItem ? (w < 8 ? '1mm' : '1.8mm') : w < 8 ? '1.5mm' : '3mm';
-            const barcodeHeight = isItem ? (h < 6 ? 220 : 260) : 140;
-            const barcodeWidth = isItem ? (w < 8 ? 3.1 : 3.8) : 3.5;
+            const barcodeHeight = isItem ? (h < 6 ? 160 : 190) : 140;
+            const barcodeWidth = isItem ? (w < 8 ? 3.8 : 4.4) : 3.5;
 
             return `
                 <section class="label-page${index === normalizedLabels.length - 1 ? '' : ' page-break'}">
@@ -254,13 +254,13 @@ function getBatchLabelHTML(labels = []) {
                             -webkit-box-orient: vertical;
                         }
                         .label-page .barcode-area {
-                            flex: ${isItem ? 5 : 1};
+                            flex: ${isItem ? 4 : 1};
                             width: 100%;
                             display: flex;
                             align-items: center;
                             justify-content: center;
                             min-height: 0;
-                            padding: ${isItem ? '0.5mm 0 0.2mm' : '1.5mm 0'};
+                            padding: ${isItem ? '0.2mm 0 0.1mm' : '1.5mm 0'};
                         }
                         .label-page .barcode-svg {
                             width: 100%;
