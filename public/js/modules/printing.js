@@ -316,21 +316,28 @@ function getBatchLabelHTML(labels = []) {
 
     const barcodeScript = normalizedLabels
         .map(
-            (label, index) => `
+            (label, index) => {
+                const {
+                    barcodeHeight: batchBarcodeHeight,
+                    barcodeWidth: batchBarcodeWidth
+                } = getBarcodeDimensions(label.type || 'item', w, h);
+
+                return `
                 JsBarcode("#barcode-${index}", ${JSON.stringify(String(label.barcodeValue || ''))}, {
                     format: "CODE128",
-                    height: ${barcodeHeight},
-                    width: ${barcodeWidth},
-                    displayValue: ${isItem ? 'false' : 'true'},
-                    fontSize: ${isItem ? 0 : 22},
+                    height: ${batchBarcodeHeight},
+                    width: ${batchBarcodeWidth},
+                    displayValue: ${label.type === 'item' ? 'false' : 'true'},
+                    fontSize: ${label.type === 'item' ? 0 : 22},
                     font: "Inter",
                     fontOptions: "bold",
-                    textMargin: ${isItem ? 0 : 6},
+                    textMargin: ${label.type === 'item' ? 0 : 6},
                     margin: 0,
                     background: "transparent",
                     lineColor: "#000"
                 });
-            `
+            `;
+            }
         )
         .join('\n');
 
