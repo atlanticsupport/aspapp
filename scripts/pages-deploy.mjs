@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { copyFile, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -37,6 +38,18 @@ const templatePath = path.join(rootDir, environments[environment].template);
 
 const originalConfig = await readFile(wranglerPath, 'utf8');
 
+function resolveWranglerBin() {
+    const localWrangler = path.join(rootDir, 'node_modules', 'wrangler', 'bin', 'wrangler.js');
+    if (existsSync(localWrangler)) return localWrangler;
+
+    if (process.platform === 'win32' && process.env.APPDATA) {
+        const globalWrangler = path.join(process.env.APPDATA, 'npm', 'node_modules', 'wrangler', 'bin', 'wrangler.js');
+        if (existsSync(globalWrangler)) return globalWrangler;
+    }
+
+    throw new Error('Wrangler binary not found. Run npm install first.');
+}
+
 try {
     await copyFile(wranglerPath, backupPath);
     await copyFile(templatePath, wranglerPath);
@@ -61,10 +74,10 @@ try {
         args.push('--commit-message', commitMessage);
     }
 
-    const command =
-        process.platform === 'win32'
-            ? { file: 'cmd.exe', args: ['/d', '/s', '/c', 'npx', ...args] }
-            : { file: 'npx', args };
+    const command = {
+        file: process.execPath,
+        args: [resolveWranglerBin(), ...args]
+    };
 
     const child = spawn(command.file, command.args, {
         stdio: 'inherit',
