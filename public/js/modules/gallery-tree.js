@@ -128,12 +128,19 @@ function buildFolderLabel(item) {
     return friendly || 'Sem identificação';
 }
 
+const FOLDER_KEY_SEPARATOR = '::FOLDER::';
+
 function getFolderKey(processId = '', folderId = '') {
-    return `${processId}::${folderId}`;
+    return `${processId}${FOLDER_KEY_SEPARATOR}${folderId}`;
 }
 
 function splitFolderKey(key = '') {
-    const [processId = '', folderId = ''] = String(key).split('::');
+    const raw = String(key);
+    const separatorIndex = raw.indexOf(FOLDER_KEY_SEPARATOR);
+    if (separatorIndex === -1) return { processId: '', folderId: '' };
+
+    const processId = raw.slice(0, separatorIndex);
+    const folderId = raw.slice(separatorIndex + FOLDER_KEY_SEPARATOR.length);
     return { processId, folderId };
 }
 
