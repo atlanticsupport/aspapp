@@ -7,7 +7,9 @@ const galleryState = {
     filteredProcesses: [],
     selected: null,
     search: '',
-    expandedProcessIds: new Set()
+    expandedProcessIds: new Set(),
+    selectedFolders: new Set(),
+    folderSelectionAnchor: null
 };
 
 function escapeHtml(value = '') {
@@ -110,13 +112,85 @@ function isImageObject(item) {
 }
 
 function buildFolderLabel(item) {
-    if (item?.product_name) return String(item.product_name).trim();
-    if (item?.part_number) return String(item.part_number).trim();
+    const description = String(item?.description || item?.product_name || item?.name || '').trim();
+    const partNumber = String(item?.part_number || '').trim();
+
+    if (description && partNumber) return `${description} / ${partNumber}`;
+    if (description) return description;
+    if (partNumber) return partNumber;
 
     const filename = (item?.key || '').split('/').pop() || '';
     const baseName = filename.replace(/\.[^/.]+$/, '');
     const friendly = baseName.replace(/[-_]+/g, ' ').trim();
     return friendly || 'Sem identificação';
+}
+
+function getFolderKey(processId = '', folderId = '') {
+    return `${processId}::${folderId}`;
+}
+
+function splitFolderKey(key = '') {
+    const [processId = '', folderId = ''] = String(key).split('::');
+    return { processId, folderId };
+}
+
+function getVisibleFolderEntries(processes = galleryState.filteredProcesses) {
+    return processes.flatMap(process =>
+        process.folders.map(folder => ({
+            key: getFolderKey(process.id, folder.id),
+            process,
+            folder
+        }))
+    );
+}
+
+function getResolvedFolderEntry(key, source = galleryState.processes) {
+    const { processId, folderId } = splitFolderKey(key);
+    if (!processId || !folderId) return null;
+
+    const process = source.find(item => item.id === processId);
+    const folder = process?.folders.find(item => item.id === folderId);
+    if (!process || !folder) return null;
+
+    return { key, process, folder };
+}
+
+function getSelectedFolderEntries(source = galleryState.processes) {
+    return [...galleryState.selectedFolders]
+        .map(key => getResolvedFolderEntry(key, source))
+        .filter(Boolean);
+}
+
+function setSelectedFolders(keys = []) {
+    galleryState.selectedFolders = new Set(keys);
+
+    const selectedEntries = getSelectedFolderEntries();
+    if (selectedEntries.length === 1) {
+        const [entry] = selectedEntries;
+        galleryState.selected = {
+            type: 'folder',
+            processId: entry.process.id,
+            folderId: entry.folder.id
+        };
+        galleryState.folderSelectionAnchor = entry.key;
+        return;
+    }
+
+    if (selectedEntries.length > 1) {
+        const [firstEntry] = selectedEntries;
+        galleryState.selected = {
+            type: 'multi-folder',
+            processId: firstEntry.process.id,
+            folderId: firstEntry.folder.id
+        };
+        if (!galleryState.folderSelectionAnchor) {
+            galleryState.folderSelectionAnchor = firstEntry.key;
+        }
+        return;
+    }
+
+    galleryState.selected = null;
+    galleryState.folderSelectionAnchor = null;
 }
 
 function summarizeFolders(folders = []) {
@@ -240,6 +314,19 @@ function getAllFiles() {
 }
 
 function resolveSelection(source = galleryState.processes) {
+    if (galleryState.selectedFolders.size > 1 || galleryState.selected?.type === 'multi-folder') {
+        const folders = getSelectedFolderEntries(source);
+        if (folders.length > 1) {
+            return {
+                type: 'multi-folder',
+                folders,
+                process: folders[0]?.process || null,
+                folder: null,
+                file: null
+            };
+        }
+    }
+
     if (!galleryState.selected) return null;
 
     const { type, processId, folderId, key } = galleryState.selected;
@@ -256,6 +343,15 @@ function resolveSelection(source = galleryState.processes) {
 
 function getSelectionFiles(selection) {
     if (!selection?.type) return [];
+    if (selection.type === 'multi-folder') {
+        return (selection.folders || []).flatMap(entry =>
+            (entry.folder?.files || []).map(file => ({
+                ...file,
+                processLabel: entry.process?.label || file.processLabel || '',
+                folderLabel: entry.folder?.label || file.folderLabel || ''
+            }))
+        );
+    }
     if (selection.type === 'file') {
         if (!selection.file) return [];
         return [
@@ -296,15 +392,6 @@ function buildArchivePath(file) {
 
 function getDefaultSelection(processes = galleryState.filteredProcesses) {
     const firstProcess = processes[0];
-    const firstFolder = firstProcess?.folders?.[0];
-
-    if (firstFolder) {
-        return {
-            type: 'folder',
-            processId: firstProcess.id,
-            folderId: firstFolder.id
-        };
-    }
 
     if (firstProcess) {
         return {
@@ -322,21 +409,72 @@ function ensureSelectionVisible() {
         return;
     }
 
+    if (galleryState.selectedFolders.size > 0) {
+        return;
+    }
+
     const visibleSelection = resolveSelection(galleryState.filteredProcesses);
     if (visibleSelection) return;
 
     galleryState.selected = getDefaultSelection(galleryState.filteredProcesses);
 }
 
-function setSelection(nextSelection) {
+function setSelection(nextSelection, options = {}) {
     galleryState.selected = nextSelection;
+    if (nextSelection?.type === 'folder') {
+        const folderKey = getFolderKey(nextSelection.processId || '', nextSelection.folderId || '');
+        galleryState.selectedFolders = new Set(folderKey ? [folderKey] : []);
+        galleryState.folderSelectionAnchor = folderKey || null;
+    } else if (nextSelection?.type === 'multi-folder') {
+        galleryState.folderSelectionAnchor = galleryState.folderSelectionAnchor || null;
+    } else {
+        galleryState.selectedFolders.clear();
+        galleryState.folderSelectionAnchor = null;
+    }
 
-    if (nextSelection?.processId) {
+    if (options.expandProcess && nextSelection?.processId) {
         galleryState.expandedProcessIds.add(nextSelection.processId);
     }
 
     renderGalleryTree();
     renderPreview();
+}
+
+function toggleFolderSelection(processId, folderId, { ctrlKey = false, shiftKey = false } = {}) {
+    const folderKey = getFolderKey(processId, folderId);
+    const visibleFolders = getVisibleFolderEntries(galleryState.filteredProcesses);
+    const visibleIndex = visibleFolders.findIndex(item => item.key === folderKey);
+    const anchorKey = galleryState.folderSelectionAnchor;
+
+    if (shiftKey && anchorKey) {
+        const anchorIndex = visibleFolders.findIndex(item => item.key === anchorKey);
+        const startIndex = anchorIndex === -1 ? visibleIndex : Math.min(anchorIndex, visibleIndex);
+        const endIndex = anchorIndex === -1 ? visibleIndex : Math.max(anchorIndex, visibleIndex);
+        const rangeKeys =
+            startIndex >= 0 && endIndex >= 0
+                ? visibleFolders.slice(startIndex, endIndex + 1).map(item => item.key)
+                : [folderKey];
+
+        const nextKeys = ctrlKey
+            ? new Set([...galleryState.selectedFolders, ...rangeKeys])
+            : new Set(rangeKeys);
+
+        galleryState.folderSelectionAnchor = folderKey;
+        setSelectedFolders([...nextKeys]);
+        return;
+    }
+
+    if (ctrlKey) {
+        const nextKeys = new Set(galleryState.selectedFolders);
+        if (nextKeys.has(folderKey)) nextKeys.delete(folderKey);
+        else nextKeys.add(folderKey);
+        galleryState.folderSelectionAnchor = folderKey;
+        setSelectedFolders([...nextKeys]);
+        return;
+    }
+
+    galleryState.folderSelectionAnchor = folderKey;
+    setSelectedFolders([folderKey]);
 }
 
 function toggleProcess(processId) {
@@ -360,6 +498,14 @@ function buildBreadcrumbSegments(selection) {
     ];
 
     if (!selection?.type) return segments;
+
+    if (selection.type === 'multi-folder') {
+        segments.push({
+            label: `${selection.folders?.length || 0} pastas selecionadas`,
+            selection: null
+        });
+        return segments;
+    }
 
     if (selection.process) {
         segments.push({
@@ -490,13 +636,19 @@ function renderGalleryTree() {
                         const isProcessSelected =
                             galleryState.selected?.type === 'process' &&
                             galleryState.selected?.processId === process.id;
+                        const hasSelectedFolders = [...galleryState.selectedFolders].some(
+                            key => splitFolderKey(key).processId === process.id
+                        );
 
                         const foldersMarkup = process.folders
                             .map(folder => {
                                 const isFolderSelected =
-                                    galleryState.selected?.type === 'folder' &&
-                                    galleryState.selected?.processId === process.id &&
-                                    galleryState.selected?.folderId === folder.id;
+                                    galleryState.selectedFolders.has(
+                                        getFolderKey(process.id, folder.id)
+                                    ) ||
+                                    (galleryState.selected?.type === 'folder' &&
+                                        galleryState.selected?.processId === process.id &&
+                                        galleryState.selected?.folderId === folder.id);
 
                                 return `
                                     <button
@@ -520,7 +672,7 @@ function renderGalleryTree() {
 
                         return `
                             <div class="gallery-tree-branch">
-                                <div class="gallery-tree-branch-row ${isProcessSelected ? 'active' : ''}">
+                                <div class="gallery-tree-branch-row ${isProcessSelected || hasSelectedFolders ? 'active' : ''}">
                                     <button
                                         type="button"
                                         class="gallery-tree-toggle"
@@ -531,12 +683,12 @@ function renderGalleryTree() {
                                     </button>
                                     <button
                                         type="button"
-                                        class="gallery-tree-item process ${isProcessSelected ? 'active' : ''}"
+                                        class="gallery-tree-item process ${(isProcessSelected || hasSelectedFolders) ? 'active' : ''}"
                                         data-node-type="process"
                                         data-process-id="${escapeAttr(process.id)}"
                                     >
-                                        <span class="gallery-tree-icon folder-open">
-                                            <i class="fa-solid fa-folder-open"></i>
+                                        <span class="gallery-tree-icon process">
+                                            <i class="fa-solid fa-diagram-project"></i>
                                         </span>
                                         <span class="gallery-tree-copy">
                                             <strong>${escapeHtml(process.label)}</strong>
@@ -562,19 +714,20 @@ function renderGalleryTree() {
 
     tree.querySelectorAll('[data-node-type="process"]').forEach(button => {
         button.addEventListener('click', () => {
+            galleryState.selectedFolders.clear();
+            galleryState.folderSelectionAnchor = null;
             setSelection({
                 type: 'process',
                 processId: button.dataset.processId
-            });
+            }, { expandProcess: false });
         });
     });
 
     tree.querySelectorAll('[data-node-type="folder"]').forEach(button => {
-        button.addEventListener('click', () => {
-            setSelection({
-                type: 'folder',
-                processId: button.dataset.processId,
-                folderId: button.dataset.folderId
+        button.addEventListener('click', event => {
+            toggleFolderSelection(button.dataset.processId, button.dataset.folderId, {
+                ctrlKey: event.ctrlKey || event.metaKey,
+                shiftKey: event.shiftKey
             });
         });
     });
@@ -691,12 +844,77 @@ function renderSinglePreview(selection) {
     });
 }
 
+function renderMultiFolderPreview(selection) {
+    const preview = document.getElementById('gallery-preview-content');
+    const downloadBtn = document.getElementById('gallery-download-btn');
+    if (!preview || !downloadBtn) return;
+
+    const folders = selection?.folders || [];
+    const files = getSelectionFiles(selection);
+    const totalFolders = folders.length;
+    const totalImages = files.length;
+
+    updatePreviewHeader({
+        title: `${totalFolders} pastas selecionadas`,
+        meta: `${totalImages} imagem(ns)`,
+        segments: [
+            {
+                label: 'Staging',
+                selection: getDefaultSelection(galleryState.filteredProcesses)
+            },
+            {
+                label: `${totalFolders} pastas`,
+                selection: null
+            }
+        ]
+    });
+
+    downloadBtn.style.display = totalImages ? 'inline-flex' : 'none';
+
+    if (!folders.length) {
+        preview.innerHTML = `
+            <div class="gallery-empty-state">
+                <i class="fa-regular fa-images"></i>
+                <p>Seleciona uma ou mais pastas para descarregar em lote.</p>
+            </div>
+        `;
+        return;
+    }
+
+    preview.innerHTML = `
+        <div class="gallery-grid-shell cols-1">
+            <div class="gallery-selection-summary">
+                <p class="gallery-selection-summary-title">${escapeHtml(`${totalFolders} pastas selecionadas`)}</p>
+                <div class="gallery-selection-summary-list">
+                    ${folders
+                        .map(entry => {
+                            const folderCount = entry.folder?.files?.length || 0;
+                            return `
+                                <div class="gallery-selection-summary-row">
+                                    <strong>${escapeHtml(entry.process?.label || '')}</strong>
+                                    <span>${escapeHtml(entry.folder?.label || '')}</span>
+                                    <small>${folderCount} fotos</small>
+                                </div>
+                            `;
+                        })
+                        .join('')}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 function renderPreview() {
     const preview = document.getElementById('gallery-preview-content');
     const downloadBtn = document.getElementById('gallery-download-btn');
     if (!preview || !downloadBtn) return;
 
     const selection = resolveSelection(galleryState.filteredProcesses) || resolveSelection();
+
+    if (selection?.type === 'multi-folder') {
+        renderMultiFolderPreview(selection);
+        return;
+    }
 
     if (!selection?.type) {
         const totalImages = getAllFiles().length;
@@ -827,7 +1045,9 @@ function attachGalleryEvents() {
                 const archiveName =
                     selection.type === 'folder'
                         ? selection.folder?.label
-                        : selection.process?.label;
+                        : selection.type === 'multi-folder'
+                            ? 'pastas-selecionadas'
+                            : selection.process?.label;
                 await downloadMany(files, slugify(archiveName || 'galeria'));
             } catch (error) {
                 console.error('Gallery download error:', error);
@@ -900,9 +1120,9 @@ export async function loadGalleryView() {
             galleryState.processes,
             galleryState.search
         );
-        galleryState.expandedProcessIds = new Set(
-            galleryState.processes.map(process => process.id)
-        );
+        galleryState.expandedProcessIds = new Set();
+        galleryState.selectedFolders.clear();
+        galleryState.folderSelectionAnchor = null;
         galleryState.selected = getDefaultSelection(galleryState.filteredProcesses);
 
         renderGalleryTree();
