@@ -115,13 +115,10 @@ function getProductKeyFromRow(row) {
 }
 
 async function rebindAttachmentsToProduct(db, productId, productKey) {
-    if (!productId || !productKey) return;
-    await db
-        .prepare(
-            'UPDATE attachments SET product_id = ?, product_key = ? WHERE product_id = ? OR product_key = ?'
-        )
-        .bind(productId, productKey, productId, productKey)
-        .run();
+    void db;
+    void productId;
+    void productKey;
+    return;
 }
 
 export async function onRequestPost({ request, env }) {
@@ -678,8 +675,6 @@ export async function onRequestPost({ request, env }) {
                 const { results: inv } = await db.prepare(sql).bind(...qParams).all();
 
                 if (inv.length > 0) {
-                    const productIds = inv.map(item => item.id).filter(id => id !== null && id !== undefined);
-                    const productKeys = inv.map(item => getProductKeyFromRow(item)).filter(Boolean);
                     const attachmentsByLookup = new Map();
 
                     const { results: attachmentRows } = await db.prepare(`
@@ -690,11 +685,6 @@ export async function onRequestPost({ request, env }) {
                     `).all();
 
                     attachmentRows.forEach((attachment) => {
-                        if (attachment.product_key) {
-                            const keyBucket = attachmentsByLookup.get(`key:${attachment.product_key}`) || [];
-                            keyBucket.push(attachment);
-                            attachmentsByLookup.set(`key:${attachment.product_key}`, keyBucket);
-                        }
                         if (attachment.product_id !== null && attachment.product_id !== undefined) {
                             const idBucket = attachmentsByLookup.get(`id:${attachment.product_id}`) || [];
                             idBucket.push(attachment);
@@ -703,9 +693,7 @@ export async function onRequestPost({ request, env }) {
                     });
 
                     inv.forEach((item) => {
-                        const itemKey = getProductKeyFromRow(item);
                         const mergedAttachments = [
-                            ...(itemKey ? attachmentsByLookup.get(`key:${itemKey}`) || [] : []),
                             ...(attachmentsByLookup.get(`id:${item.id}`) || [])
                         ];
                         const uniqueAttachments = [];
@@ -750,7 +738,6 @@ export async function onRequestPost({ request, env }) {
                     const oldProduct = await db.prepare("SELECT * FROM products WHERE id = ?").bind(sp_data.id).first();
                     await db.prepare(`UPDATE products SET part_number=?, name=?, brand=?, quantity=?, min_quantity=?, description=?, sales_process=?, category=?, location=?, pallet=?, box=?, cost_price=?, qty_color=?, image_url=?, status=?, order_to=?, order_date=?, ship_plant=?, equipment=?, maker=?, delivery_time=?, batch_id=?, product_key=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
                         .bind(sp_data.part_number, sp_data.name, sp_data.brand, sp_data.quantity || 0, sp_data.min_quantity || 0, sp_data.description, sp_data.sales_process, sp_data.category, sp_data.location, sp_data.pallet, sp_data.box, sp_data.cost_price || 0, sp_data.qty_color || '#92D050', sp_data.image_url, sp_data.status, sp_data.order_to, sp_data.order_date || null, sp_data.ship_plant, sp_data.equipment, sp_data.maker, sp_data.delivery_time, sp_data.batch_id || null, productKey, sp_data.id).run();
-                    await rebindAttachmentsToProduct(db, sp_data.id, productKey);
                     const saveAuditId = await recordAudit('products', 'UPDATE', oldProduct, sp_data);
                     await recordEvent(
                         params.p_event_type || 'PRODUCT_EDIT',
@@ -763,7 +750,6 @@ export async function onRequestPost({ request, env }) {
                     const insObj = await db.prepare(`INSERT INTO products (part_number, name, brand, quantity, min_quantity, description, sales_process, category, location, pallet, box, cost_price, qty_color, image_url, status, order_to, order_date, ship_plant, equipment, maker, delivery_time, batch_id, product_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`)
                         .bind(sp_data.part_number, sp_data.name, sp_data.brand, sp_data.quantity || 0, sp_data.min_quantity || 0, sp_data.description, sp_data.sales_process, sp_data.category, sp_data.location, sp_data.pallet, sp_data.box, sp_data.cost_price || 0, sp_data.qty_color || '#92D050', sp_data.image_url, sp_data.status, sp_data.order_to, sp_data.order_date || null, sp_data.ship_plant, sp_data.equipment, sp_data.maker, sp_data.delivery_time, sp_data.batch_id || null, productKey).first();
                     const newId = insObj ? insObj.id : null;
-                    await rebindAttachmentsToProduct(db, newId, productKey);
                     const createAuditId = await recordAudit('products', 'INSERT', null, { ...sp_data, id: newId });
                     await recordEvent(
                         params.p_event_type || 'PRODUCT_CREATE',
@@ -808,15 +794,13 @@ export async function onRequestPost({ request, env }) {
                         "SELECT id, product_key, part_number, name, sales_process, category FROM products WHERE id = ?"
                     ).bind(resolvedProductId).first();
                 }
-                if (!productRow && sa_data.product_key) {
-                    productRow = await db.prepare(
-                        "SELECT id, product_key, part_number, name, sales_process, category FROM products WHERE product_key = ? LIMIT 1"
-                    ).bind(sa_data.product_key).first();
-                }
                 if (!resolvedProductId && productRow?.id) {
                     resolvedProductId = productRow.id;
                 }
-                const attachmentProductKey = sa_data.product_key || productRow?.product_key || buildProductKey(productRow || sa_data);
+                if (!resolvedProductId) {
+                    throw new Error('product_id obrigatório para anexos.');
+                }
+                const attachmentProductKey = null;
                 let sortOrder = sa_data.sort_order;
                 if (sortOrder === undefined || sortOrder === null || Number.isNaN(Number(sortOrder))) {
                     const sortRow = await db.prepare("SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order FROM attachments WHERE product_id = ? AND category = ?")
@@ -840,8 +824,7 @@ export async function onRequestPost({ request, env }) {
 
                 const orderItems = Array.isArray(params.p_items) ? params.p_items : [];
                 const productId = Number(params.p_product_id);
-                const productKey = params.p_product_key || null;
-                if ((!productId && !productKey) || orderItems.length === 0) {
+                if (!productId || orderItems.length === 0) {
                     result = true;
                     break;
                 }
@@ -851,41 +834,15 @@ export async function onRequestPost({ request, env }) {
                     const attachmentId = Number(item?.id);
                     const sortOrder = Number(item?.sort_order);
                     if (!attachmentId || Number.isNaN(sortOrder)) continue;
-                    if (productKey) {
-                        updates.push(
-                            db.prepare(
-                                "UPDATE attachments SET sort_order = ? WHERE id = ? AND (product_id = ? OR product_key = ?)"
-                            ).bind(sortOrder, attachmentId, productId || null, productKey)
-                        );
-                    } else {
-                        updates.push(
-                            db.prepare("UPDATE attachments SET sort_order = ? WHERE id = ? AND product_id = ?")
-                                .bind(sortOrder, attachmentId, productId)
-                        );
-                    }
+                    updates.push(
+                        db.prepare("UPDATE attachments SET sort_order = ? WHERE id = ? AND product_id = ?")
+                            .bind(sortOrder, attachmentId, productId)
+                    );
                 }
 
                 if (updates.length > 0) {
                     await db.batch(updates);
                 }
-                result = true;
-                break;
-            }
-
-            case 'secure_rebind_product_attachments': {
-                const canModifyAttachments = hasPermission(user, 'inventory', 'U') ||
-                    hasPermission(user, 'transit', 'U') ||
-                    hasPermission(user, 'logistics', 'U');
-                if (!canModifyAttachments) throw new Error("Acesso negado para reatar anexos.");
-
-                const productId = Number(params.p_product_id);
-                const productKey = params.p_product_key || null;
-                if (!productId || !productKey) {
-                    result = true;
-                    break;
-                }
-
-                await rebindAttachmentsToProduct(db, productId, productKey);
                 result = true;
                 break;
             }

@@ -244,18 +244,10 @@ function shiftProductImageSortOrders(offset) {
 
 function syncProductAttachmentsReference(productId = getCurrentProductId()) {
     if (!productId) return;
-    const trackedProductKey = state.currentProductKey || getTrackedProductRecord(productId)?.product_key || null;
     const attachments = sortProductImagesByOrder(
         (state.loadedAttachments || [])
             .map(normalizeAttachment)
-            .filter(
-                att =>
-                    att &&
-                    (att.product_id === productId ||
-                        (trackedProductKey &&
-                            att.product_key &&
-                            att.product_key === trackedProductKey))
-            )
+            .filter(att => att && att.product_id === productId)
     );
 
     const collections = [
@@ -396,35 +388,7 @@ async function persistAttachmentOrder(productId, entries) {
         p_user: state.currentUser.username,
         p_pass: state.currentUser.password,
         p_product_id: productId,
-        p_product_key: state.currentProductKey || null,
         p_items: items
-    });
-
-    if (error) throw error;
-}
-
-async function persistPrimaryImage(productId, imageUrl) {
-    if (!productId) return;
-    const trackedCollections = [
-        'products',
-        'dashboardProducts',
-        'transitProducts',
-        'stockOutProducts',
-        'logisticsProducts'
-    ];
-    for (const key of trackedCollections) {
-        const list = state[key];
-        if (!Array.isArray(list)) continue;
-        const product = list.find(item => item.id === productId);
-        if (product && product.image_url === imageUrl) return;
-    }
-
-    const { error } = await supabase.rpc('secure_update_product_field', {
-        p_user: state.currentUser.username,
-        p_pass: state.currentUser.password,
-        p_product_id: productId,
-        p_field: 'image_url',
-        p_value: imageUrl
     });
 
     if (error) throw error;
@@ -447,7 +411,6 @@ export async function moveProductImage(entry, direction) {
     try {
         if (productId) {
             await persistAttachmentOrder(productId, normalizedEntries);
-            await persistPrimaryImage(productId, normalizedEntries[0]?.url || null);
         }
 
         await reconcileProductImages({
@@ -465,7 +428,7 @@ export async function moveProductImage(entry, direction) {
 }
 
 async function reconcileProductImages(options = {}) {
-    const { preferredUrl = null, persistPrimary = false, keepViewerSelection = false } = options;
+    const { preferredUrl = null, keepViewerSelection = false } = options;
 
     const productId = getCurrentProductId();
     const { entries, primary } = getPrimaryImageEntry(preferredUrl);
@@ -476,10 +439,6 @@ async function reconcileProductImages(options = {}) {
     syncProductAttachmentsReference(productId);
     renderAllAttachmentItems();
     await updateHeaderImage(state.currentImageUrl);
-
-    if (persistPrimary && productId) {
-        await persistPrimaryImage(productId, state.currentImageUrl);
-    }
 
     if (keepViewerSelection && viewerOverlay?.classList.contains('open')) {
         if (entries.length > 0) {
@@ -770,8 +729,6 @@ async function autoSaveAttachment(att, productId) {
             p_pass: state.currentUser.password,
             p_data: {
                 product_id: parseInt(productId),
-                product_key:
-                    state.currentProductKey || getTrackedProductRecord(productId)?.product_key || null,
                 url: publicUrl,
                 file_type: att.type,
                 category: att.category,
@@ -796,7 +753,6 @@ async function autoSaveAttachment(att, productId) {
         if (shouldBecomePrimary) {
             state.currentImageUrl = publicUrl;
             state.mainImageFile = null;
-            await persistPrimaryImage(productId, publicUrl);
         }
 
         await reconcileProductImages({
@@ -814,53 +770,18 @@ async function loadProductAttachments(productId) {
     if (!productId) return;
 
     try {
-        const trackedProduct = getTrackedProductRecord(productId);
-        const productKey =
-            state.currentProductKey ||
-            trackedProduct?.product_key ||
-            buildProductKey(trackedProduct || {});
-
-        let data = [];
-        if (productKey) {
-            const { data: keyData, error: keyError } = await supabase.rpc('secure_fetch_any', {
-                p_user: state.currentUser.username,
-                p_pass: state.currentUser.password,
-                p_table: 'attachments',
-                p_params: {
-                    eq: { product_key: productKey },
-                    order: { column: 'sort_order', ascending: true }
-                }
-            });
-            if (keyError) throw keyError;
-            data = Array.isArray(keyData) ? keyData : [];
-        }
-
-        if (!data.length) {
-            const { data: idData, error: idError } = await supabase.rpc('secure_fetch_any', {
-                p_user: state.currentUser.username,
-                p_pass: state.currentUser.password,
-                p_table: 'attachments',
-                p_params: {
-                    eq: { product_id: productId },
-                    order: { column: 'sort_order', ascending: true }
-                }
-            });
-            if (idError) throw idError;
-            data = Array.isArray(idData) ? idData : [];
-        }
-
-        state.currentProductKey = productKey;
+        const { data, error: idError } = await supabase.rpc('secure_fetch_any', {
+            p_user: state.currentUser.username,
+            p_pass: state.currentUser.password,
+            p_table: 'attachments',
+            p_params: {
+                eq: { product_id: productId },
+                order: { column: 'sort_order', ascending: true }
+            }
+        });
+        if (idError) throw idError;
         state.loadedAttachments = sortProductImagesByOrder((data || []).map(normalizeAttachment));
-        if (state.loadedAttachments.length && productKey) {
-            await supabase.rpc('secure_rebind_product_attachments', {
-                p_user: state.currentUser.username,
-                p_pass: state.currentUser.password,
-                p_product_id: productId,
-                p_product_key: productKey
-            });
-        }
         await reconcileProductImages({
-            persistPrimary: true,
             keepViewerSelection: true
         });
     } catch (err) {
@@ -982,7 +903,6 @@ export async function saveProduct() {
                         p_pass: state.currentUser.password,
                         p_data: {
                             product_id: finalId,
-                            product_key: state.currentProductKey,
                             url: publicUrl,
                             file_type: att.type,
                             category: att.category,
@@ -1008,16 +928,7 @@ export async function saveProduct() {
             );
 
             if (firstProductImageUrl !== productData.image_url) {
-                await persistPrimaryImage(finalId, firstProductImageUrl || null);
                 state.currentImageUrl = firstProductImageUrl || null;
-            }
-            if (state.currentProductKey) {
-                await supabase.rpc('secure_rebind_product_attachments', {
-                    p_user: state.currentUser.username,
-                    p_pass: state.currentUser.password,
-                    p_product_id: finalId,
-                    p_product_key: state.currentProductKey
-                });
             }
             if (failCount > 0)
                 showToast(`${failCount} imagens não foram guardadas (Erro Storage).`, 'warning');
@@ -1116,7 +1027,6 @@ export async function updateHeaderImage(src, autoSave = false) {
     syncProductImageReference(state.currentImageUrl);
     if (autoSave) {
         await reconcileProductImages({
-            persistPrimary: !!getCurrentProductId(),
             keepViewerSelection: true
         });
     }
@@ -1179,10 +1089,6 @@ async function removeProductImage(entry) {
             state.mainImageFile = remainingEntries[0]?.pendingId
                 ? remainingEntries[0].file || null
                 : null;
-
-            if (productId) {
-                await persistPrimaryImage(productId, nextPrimaryUrl);
-            }
         }
 
         await reconcileProductImages({
@@ -1215,23 +1121,6 @@ function syncProductImageReference(newUrl) {
     if (state.currentPage === 'inventory') {
         loadInventory({ skipRefetch: true });
     }
-}
-
-function getTrackedProductRecord(productId) {
-    const collections = [
-        'products',
-        'dashboardProducts',
-        'transitProducts',
-        'stockOutProducts',
-        'logisticsProducts'
-    ];
-    for (const key of collections) {
-        const list = state[key];
-        if (!Array.isArray(list)) continue;
-        const product = list.find(item => item.id === productId);
-        if (product) return product;
-    }
-    return null;
 }
 
 export function printCurrentProduct() {

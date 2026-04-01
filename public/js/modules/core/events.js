@@ -34,7 +34,6 @@ import { printPalletLabel, printBoxLabel, printLabelBatch, buildItemLabelSubtitl
 import { dialog } from '../ui/dialogs-original.js';
 import { openUserModal } from '../admin.js';
 import { openViewerGallery } from '../gallery.js';
-import { buildProductKey } from '../product-key.js';
 
 const EXCELJS_URL = 'https://cdn.jsdelivr.net/npm/@zurmokeeper/exceljs@4.4.1/dist/exceljs.min.js';
 const excelScriptCache = new Map();
@@ -117,34 +116,16 @@ window.openProductGallery = async productId => {
             p_params: { eq: { id: productId } }
         });
         const product = products && products.length > 0 ? products[0] : null;
-        const productKey = product?.product_key || buildProductKey(product || {});
-
-        let attachments = [];
-        if (productKey) {
-            const { data: keyAttachments } = await supabase.rpc('secure_fetch_any', {
-                p_user: state.currentUser.username,
-                p_pass: state.currentUser.password,
-                p_table: 'attachments',
-                p_params: {
-                    eq: { product_key: productKey },
-                    order: { column: 'sort_order', ascending: true }
-                }
-            });
-            attachments = Array.isArray(keyAttachments) ? keyAttachments : [];
-        }
-
-        if (!attachments.length) {
-            const { data: idAttachments } = await supabase.rpc('secure_fetch_any', {
-                p_user: state.currentUser.username,
-                p_pass: state.currentUser.password,
-                p_table: 'attachments',
-                p_params: {
-                    eq: { product_id: productId },
-                    order: { column: 'sort_order', ascending: true }
-                }
-            });
-            attachments = Array.isArray(idAttachments) ? idAttachments : [];
-        }
+        const { data: idAttachments } = await supabase.rpc('secure_fetch_any', {
+            p_user: state.currentUser.username,
+            p_pass: state.currentUser.password,
+            p_table: 'attachments',
+            p_params: {
+                eq: { product_id: productId },
+                order: { column: 'sort_order', ascending: true }
+            }
+        });
+        const attachments = Array.isArray(idAttachments) ? idAttachments : [];
 
         const hasMedia =
             !!product?.image_url ||
@@ -160,7 +141,6 @@ window.openProductGallery = async productId => {
         }
 
         setProductImagesState(product, attachments || []);
-        state.currentProductKey = productKey;
         openCurrentProductGallery();
     } catch (err) {
         console.error(err);
