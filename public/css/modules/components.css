@@ -618,6 +618,8 @@
 
 .gallery-tree-item.child {
     margin-left: 1.25rem;
+    width: calc(100% - 1.25rem);
+    box-sizing: border-box;
     position: relative;
 }
 

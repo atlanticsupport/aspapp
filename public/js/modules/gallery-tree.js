@@ -231,7 +231,11 @@ function createStructuredGallery(rawList = []) {
         })
         .forEach(item => {
             const processKey = slugify(item.processLabel) || 'sem-processo';
-            const folderKey = `${processKey}::${slugify(item.folderLabel) || 'sem-pasta'}`;
+            const folderIdentity =
+                item.product_id != null && item.product_id !== ''
+                    ? `product-${String(item.product_id)}`
+                    : `label-${slugify(item.folderLabel) || 'sem-pasta'}`;
+            const folderKey = `${processKey}::${folderIdentity}`;
 
             if (!processMap.has(processKey)) {
                 processMap.set(processKey, {
@@ -249,6 +253,7 @@ function createStructuredGallery(rawList = []) {
                     id: folderKey,
                     processId: processKey,
                     label: item.folderLabel,
+                    productId: item.product_id ?? null,
                     files: [],
                     totalImages: 0,
                     totalSize: 0
@@ -263,10 +268,30 @@ function createStructuredGallery(rawList = []) {
             process.totalSize += Number(item.size || 0);
         });
 
-    return [...processMap.values()].map(process => ({
-        ...process,
-        folders: [...process.folders.values()]
-    }));
+    return [...processMap.values()].map(process => {
+        const folders = [...process.folders.values()];
+        const labelCounts = folders.reduce((counts, folder) => {
+            counts.set(folder.label, (counts.get(folder.label) || 0) + 1);
+            return counts;
+        }, new Map());
+
+        folders.forEach(folder => {
+            folder.baseLabel = folder.label;
+            folder.archiveLabel = folder.label;
+
+            const isDuplicateLabel = (labelCounts.get(folder.label) || 0) > 1;
+            if (isDuplicateLabel && folder.productId != null && folder.productId !== '') {
+                const suffix = ` · #${folder.productId}`;
+                folder.label = `${folder.label}${suffix}`;
+                folder.archiveLabel = `${folder.archiveLabel}${suffix}`;
+            }
+        });
+
+        return {
+            ...process,
+            folders
+        };
+    });
 }
 
 function filterProcesses(processes, query) {
@@ -307,7 +332,8 @@ function getAllFiles() {
                 processId: process.id,
                 processLabel: process.label,
                 folderId: folder.id,
-                folderLabel: folder.label
+                folderLabel: folder.label,
+                folderArchiveLabel: folder.archiveLabel || folder.label
             }))
         )
     );
@@ -348,7 +374,9 @@ function getSelectionFiles(selection) {
             (entry.folder?.files || []).map(file => ({
                 ...file,
                 processLabel: entry.process?.label || file.processLabel || '',
-                folderLabel: entry.folder?.label || file.folderLabel || ''
+                folderLabel: entry.folder?.label || file.folderLabel || '',
+                folderArchiveLabel:
+                    entry.folder?.archiveLabel || entry.folder?.label || file.folderArchiveLabel || ''
             }))
         );
     }
@@ -358,7 +386,9 @@ function getSelectionFiles(selection) {
             {
                 ...selection.file,
                 processLabel: selection.process?.label || selection.file.processLabel || '',
-                folderLabel: selection.folder?.label || selection.file.folderLabel || ''
+                folderLabel: selection.folder?.label || selection.file.folderLabel || '',
+                folderArchiveLabel:
+                    selection.folder?.archiveLabel || selection.folder?.label || selection.file.folderArchiveLabel || ''
             }
         ];
     }
@@ -366,7 +396,9 @@ function getSelectionFiles(selection) {
         return (selection.folder?.files || []).map(file => ({
             ...file,
             processLabel: selection.process?.label || file.processLabel || '',
-            folderLabel: selection.folder?.label || file.folderLabel || ''
+            folderLabel: selection.folder?.label || file.folderLabel || '',
+            folderArchiveLabel:
+                selection.folder?.archiveLabel || selection.folder?.label || file.folderArchiveLabel || ''
         }));
     }
     if (selection.type === 'process') {
@@ -375,7 +407,8 @@ function getSelectionFiles(selection) {
                 folder.files.map(file => ({
                     ...file,
                     processLabel: selection.process?.label || file.processLabel || '',
-                    folderLabel: folder.label || file.folderLabel || ''
+                    folderLabel: folder.label || file.folderLabel || '',
+                    folderArchiveLabel: folder.archiveLabel || folder.label || file.folderArchiveLabel || ''
                 }))
             ) || []
         );
@@ -385,7 +418,9 @@ function getSelectionFiles(selection) {
 
 function buildArchivePath(file) {
     const processLabel = sanitizeZipSegment(file.processLabel || file.sales_process || 'Sem Processo');
-    const folderLabel = sanitizeZipSegment(file.folderLabel || file.product_name || file.part_number || 'Sem Item');
+    const folderLabel = sanitizeZipSegment(
+        file.folderArchiveLabel || file.folderLabel || file.product_name || file.part_number || 'Sem Item'
+    );
     const fileName = sanitizeZipFileName(file.filename || file.key || 'ficheiro');
     return `${processLabel}/${folderLabel}/Fotos/${fileName}`;
 }
@@ -946,7 +981,8 @@ function renderPreview() {
                     processId: selection.process?.id || '',
                     processLabel: selection.process?.label || '',
                     folderId: folder.id,
-                    folderLabel: folder.label
+                    folderLabel: folder.label,
+                    folderArchiveLabel: folder.archiveLabel || folder.label
                 }))
             ) || [];
 
@@ -961,7 +997,8 @@ function renderPreview() {
                 processId: selection.process?.id || '',
                 processLabel: selection.process?.label || '',
                 folderId: selection.folder?.id || '',
-                folderLabel: selection.folder?.label || ''
+                folderLabel: selection.folder?.label || '',
+                folderArchiveLabel: selection.folder?.archiveLabel || selection.folder?.label || ''
             })) || [];
 
         renderExplorerList(files, selection, 3);
