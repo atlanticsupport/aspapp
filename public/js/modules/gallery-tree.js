@@ -1,4 +1,7 @@
-import { views } from './core/dom.js';
+import { searchInput, views } from './core/dom.js';
+import { state } from './core/state.js';
+import { showToast } from './core/ui.js';
+import { navigateTo } from './views/views.js';
 
 const IMAGE_FILE_PATTERN = /\.(avif|bmp|gif|heic|heif|jfif|jpeg|jpg|png|svg|webp)$/i;
 
@@ -643,6 +646,33 @@ function updateStatusBar(left = '', right = '') {
     `;
 }
 
+function updateGalleryActionButtons(selection) {
+    const jumpBtn = document.getElementById('gallery-jump-btn');
+    const downloadBtn = document.getElementById('gallery-download-btn');
+    if (!jumpBtn || !downloadBtn) return;
+
+    const canJump = selection?.type === 'process' || selection?.type === 'folder';
+    if (!canJump) {
+        jumpBtn.style.display = 'none';
+        jumpBtn.dataset.jumpType = '';
+        jumpBtn.dataset.processLabel = '';
+        jumpBtn.dataset.folderLabel = '';
+        jumpBtn.dataset.folderProductId = '';
+        return;
+    }
+
+    jumpBtn.style.display = 'inline-flex';
+    jumpBtn.dataset.jumpType = selection.type;
+    jumpBtn.dataset.processLabel = selection.process?.label || '';
+    jumpBtn.dataset.folderLabel = selection.folder?.baseLabel || selection.folder?.label || '';
+    jumpBtn.dataset.folderProductId =
+        selection.folder?.productId != null ? String(selection.folder.productId) : '';
+    jumpBtn.innerHTML = `
+        <i class="fa-solid fa-arrow-right"></i>
+        ${selection.type === 'process' ? 'Ir para processo' : 'Ir para item'}
+    `;
+}
+
 function renderGalleryTree() {
     const tree = document.getElementById('gallery-tree-container');
     if (!tree) return;
@@ -786,6 +816,7 @@ function renderExplorerList(files, selection, columns) {
         segments
     });
 
+    updateGalleryActionButtons(selection);
     downloadBtn.style.display = files.length ? 'inline-flex' : 'none';
 
     if (!files.length) {
@@ -846,6 +877,7 @@ function renderSinglePreview(selection) {
         segments: buildBreadcrumbSegments(selection)
     });
 
+    updateGalleryActionButtons(null);
     downloadBtn.style.display = 'inline-flex';
 
     preview.innerHTML = `
@@ -905,6 +937,7 @@ function renderMultiFolderPreview(selection) {
         ]
     });
 
+    updateGalleryActionButtons(null);
     downloadBtn.style.display = totalImages ? 'inline-flex' : 'none';
 
     if (!folders.length) {
@@ -959,6 +992,7 @@ function renderPreview() {
             meta: `${totalImages} imagem(ns)`,
             segments: buildBreadcrumbSegments(null)
         });
+        updateGalleryActionButtons(null);
         downloadBtn.style.display = 'none';
         preview.innerHTML = `
             <div class="gallery-empty-state">
@@ -970,6 +1004,7 @@ function renderPreview() {
     }
 
     if (selection.type === 'file') {
+        updateGalleryActionButtons(null);
         renderSinglePreview(selection);
         return;
     }
@@ -1049,6 +1084,7 @@ async function downloadMany(files, archiveName) {
 
 function attachGalleryEvents() {
     const search = document.getElementById('gallery-search');
+    const jumpBtn = document.getElementById('gallery-jump-btn');
     const downloadBtn = document.getElementById('gallery-download-btn');
 
     if (search) {
@@ -1096,6 +1132,41 @@ function attachGalleryEvents() {
             }
         });
     }
+
+    if (jumpBtn) {
+        jumpBtn.addEventListener('click', async () => {
+            const selection = resolveSelection(galleryState.filteredProcesses) || resolveSelection();
+            if (!selection || (selection.type !== 'process' && selection.type !== 'folder')) return;
+
+            const processLabel = selection.process?.label || '';
+            const folderLabel = selection.folder?.baseLabel || selection.folder?.label || '';
+            const targetFilter = selection.type === 'process' ? processLabel : folderLabel;
+            const targetProductId =
+                selection.type === 'folder' && selection.folder?.productId != null
+                    ? Number(selection.folder.productId)
+                    : null;
+
+            state.currentFilter = targetFilter;
+            state.inventoryPage = 0;
+            if (searchInput) searchInput.value = targetFilter;
+
+            try {
+                await navigateTo('inventory');
+
+                if (selection.type === 'folder' && Number.isFinite(targetProductId)) {
+                    const product = state.products.find(item => Number(item.id) === targetProductId);
+                    if (product) {
+                        window.editProduct(product.id);
+                    } else {
+                        showToast('Não foi possível abrir o item selecionado.', 'warning');
+                    }
+                }
+            } catch (error) {
+                console.error('Gallery jump error:', error);
+                showToast('Erro ao abrir os artigos em stock.', 'error');
+            }
+        });
+    }
 }
 
 function renderShell() {
@@ -1125,10 +1196,16 @@ function renderShell() {
                         <h3 id="gallery-preview-title">Galeria de Imagens</h3>
                         <p id="gallery-preview-meta">A carregar...</p>
                     </div>
-                    <button id="gallery-download-btn" class="btn btn-primary" style="display:none;">
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <button id="gallery-jump-btn" class="btn btn-secondary" style="display:none;">
+                            <i class="fa-solid fa-arrow-right"></i>
+                            Ir para processo
+                        </button>
+                        <button id="gallery-download-btn" class="btn btn-primary" style="display:none;">
                         <i class="fa-solid fa-download"></i>
                         Descarregar
-                    </button>
+                        </button>
+                    </div>
                 </div>
 
                 <div id="gallery-preview-content"></div>
