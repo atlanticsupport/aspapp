@@ -377,6 +377,28 @@ function resolveSelection(source = galleryState.processes) {
     return null;
 }
 
+function getActiveGallerySelection() {
+    const resolved =
+        resolveSelection(galleryState.filteredProcesses) ||
+        resolveSelection(galleryState.processes) ||
+        resolveSelection();
+
+    if (resolved) return resolved;
+
+    const selected = galleryState.selected;
+    if (!selected?.type) return null;
+
+    const process = galleryState.processes.find(item => item.id === selected.processId);
+    const folder = process?.folders.find(item => item.id === selected.folderId);
+    const file = folder?.files.find(item => item.key === selected.key);
+
+    if (selected.type === 'process' && process) return { type: 'process', process, folder: null, file: null };
+    if (selected.type === 'folder' && process && folder) return { type: 'folder', process, folder, file: null };
+    if (selected.type === 'file' && process && folder && file) return { type: 'file', process, folder, file };
+
+    return null;
+}
+
 function getSelectionFiles(selection) {
     if (!selection?.type) return [];
     if (selection.type === 'multi-folder') {
@@ -798,9 +820,25 @@ function renderGalleryTree() {
 
     tree.querySelectorAll('[data-node-type="folder"]').forEach(button => {
         button.addEventListener('click', event => {
-            toggleFolderSelection(button.dataset.processId, button.dataset.folderId, {
-                ctrlKey: event.ctrlKey || event.metaKey,
-                shiftKey: event.shiftKey
+            const processId = button.dataset.processId;
+            const folderId = button.dataset.folderId;
+            if (!processId || !folderId) return;
+
+            const ctrlKey = event.ctrlKey || event.metaKey;
+            const shiftKey = event.shiftKey;
+
+            if (!ctrlKey && !shiftKey) {
+                setSelection({
+                    type: 'folder',
+                    processId,
+                    folderId
+                });
+                return;
+            }
+
+            toggleFolderSelection(processId, folderId, {
+                ctrlKey,
+                shiftKey
             });
         });
     });
@@ -985,7 +1023,7 @@ function renderPreview() {
     const downloadBtn = document.getElementById('gallery-download-btn');
     if (!preview || !downloadBtn) return;
 
-    const selection = resolveSelection(galleryState.filteredProcesses) || resolveSelection();
+    const selection = getActiveGallerySelection();
 
     if (selection?.type === 'multi-folder') {
         renderMultiFolderPreview(selection);
@@ -1142,7 +1180,7 @@ function attachGalleryEvents() {
 
     if (jumpBtn) {
         jumpBtn.addEventListener('click', async () => {
-            const selection = resolveSelection(galleryState.filteredProcesses) || resolveSelection();
+            const selection = getActiveGallerySelection();
             if (!selection || (selection.type !== 'process' && selection.type !== 'folder')) return;
 
             const processLabel = selection.process?.label || '';
