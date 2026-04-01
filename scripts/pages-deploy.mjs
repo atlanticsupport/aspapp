@@ -55,7 +55,6 @@ try {
     await copyFile(templatePath, wranglerPath);
 
     const args = [
-        'wrangler',
         'pages',
         'deploy',
         'public',
