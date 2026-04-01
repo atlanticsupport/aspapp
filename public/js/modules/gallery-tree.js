@@ -480,6 +480,7 @@ function toggleFolderSelection(processId, folderId, { ctrlKey = false, shiftKey 
     const visibleFolders = getVisibleFolderEntries(galleryState.filteredProcesses);
     const visibleIndex = visibleFolders.findIndex(item => item.key === folderKey);
     const anchorKey = galleryState.folderSelectionAnchor;
+    let nextKeys = null;
 
     if (shiftKey && anchorKey) {
         const anchorIndex = visibleFolders.findIndex(item => item.key === anchorKey);
@@ -490,26 +491,26 @@ function toggleFolderSelection(processId, folderId, { ctrlKey = false, shiftKey 
                 ? visibleFolders.slice(startIndex, endIndex + 1).map(item => item.key)
                 : [folderKey];
 
-        const nextKeys = ctrlKey
+        const nextKeysSet = ctrlKey
             ? new Set([...galleryState.selectedFolders, ...rangeKeys])
             : new Set(rangeKeys);
 
         galleryState.folderSelectionAnchor = folderKey;
-        setSelectedFolders([...nextKeys]);
-        return;
-    }
-
-    if (ctrlKey) {
-        const nextKeys = new Set(galleryState.selectedFolders);
-        if (nextKeys.has(folderKey)) nextKeys.delete(folderKey);
-        else nextKeys.add(folderKey);
+        nextKeys = [...nextKeysSet];
+    } else if (ctrlKey) {
+        const nextKeysSet = new Set(galleryState.selectedFolders);
+        if (nextKeysSet.has(folderKey)) nextKeysSet.delete(folderKey);
+        else nextKeysSet.add(folderKey);
         galleryState.folderSelectionAnchor = folderKey;
-        setSelectedFolders([...nextKeys]);
-        return;
+        nextKeys = [...nextKeysSet];
+    } else {
+        galleryState.folderSelectionAnchor = folderKey;
+        nextKeys = [folderKey];
     }
 
-    galleryState.folderSelectionAnchor = folderKey;
-    setSelectedFolders([folderKey]);
+    setSelectedFolders(nextKeys);
+    renderGalleryTree();
+    renderPreview();
 }
 
 function toggleProcess(processId) {
