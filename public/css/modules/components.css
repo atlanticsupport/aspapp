@@ -530,9 +530,34 @@
 
 .gallery-tree-root-copy strong,
 .gallery-tree-copy strong {
+    display: block;
+    max-width: 18ch;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.gallery-tree-item.process .gallery-tree-copy strong {
+    max-width: 17ch;
+}
+
+.gallery-tree-item.child .gallery-tree-copy strong {
+    max-width: 16ch;
+}
+
+@media (min-width: 1200px) {
+    .gallery-tree-root-copy strong,
+    .gallery-tree-copy strong {
+        max-width: 20ch;
+    }
+
+    .gallery-tree-item.process .gallery-tree-copy strong {
+        max-width: 19ch;
+    }
+
+    .gallery-tree-item.child .gallery-tree-copy strong {
+        max-width: 18ch;
+    }
 }
 
 .gallery-tree-root-copy strong,
